@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/klauspost/compress/zstd"
+
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -312,24 +312,4 @@ func (w *Writer) chunkWriterLoop() {
 	}
 
 	w.writerDone <- firstErr
-}
-
-// shouldCompress returns false for content types whose data is already
-// compressed (images, video, audio, fonts), true for everything else.
-func shouldCompress(mimeType string) bool {
-	// Strip parameters (e.g. "text/html; charset=utf-8")
-	if i := strings.IndexByte(mimeType, ';'); i >= 0 {
-		mimeType = strings.TrimSpace(mimeType[:i])
-	}
-	switch mimeType {
-	case "image/jpeg", "image/jpg", "image/png", "image/webp",
-		"image/gif", "image/avif", "image/heic",
-		"video/mp4", "video/webm", "video/ogg",
-		"audio/mpeg", "audio/ogg", "audio/mp4", "audio/webm",
-		"font/woff", "font/woff2",
-		"application/zip", "application/gzip", "application/x-bzip2",
-		"application/x-zstd", "application/zstd":
-		return false
-	}
-	return true
 }

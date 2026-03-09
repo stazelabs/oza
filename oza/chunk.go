@@ -1,9 +1,11 @@
 package oza
 
 import (
+	"container/list"
 	"encoding/binary"
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // chunkDesc is the parsed 28-byte chunk descriptor from the CONTENT section.
@@ -42,12 +44,21 @@ type decompressedChunk struct {
 	data []byte
 }
 
-// chunkCache is a FIFO-eviction cache of decompressed chunks.
+// cacheEntry is the value stored in each list element of the LRU cache.
+type cacheEntry struct {
+	id    uint32
+	chunk *decompressedChunk
+}
+
+// chunkCache is an LRU-eviction cache of decompressed chunks.
+// The list front is the most recently used entry; the back is evicted first.
 type chunkCache struct {
 	mu      sync.Mutex
-	m       map[uint32]*decompressedChunk
-	order   []uint32
+	m       map[uint32]*list.Element // chunk ID → list element
+	lru     *list.List               // front = MRU, back = LRU
 	maxSize int
+	hits    int64 // accessed via sync/atomic
+	misses  int64 // accessed via sync/atomic
 }
 
 func newChunkCache(maxSize int) *chunkCache {
@@ -55,16 +66,35 @@ func newChunkCache(maxSize int) *chunkCache {
 		maxSize = 8
 	}
 	return &chunkCache{
-		m:       make(map[uint32]*decompressedChunk),
+		m:       make(map[uint32]*list.Element),
+		lru:     list.New(),
 		maxSize: maxSize,
 	}
 }
 
 func (c *chunkCache) get(id uint32) (*decompressedChunk, bool) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	ch, ok := c.m[id]
-	return ch, ok
+	el, ok := c.m[id]
+	if ok {
+		c.lru.MoveToFront(el)
+	}
+	c.mu.Unlock()
+	if ok {
+		atomic.AddInt64(&c.hits, 1)
+		return el.Value.(*cacheEntry).chunk, true
+	}
+	atomic.AddInt64(&c.misses, 1)
+	return nil, false
+}
+
+// stats returns the current fill, capacity, and lifetime hit/miss counts.
+func (c *chunkCache) stats() (current, capacity int, hits, misses int64) {
+	c.mu.Lock()
+	current = c.lru.Len()
+	c.mu.Unlock()
+	return current, c.maxSize,
+		atomic.LoadInt64(&c.hits),
+		atomic.LoadInt64(&c.misses)
 }
 
 func (c *chunkCache) put(id uint32, ch *decompressedChunk) {
@@ -73,13 +103,15 @@ func (c *chunkCache) put(id uint32, ch *decompressedChunk) {
 	if _, ok := c.m[id]; ok {
 		return // already cached by a concurrent reader
 	}
-	if len(c.m) >= c.maxSize {
-		oldest := c.order[0]
-		c.order = c.order[1:]
-		delete(c.m, oldest)
+	if c.lru.Len() >= c.maxSize {
+		// Evict the least recently used entry (back of list).
+		if lru := c.lru.Back(); lru != nil {
+			c.lru.Remove(lru)
+			delete(c.m, lru.Value.(*cacheEntry).id)
+		}
 	}
-	c.m[id] = ch
-	c.order = append(c.order, id)
+	el := c.lru.PushFront(&cacheEntry{id: id, chunk: ch})
+	c.m[id] = el
 }
 
 // readChunk decompresses the chunk with the given ID, using the in-memory cache.
@@ -100,6 +132,9 @@ func (a *Archive) readChunk(chunkID uint32) (*decompressedChunk, error) {
 	if err != nil {
 		return nil, fmt.Errorf("oza: decompressing chunk %d: %w", chunkID, err)
 	}
+	if a.maxDecompressedSize > 0 && int64(len(raw)) > a.maxDecompressedSize {
+		return nil, fmt.Errorf("oza: chunk %d decompressed to %d bytes: %w", chunkID, len(raw), ErrDecompressedTooLarge)
+	}
 	ch := &decompressedChunk{data: raw}
 	a.cache.put(chunkID, ch)
 	return ch, nil
@@ -107,6 +142,9 @@ func (a *Archive) readChunk(chunkID uint32) (*decompressedChunk, error) {
 
 // readBlob extracts a blob from the given chunk at the given byte offset and size.
 func (a *Archive) readBlob(chunkID, blobOffset, blobSize uint32) ([]byte, error) {
+	if a.maxBlobSize > 0 && int64(blobSize) > a.maxBlobSize {
+		return nil, fmt.Errorf("oza: blob size %d exceeds limit %d: %w", blobSize, a.maxBlobSize, ErrBlobTooLarge)
+	}
 	ch, err := a.readChunk(chunkID)
 	if err != nil {
 		return nil, err

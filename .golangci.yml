@@ -1,0 +1,76 @@
+version: "2"
+
+linters:
+  enable:
+    # Correctness
+    - errcheck        # unchecked errors
+    - govet           # go vet checks
+    - ineffassign     # assigned but never used
+    - staticcheck     # SA/S1/QF diagnostics (absorbs gosimple)
+    - unused          # unused code
+
+    # Style / bugs
+    - misspell        # common spelling mistakes
+    - unconvert       # unnecessary type conversions
+    - unparam         # function params always same value
+
+    # Security
+    - gosec           # security issues (G* rules)
+
+  settings:
+    gosec:
+      excludes:
+        - G104  # errors unhandled — covered more precisely by errcheck
+        - G115  # integer overflow conversion — routine in binary serialization code
+        - G301  # directory permissions 0755 — reasonable for user profile dirs
+        - G304  # file path from variable — intentional in CLI tools
+        - G306  # file permissions — context-dependent
+        - G404  # math/rand — non-security random (article selection, not crypto)
+        - G401  # md5 — used for ETags, not cryptographic purposes
+        - G501  # crypto/md5 import — same as G401
+        - G705  # XSS taint — content served from archive is intentionally user-facing HTML
+        - G706  # log injection — false positive for normal fmt.Printf-style logging
+
+  exclusions:
+    rules:
+      # defer x.Close() ignoring error is idiomatic Go for read-only handles.
+      - text: "Error return value of `.*\\.Close` is not checked"
+        linters: [errcheck]
+      # Writes to http.ResponseWriter: errors can't be recovered after headers are sent.
+      - text: "Error return value of `.*\\.Write` is not checked"
+        linters: [errcheck]
+        path: cmd/ozaserve/
+      - text: "Error return value of `fmt\\.Fprint"
+        linters: [errcheck]
+        path: cmd/ozaserve/
+      - text: "Error return value of `.*Encode` is not checked"
+        linters: [errcheck]
+        path: cmd/ozaserve/
+      # fmt.Fprintf/Fprintln to a plain io.Writer in stats output — not actionable.
+      - text: "Error return value of `fmt\\.Fprint"
+        linters: [errcheck]
+        path: cmd/zim2oza/stats\.go
+      # stats.PrintJSON return value — display-only, not actionable.
+      - text: "Error return value of `.*PrintJSON` is not checked"
+        linters: [errcheck]
+        path: cmd/zim2oza/main\.go
+      # Test helpers routinely ignore errors on cleanup calls.
+      - path: _test\.go
+        linters: [gosec, unparam, errcheck]
+      # CLI entry points often have unused-looking flag-parser params.
+      - path: cmd/
+        linters: [unparam]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/stazelabs/oza
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5

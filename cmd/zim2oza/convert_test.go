@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stazelabs/gozim/zim"
+
 	"github.com/stazelabs/oza/oza"
 )
 

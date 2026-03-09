@@ -3,6 +3,9 @@
 
 # Build output
 bin/
+
+# Coverage output
+coverage.out
 /ozainfo
 /ozamcp
 /ozaserve

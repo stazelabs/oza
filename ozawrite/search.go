@@ -12,10 +12,10 @@ import (
 // TrigramBuilder accumulates trigrams from content entries and serializes them
 // into a trigram search section (SEARCH_TITLE or SEARCH_BODY).
 //
-// Wire format v2:
+// Wire format v1:
 //
 //	Header (16 bytes):
-//	  [0:4]   version    uint32 = 2
+//	  [0:4]   version    uint32 = 1
 //	  [4:8]   flags      uint32 (bit 0: CJK bigram mode)
 //	  [8:12]  count      uint32 (number of distinct trigrams)
 //	  [12:16] doc_count  uint32 (number of distinct entry IDs indexed)
@@ -169,7 +169,7 @@ type triEntry struct {
 	ids []uint32
 }
 
-// Build serializes the trigram index into the v2 wire format.
+// Build serializes the trigram index into the v1 wire format.
 func (b *TrigramBuilder) Build() ([]byte, error) {
 	entries := make([]triEntry, 0, len(b.trigrams))
 	for tri, ids := range b.trigrams {
@@ -189,7 +189,7 @@ func (b *TrigramBuilder) Build() ([]byte, error) {
 	return b.serializeEntries(entries)
 }
 
-// serializeEntries encodes a sorted slice of triEntries into the v2 wire format.
+// serializeEntries encodes a sorted slice of triEntries into the v1 wire format.
 func (b *TrigramBuilder) serializeEntries(entries []triEntry) ([]byte, error) {
 	sort.Slice(entries, func(i, j int) bool {
 		return bytes.Compare(entries[i].tri[:], entries[j].tri[:]) < 0
@@ -225,8 +225,8 @@ func (b *TrigramBuilder) serializeEntries(entries []triEntry) ([]byte, error) {
 	if b.hasCJK {
 		flags = 1 // bit 0: CJK bigram mode
 	}
-	binary.LittleEndian.PutUint32(buf[0:4], 3)     // version
-	binary.LittleEndian.PutUint32(buf[4:8], flags) // flags
+	binary.LittleEndian.PutUint32(buf[0:4], 1)                     // version
+	binary.LittleEndian.PutUint32(buf[4:8], flags)                 // flags
 	binary.LittleEndian.PutUint32(buf[8:12], count)                // trigram_count
 	binary.LittleEndian.PutUint32(buf[12:16], uint32(len(b.docs))) // doc_count
 

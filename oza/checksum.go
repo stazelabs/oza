@@ -4,12 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 // VerifyResult records the outcome of one integrity check.
 type VerifyResult struct {
-	Tier     string   // "file", "section", or "entry"
-	ID       string   // human-readable identifier
+	Tier     string // "file", "section", or "entry"
+	ID       string // human-readable identifier
 	Expected [32]byte
 	Computed [32]byte
 	OK       bool
@@ -24,12 +25,14 @@ func (a *Archive) Verify() error {
 		return fmt.Errorf("oza: file too short to contain checksum")
 	}
 
-	// Hash all bytes before the checksum.
-	body := make([]byte, a.hdr.ChecksumOff)
-	if _, err := a.r.ReadAt(body, 0); err != nil {
+	// Hash all bytes before the checksum (streaming to avoid a large allocation).
+	h := sha256.New()
+	sr := io.NewSectionReader(a.r, 0, int64(a.hdr.ChecksumOff))
+	if _, err := io.Copy(h, sr); err != nil {
 		return fmt.Errorf("oza: reading file body for checksum: %w", err)
 	}
-	computed := sha256.Sum256(body)
+	var computed [32]byte
+	h.Sum(computed[:0])
 
 	// Read the stored checksum.
 	var stored [32]byte
@@ -82,9 +85,10 @@ func (a *Archive) VerifyAll() ([]VerifyResult, error) {
 			result.OK = false
 			results = append(results, result)
 		} else {
-			body := make([]byte, a.hdr.ChecksumOff)
-			if _, err := a.r.ReadAt(body, 0); err == nil {
-				result.Computed = sha256.Sum256(body)
+			h := sha256.New()
+			sr := io.NewSectionReader(a.r, 0, int64(a.hdr.ChecksumOff))
+			if _, err := io.Copy(h, sr); err == nil {
+				h.Sum(result.Computed[:0])
 				a.r.ReadAt(result.Expected[:], int64(a.hdr.ChecksumOff)) //nolint:errcheck
 				result.OK = result.Computed == result.Expected
 			}

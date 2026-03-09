@@ -3,22 +3,21 @@ package ozawrite
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/stazelabs/oza/oza"
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
 	"github.com/tdewolff/minify/v2/html"
 	"github.com/tdewolff/minify/v2/js"
 	"github.com/tdewolff/minify/v2/svg"
+
+	"github.com/stazelabs/oza/oza"
 )
 
 // Timings holds per-phase durations accumulated during AddEntry and Close.
@@ -57,7 +56,7 @@ type WriterOptions struct {
 	OptimizeImages   bool         // lossless image optimization: JPEG metadata strip; default true
 	CompressWorkers  int          // parallel compression workers; 0 = min(NumCPU, 4)
 	Progress         ProgressFunc // optional; called during Close to report progress
-	SigningKeys      []SigningKey  // optional; if set, a SIGNATURES trailer is appended after the file checksum
+	SigningKeys      []SigningKey // optional; if set, a SIGNATURES trailer is appended after the file checksum
 }
 
 func defaultOptions() WriterOptions {
@@ -114,20 +113,20 @@ type Writer struct {
 	w               io.ReadWriteSeeker
 	opts            WriterOptions
 	meta            map[string][]byte
-	entries         []*entryBuilder   // content entries only
-	redirectEntries []*entryBuilder   // redirect entries (separate compact section)
+	entries         []*entryBuilder // content entries only
+	redirectEntries []*entryBuilder // redirect entries (separate compact section)
 	closed          bool
 	timings         Timings
 
 	// Streaming chunk state — content is flushed to chunkTmp during AddEntry.
-	minifier   *minify.M        // lazily initialised
-	dedup      *dedupMap         // content hash deduplication
+	minifier   *minify.M                // lazily initialised
+	dedup      *dedupMap                // content hash deduplication
 	openChunks map[string]*chunkBuilder // mimeGroup -> current open chunk
-	chunkDescs []chunkDesc       // descriptors of flushed chunks
-	chunkTmp   *os.File          // temp file holding compressed chunk data
-	chunkOff   uint64            // current write offset in chunkTmp
-	nextChunk  uint32            // next chunk ID to assign
-	cache      encoderCache      // reused zstd encoders (serial path only)
+	chunkDescs []chunkDesc              // descriptors of flushed chunks
+	chunkTmp   *os.File                 // temp file holding compressed chunk data
+	chunkOff   uint64                   // current write offset in chunkTmp
+	nextChunk  uint32                   // next chunk ID to assign
+	cache      encoderCache             // reused zstd encoders (serial path only)
 
 	// Parallel compression pipeline (nil when CompressWorkers == 1).
 	compressIn  chan compressJob
@@ -137,11 +136,11 @@ type Writer struct {
 
 	// Dictionary training: buffer first DictSamples entries per group,
 	// then train and switch to streaming mode.
-	dictSamples    map[string][][]byte  // mimeGroup -> sample blobs
-	dictTrained    bool                 // true once dicts have been trained
-	dicts          map[string][]byte    // mimeGroup -> trained dict bytes
-	dictIDs        map[string]uint32    // mimeGroup -> dict ID
-	pendingEntries []*pendingEntry      // entries buffered during training phase
+	dictSamples    map[string][][]byte // mimeGroup -> sample blobs
+	dictTrained    bool                // true once dicts have been trained
+	dicts          map[string][]byte   // mimeGroup -> trained dict bytes
+	dictIDs        map[string]uint32   // mimeGroup -> dict ID
+	pendingEntries []*pendingEntry     // entries buffered during training phase
 
 	// Search index builders — fed incrementally during AddEntry.
 	titleTB *TrigramBuilder
@@ -276,6 +275,9 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 		return 0, fmt.Errorf("ozawrite: writer is closed")
 	}
 
+	if len(w.entries) >= oza.MaxContentEntries {
+		return 0, fmt.Errorf("ozawrite: content entry limit reached (%d)", oza.MaxContentEntries)
+	}
 	id := uint32(len(w.entries))
 
 	// 1. Transform content in-place (minify, image optimise).
@@ -360,6 +362,9 @@ func (w *Writer) AddRedirect(path, title string, targetID uint32) (uint32, error
 	if w.closed {
 		return 0, fmt.Errorf("ozawrite: writer is closed")
 	}
+	if len(w.redirectEntries) >= oza.MaxRedirectEntries {
+		return 0, fmt.Errorf("ozawrite: redirect entry limit reached (%d)", oza.MaxRedirectEntries)
+	}
 	ridx := uint32(len(w.redirectEntries))
 	w.redirectEntries = append(w.redirectEntries, &entryBuilder{
 		id:            oza.MakeRedirectID(ridx),
@@ -384,250 +389,6 @@ func (w *Writer) transformContent(mimeType string, content []byte) []byte {
 		content = optimizeImage(mimeType, content)
 	}
 	return content
-}
-
-// bufferForTraining stores an entry for later processing once dictionaries are trained.
-func (w *Writer) bufferForTraining(e *entryBuilder, content []byte) {
-	// Collect samples for dictionary training (skip images).
-	key := ChunkKey(e.mimeType, len(content))
-	if key != "image" {
-		if len(w.dictSamples[key]) < w.opts.DictSamples {
-			// Make a copy for the sample since we hold it.
-			sample := make([]byte, len(content))
-			copy(sample, content)
-			w.dictSamples[key] = append(w.dictSamples[key], sample)
-		}
-	}
-
-	// Buffer the full entry+content for flushing after training.
-	contentCopy := make([]byte, len(content))
-	copy(contentCopy, content)
-	w.pendingEntries = append(w.pendingEntries, &pendingEntry{
-		entry:   e,
-		content: contentCopy,
-	})
-
-	// Check if we have enough samples across all groups.
-	if w.haveSufficientSamples() {
-		w.trainAndFlushPending()
-	}
-}
-
-// haveSufficientSamples returns true when we've collected enough dictionary
-// training samples to proceed (or when we've buffered enough entries that
-// it's time to train regardless).
-func (w *Writer) haveSufficientSamples() bool {
-	// Train after DictSamples entries across all html buckets,
-	// or after 2*DictSamples total entries (whichever comes first).
-	htmlTotal := len(w.dictSamples["html"]) + len(w.dictSamples["html-small"])
-	if htmlTotal >= w.opts.DictSamples {
-		return true
-	}
-	return len(w.pendingEntries) >= 2*w.opts.DictSamples
-}
-
-// trainAndFlushPending trains dictionaries from collected samples, then flushes
-// all buffered entries through the normal chunk pipeline.
-func (w *Writer) trainAndFlushPending() {
-	if w.opts.Progress != nil {
-		w.opts.Progress("dict-train", 0, 1)
-	}
-
-	nextID := uint32(1)
-	for key, samps := range w.dictSamples {
-		if len(samps) < 10 {
-			continue
-		}
-		id := nextID
-		nextID++
-		d, err := trainDictionary(id, samps, 1024*1024)
-		if err != nil || len(d) == 0 {
-			continue
-		}
-		w.dicts[key] = d
-		w.dictIDs[key] = id
-	}
-
-	if w.opts.Progress != nil {
-		w.opts.Progress("dict-train", 1, 1)
-	}
-
-	// Free samples.
-	w.dictSamples = nil
-	w.dictTrained = true
-
-	// Start parallel compression pipeline now that dictionaries are ready.
-	w.startPipeline()
-
-	// Sort pending entries by chunk key (MIME group + size bucket) then path
-	// so that entries in the same bucket are chunked together.
-	sort.Slice(w.pendingEntries, func(i, j int) bool {
-		ki := ChunkKey(w.pendingEntries[i].entry.mimeType, len(w.pendingEntries[i].content))
-		kj := ChunkKey(w.pendingEntries[j].entry.mimeType, len(w.pendingEntries[j].content))
-		if ki != kj {
-			return ki < kj
-		}
-		return w.pendingEntries[i].entry.path < w.pendingEntries[j].entry.path
-	})
-
-	// Flush all pending entries.
-	for _, pe := range w.pendingEntries {
-		// Already dedup-checked during AddEntry; add directly to chunk.
-		_ = w.addToChunk(pe.entry, pe.content)
-	}
-	w.pendingEntries = nil
-}
-
-// addToChunk assigns an entry to the current open chunk for its MIME group.
-// If the chunk reaches the target size, it is compressed and flushed to disk.
-func (w *Writer) addToChunk(e *entryBuilder, content []byte) error {
-	key := ChunkKey(e.mimeType, len(content))
-	cb, ok := w.openChunks[key]
-	if !ok || cb.uncompSize >= w.opts.ChunkTargetSize {
-		// Flush the old chunk if it exists and is full.
-		if ok && cb.uncompSize >= w.opts.ChunkTargetSize {
-			if err := w.flushChunk(cb); err != nil {
-				return err
-			}
-		}
-		cb = &chunkBuilder{id: w.nextChunk, mimeGroup: key}
-		w.nextChunk++
-		w.openChunks[key] = cb
-	}
-
-	offset := cb.addBlob(content)
-	e.chunkID = cb.id
-	e.blobOffset = offset
-	e.blobSize = uint32(len(content))
-
-	w.dedup.Register(e.contentHash, dedupRef{
-		chunkID:    cb.id,
-		blobOffset: offset,
-		blobSize:   e.blobSize,
-	})
-
-	// Check if this chunk is now full.
-	if cb.uncompSize >= w.opts.ChunkTargetSize {
-		if err := w.flushChunk(cb); err != nil {
-			return err
-		}
-		delete(w.openChunks, key)
-	}
-
-	return nil
-}
-
-// startPipeline launches the parallel compression workers and writer goroutine.
-// It is a no-op if CompressWorkers == 1 or the pipeline is already running.
-func (w *Writer) startPipeline() {
-	if w.opts.CompressWorkers <= 1 || w.compressIn != nil {
-		return
-	}
-	workers := w.opts.CompressWorkers
-	w.compressIn = make(chan compressJob, 2*workers)
-	w.compressOut = make(chan compressResult, 2*workers)
-	w.writerDone = make(chan error, 1)
-
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			w.compressionWorker()
-		}()
-	}
-	go func() {
-		wg.Wait()
-		close(w.compressOut)
-	}()
-	go w.chunkWriterLoop()
-}
-
-// flushChunk compresses a chunk and writes it to the temp file.
-// In parallel mode, it dispatches to the worker pool instead.
-func (w *Writer) flushChunk(cb *chunkBuilder) error {
-	raw := cb.uncompressedBytes()
-	cb.blobs = nil // free memory immediately
-
-	if w.compressIn != nil {
-		// Parallel path: check for pipeline errors, then dispatch.
-		if w.pipelineErr != nil {
-			return w.pipelineErr
-		}
-		select {
-		case err := <-w.writerDone:
-			w.pipelineErr = err
-			return err
-		default:
-		}
-
-		w.compressIn <- compressJob{
-			chunkID:   cb.id,
-			mimeGroup: cb.mimeGroup,
-			raw:       raw,
-			dict:      w.dicts[cb.mimeGroup],
-			dictID:    w.dictIDs[cb.mimeGroup],
-			level:     w.opts.ZstdLevel,
-		}
-		return nil
-	}
-
-	// Serial path.
-	return w.flushChunkSync(cb.id, cb.mimeGroup, raw)
-}
-
-// flushChunkSync compresses a chunk synchronously and writes it to the temp file.
-func (w *Writer) flushChunkSync(id uint32, mimeGroup string, raw []byte) error {
-	// Ensure temp file is open.
-	if w.chunkTmp == nil {
-		f, err := os.CreateTemp("", "ozawrite-chunks-*")
-		if err != nil {
-			return fmt.Errorf("ozawrite: creating chunk temp file: %w", err)
-		}
-		w.chunkTmp = f
-	}
-
-	var compData []byte
-	var compression uint8
-	var dictID uint32
-
-	if mimeGroup != "image" {
-		dict := w.dicts[mimeGroup]
-		dictID = w.dictIDs[mimeGroup]
-		cd, err := w.cache.compress(raw, w.opts.ZstdLevel, dict, dictID)
-		if err != nil {
-			return fmt.Errorf("ozawrite: compressing chunk %d: %w", id, err)
-		}
-		compData = cd
-		if len(dict) > 0 {
-			compression = oza.CompZstdDict
-		} else {
-			compression = oza.CompZstd
-		}
-	} else {
-		compData = raw
-		compression = oza.CompNone
-	}
-
-	// Write to temp file.
-	if _, err := w.chunkTmp.Write(compData); err != nil {
-		return fmt.Errorf("ozawrite: writing chunk %d to temp file: %w", id, err)
-	}
-
-	w.chunkDescs = append(w.chunkDescs, chunkDesc{
-		ID:             id,
-		CompressedOff:  w.chunkOff,
-		CompressedSize: uint64(len(compData)),
-		DictID:         dictID,
-		Compression:    compression,
-	})
-	w.chunkOff += uint64(len(compData))
-
-	if w.opts.Progress != nil {
-		w.opts.Progress("compress", len(w.chunkDescs), 0) // total unknown during streaming
-	}
-
-	return nil
 }
 
 // Close finalises the archive and writes it to the underlying writer.
@@ -916,202 +677,8 @@ func (w *Writer) Close() error {
 		w.opts.Progress("assemble", 1, 1)
 	}
 
-	// 21. Cleanup temp file.
+	// 22. Cleanup temp file.
 	w.cleanupTemp()
 
 	return nil
-}
-
-// cleanupTemp removes the chunk temp file and trigram temp files.
-func (w *Writer) cleanupTemp() {
-	if w.chunkTmp != nil {
-		name := w.chunkTmp.Name()
-		w.chunkTmp.Close()
-		os.Remove(name)
-		w.chunkTmp = nil
-	}
-	w.titleTB = nil
-	w.bodyTB = nil
-}
-
-// contentSectionSize returns the total byte size of the CONTENT section.
-func (w *Writer) contentSectionSize() uint64 {
-	n := len(w.chunkDescs)
-	tableBytes := uint64(4 + n*oza.ChunkDescSize)
-	return tableBytes + w.chunkOff
-}
-
-// writeContentSection streams the CONTENT section directly to dst, computing
-// its SHA-256 as it goes. This avoids materializing the entire section in memory.
-func (w *Writer) writeContentSection(dst io.Writer) ([32]byte, error) {
-	h := sha256.New()
-	mw := io.MultiWriter(dst, h)
-
-	n := len(w.chunkDescs)
-
-	// Write chunk table header.
-	var countBuf [4]byte
-	binary.LittleEndian.PutUint32(countBuf[:], uint32(n))
-	if _, err := mw.Write(countBuf[:]); err != nil {
-		return [32]byte{}, err
-	}
-	for _, cd := range w.chunkDescs {
-		b := marshalChunkDesc(cd)
-		if _, err := mw.Write(b[:]); err != nil {
-			return [32]byte{}, err
-		}
-	}
-
-	// Stream compressed chunk data from temp file.
-	if w.chunkTmp != nil && w.chunkOff > 0 {
-		if _, err := w.chunkTmp.Seek(0, io.SeekStart); err != nil {
-			return [32]byte{}, fmt.Errorf("seeking chunk temp file: %w", err)
-		}
-		if _, err := io.Copy(mw, w.chunkTmp); err != nil {
-			return [32]byte{}, fmt.Errorf("streaming chunk data: %w", err)
-		}
-	}
-
-	var sha [32]byte
-	copy(sha[:], h.Sum(nil))
-	return sha, nil
-}
-
-// buildMIMETable constructs the MIME type list (enforcing index 0/1/2) and a
-// lookup map from type string to index.
-func (w *Writer) buildMIMETable() ([]string, map[string]uint16) {
-	// Start with the three mandatory types.
-	types := []string{"text/html", "text/css", "application/javascript"}
-	m := map[string]uint16{
-		"text/html":              0,
-		"text/css":               1,
-		"application/javascript": 2,
-	}
-	for _, e := range w.entries {
-		mt := e.mimeType
-		if _, ok := m[mt]; !ok {
-			m[mt] = uint16(len(types))
-			types = append(types, mt)
-		}
-	}
-	return types, m
-}
-
-// buildEntryTable serialises content entries as variable-length records with an
-// offset table for O(1) random access.
-//
-// Layout: uint32 entry_count, uint32 record_data_offset,
-//
-//	uint32[N] offsets, variable-length records.
-func (w *Writer) buildEntryTable(mimeMap map[string]uint16) []byte {
-	count := len(w.entries)
-	records := make([]byte, 0, count*16) // estimated avg ~15 bytes/record
-	offsets := make([]uint32, count)
-
-	for i, e := range w.entries {
-		offsets[i] = uint32(len(records))
-		var rec oza.EntryRecord
-		rec.Type = oza.EntryContent
-		rec.MIMEIndex = mimeMap[e.mimeType]
-		rec.ChunkID = e.chunkID
-		rec.BlobOffset = e.blobOffset
-		rec.BlobSize = e.blobSize
-		rec.ContentHash = truncateHash(e.contentHash)
-		if e.isFrontArticle {
-			rec.Flags |= oza.EntryFlagFrontArticle
-		}
-		records = oza.AppendVarEntryRecord(records, rec)
-	}
-
-	headerSize := oza.EntryTableHeaderSize + count*4
-	buf := make([]byte, headerSize+len(records))
-	binary.LittleEndian.PutUint32(buf[0:4], uint32(count))
-	binary.LittleEndian.PutUint32(buf[4:8], uint32(headerSize))
-	for i, off := range offsets {
-		binary.LittleEndian.PutUint32(buf[oza.EntryTableHeaderSize+i*4:], off)
-	}
-	copy(buf[headerSize:], records)
-	return buf
-}
-
-// buildRedirectSection serialises redirect entries into the compact format.
-// Wire format: uint32 count + 5-byte records (flags, target_id).
-func (w *Writer) buildRedirectSection() []byte {
-	if len(w.redirectEntries) == 0 {
-		return nil
-	}
-	data := make([]byte, 4+len(w.redirectEntries)*oza.RedirectRecordSize)
-	binary.LittleEndian.PutUint32(data[0:4], uint32(len(w.redirectEntries)))
-	for i, e := range w.redirectEntries {
-		var rr oza.RedirectRecord
-		rr.TargetID = e.targetID
-		if e.isFrontArticle {
-			rr.Flags |= oza.EntryFlagFrontArticle
-		}
-		b := rr.Marshal()
-		copy(data[4+i*oza.RedirectRecordSize:], b[:])
-	}
-	return data
-}
-
-// buildIndexSections builds the raw path and title index section bytes.
-// Both content and redirect entries are included; redirect entries use
-// tagged IDs (bit 31 set).
-func (w *Writer) buildIndexSections() (pathIdx []byte, titleIdx []byte) {
-	total := len(w.entries) + len(w.redirectEntries)
-	paths := make([]pathRecord, 0, total)
-	titles := make([]titleRecord, 0, total)
-	for _, e := range w.entries {
-		paths = append(paths, pathRecord{entryID: e.id, path: e.path})
-		titles = append(titles, titleRecord{entryID: e.id, title: e.title})
-	}
-	for _, e := range w.redirectEntries {
-		taggedID := oza.MakeRedirectID(e.redirectIndex)
-		paths = append(paths, pathRecord{entryID: taggedID, path: e.path})
-		titles = append(titles, titleRecord{entryID: taggedID, title: e.title})
-	}
-	return buildPathIndex(paths), buildTitleIndex(titles)
-}
-
-// buildDictSections creates one rawSection per trained dictionary.
-// Dict section data: [0:4] dictID uint32, [4:] raw dict bytes.
-func buildDictSections(dicts map[string][]byte, dictIDs map[string]uint32) []rawSection {
-	var out []rawSection
-	for group, d := range dicts {
-		id := dictIDs[group]
-		data := make([]byte, 4+len(d))
-		binary.LittleEndian.PutUint32(data[0:4], id)
-		copy(data[4:], d)
-		out = append(out, newRawSection(oza.SectionZstdDict, data))
-	}
-	return out
-}
-
-// newRawSection creates an uncompressed rawSection.
-func newRawSection(typ oza.SectionType, data []byte) rawSection {
-	return rawSection{
-		typ:              typ,
-		data:             data,
-		uncompressedSize: uint64(len(data)),
-		compression:      oza.CompNone,
-	}
-}
-
-// compressRawSection compresses data with Zstd. If compression doesn't reduce
-// size (or the section is tiny), it falls back to uncompressed.
-func compressRawSection(typ oza.SectionType, data []byte) rawSection {
-	const minCompressSize = 256 // don't bother compressing tiny sections
-	if len(data) < minCompressSize {
-		return newRawSection(typ, data)
-	}
-	compressed, err := compressZstd(data, 19, nil)
-	if err != nil || len(compressed) >= len(data) {
-		return newRawSection(typ, data)
-	}
-	return rawSection{
-		typ:              typ,
-		data:             compressed,
-		uncompressedSize: uint64(len(data)),
-		compression:      oza.CompZstd,
-	}
 }

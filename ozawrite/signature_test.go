@@ -35,7 +35,7 @@ func newSignedArchive(t *testing.T, keys []ozawrite.SigningKey) (*oza.Archive, [
 		ZstdLevel:   3,
 		TrainDict:   false,
 		BuildSearch: false,
-		SigningKeys:  keys,
+		SigningKeys: keys,
 	}
 	w := ozawrite.NewWriter(f, opts)
 	requiredMeta(w)

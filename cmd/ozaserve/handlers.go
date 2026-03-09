@@ -44,7 +44,7 @@ func (lib *library) handleSearchAll(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, sr := range sResults {
 			results = append(results, searchResult{
-				Path:       "/" + slug + "/" + sr.Entry.Path(),
+				Path:       entryHref(slug, sr.Entry.Path()),
 				Title:      sr.Entry.Title(),
 				TitleMatch: sr.TitleMatch,
 			})
@@ -66,7 +66,7 @@ func (lib *library) handleSearchJSON(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("archive")
 	ae, ok := lib.archives[slug]
 	if !ok {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (lib *library) handleSearchJSON(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			for _, sr := range sResults {
 				results = append(results, searchResult{
-					Path:       "/" + slug + "/" + sr.Entry.Path(),
+					Path:       entryHref(slug, sr.Entry.Path()),
 					Title:      sr.Entry.Title(),
 					TitleMatch: sr.TitleMatch,
 				})
@@ -103,7 +103,7 @@ func (lib *library) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("archive")
 	ae, ok := lib.archives[slug]
 	if !ok {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (lib *library) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			for _, sr := range sResults {
 				results = append(results, searchResult{
-					Path:       "/" + slug + "/" + sr.Entry.Path(),
+					Path:       entryHref(slug, sr.Entry.Path()),
 					Title:      sr.Entry.Title(),
 					TitleMatch: sr.TitleMatch,
 				})
@@ -181,7 +181,7 @@ form button { padding: 8px 16px; font-size: 1em; border: 1px solid #ccc; border-
 
 	fmt.Fprintf(w, `<div class="nav"><a href="/">Library</a> · <a href="/%s/">Back to main page</a> · <a href="/%s/-/browse">Browse</a> · <a href="/%s/-/random">Random</a></div>`,
 		html.EscapeString(slug), html.EscapeString(slug), html.EscapeString(slug))
-	fmt.Fprint(w, footerBarHTML())
+	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
 	fmt.Fprint(w, `</body></html>`)
 }
 
@@ -190,22 +190,22 @@ func (lib *library) handleRandom(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("archive")
 	ae, ok := lib.archives[slug]
 	if !ok {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
 	if len(ae.frontArticleIDs) == 0 {
-		http.Error(w, "no articles available", http.StatusNotFound)
+		writeErrorPage(w, r, http.StatusNotFound, "No articles available", "This archive has no readable articles.")
 		return
 	}
 	id := ae.frontArticleIDs[rand.IntN(len(ae.frontArticleIDs))]
 	e, err := ae.archive.EntryByID(id)
 	if err != nil {
 		log.Printf("error getting random article for %s: %v", slug, err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		write500(w, r)
 		return
 	}
-	http.Redirect(w, r, "/"+slug+"/"+e.Path(), http.StatusFound)
+	http.Redirect(w, r, entryHref(slug, e.Path()), http.StatusFound)
 }
 
 // handleRandomAll serves GET /_random — picks a random archive, then a random article.
@@ -214,17 +214,17 @@ func (lib *library) handleRandomAll(w http.ResponseWriter, r *http.Request) {
 	ae := lib.archives[slug]
 
 	if len(ae.frontArticleIDs) == 0 {
-		http.Error(w, "no articles available", http.StatusNotFound)
+		writeErrorPage(w, r, http.StatusNotFound, "No articles available", "This archive has no readable articles.")
 		return
 	}
 	id := ae.frontArticleIDs[rand.IntN(len(ae.frontArticleIDs))]
 	e, err := ae.archive.EntryByID(id)
 	if err != nil {
 		log.Printf("error getting random article for %s: %v", slug, err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		write500(w, r)
 		return
 	}
-	http.Redirect(w, r, "/"+slug+"/"+e.Path(), http.StatusFound)
+	http.Redirect(w, r, entryHref(slug, e.Path()), http.StatusFound)
 }
 
 // handleBrowse serves GET /{archive}/-/browse?letter=A[&offset=0&limit=50]
@@ -232,7 +232,7 @@ func (lib *library) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("archive")
 	ae, ok := lib.archives[slug]
 	if !ok {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
@@ -314,7 +314,7 @@ h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
 				ru, _ := utf8.DecodeRuneInString(t)
 				if !unicode.IsLetter(ru) {
 					entries = append(entries, searchResult{
-						Path:  "/" + slug + "/" + e.Path(),
+						Path:  entryHref(slug, e.Path()),
 						Title: t,
 					})
 				}
@@ -330,7 +330,7 @@ h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
 				first := string(t[0])
 				if first == upper || first == lower {
 					entries = append(entries, searchResult{
-						Path:  "/" + slug + "/" + e.Path(),
+						Path:  entryHref(slug, e.Path()),
 						Title: t,
 					})
 				}
@@ -380,7 +380,7 @@ h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
 
 	fmt.Fprintf(w, `<div class="nav"><a href="/">Library</a> · <a href="/%s/">Back to main page</a> · <a href="/%s/-/search">Search</a> · <a href="/%s/-/random">Random</a></div>`,
 		html.EscapeString(slug), html.EscapeString(slug), html.EscapeString(slug))
-	fmt.Fprint(w, footerBarHTML())
+	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
 	fmt.Fprint(w, `</body></html>`)
 }
 
@@ -392,7 +392,7 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 
 	ae, ok := lib.archives[slug]
 	if !ok {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
@@ -400,22 +400,22 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	if contentPath == "" {
 		main, err := ae.archive.MainEntry()
 		if err != nil {
-			http.Error(w, "no main page", http.StatusNotFound)
+			write404(w, r)
 			return
 		}
 		resolved, err := main.Resolve()
 		if err != nil {
 			log.Printf("error resolving main entry for %s: %v", slug, err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			write500(w, r)
 			return
 		}
-		http.Redirect(w, r, "/"+slug+"/"+resolved.Path(), http.StatusFound)
+		http.Redirect(w, r, entryHref(slug, resolved.Path()), http.StatusFound)
 		return
 	}
 
 	entry, err := ae.archive.EntryByPath(contentPath)
 	if err != nil {
-		http.NotFound(w, r)
+		write404(w, r)
 		return
 	}
 
@@ -424,10 +424,10 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 		resolved, err := entry.Resolve()
 		if err != nil {
 			log.Printf("error resolving redirect for %s/%s: %v", slug, contentPath, err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			write500(w, r)
 			return
 		}
-		http.Redirect(w, r, "/"+slug+"/"+resolved.Path(), http.StatusFound)
+		http.Redirect(w, r, entryHref(slug, resolved.Path()), http.StatusFound)
 		return
 	}
 
@@ -441,7 +441,7 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	content, err := entry.ReadContent()
 	if err != nil {
 		log.Printf("error reading content for %s/%s: %v", slug, contentPath, err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		write500(w, r)
 		return
 	}
 
@@ -460,10 +460,10 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", etag)
 
 	// For HTML content, inject the sticky navigation bar and footer bar.
-	if entry.MIMEType() == "text/html" {
+	if entry.MIMEIndex() == oza.MIMEIndexHTML {
 		bar := headerBarHTML(slug, ae.title, ae.letterCounts)
 		content = injectHeaderBar(content, []byte(bar))
-		content = injectFooterBar(content, []byte(footerBarHTML()))
+		content = injectFooterBar(content, []byte(footerBarHTML(!lib.noInfo)))
 	}
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
@@ -506,15 +506,20 @@ func injectFooterBar(body, bar []byte) []byte {
 }
 
 // footerBarHTML returns a self-contained HTML+CSS footer bar injected into every page.
-func footerBarHTML() string {
+// showInfoLink adds a link to the global server info page (/_info).
+func footerBarHTML(showInfoLink bool) string {
+	infoLink := ""
+	if showInfoLink {
+		infoLink = ` · <a href="/_info">Server info</a>`
+	}
 	return `<style>
 #oza-footer{position:fixed;bottom:0;left:0;right:0;z-index:999998;background:#f6f8fa;border-top:1px solid #d0d7de;padding:4px 12px;font:12px/1.4 system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;color:#666}
-#oza-footer a{color:#0366d6;text-decoration:none}
+#oza-footer a{color:#0366d6;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
 #oza-footer a:hover{text-decoration:underline}
 #oza-footer .oza-kanji{color:#C9A84C;font-weight:600}
 body{padding-bottom:32px!important}
 </style>
-<div id="oza-footer"><span class="oza-kanji">&#x738B;&#x5EA7;</span> <a href="https://github.com/stazelabs/oza">ozaserve</a></div>`
+<div id="oza-footer"><span class="oza-kanji">&#x738B;&#x5EA7;</span> <a href="https://github.com/stazelabs/oza"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>ozaserve</a><span>·</span><a href="https://github.com/stazelabs/oza/blob/main/LICENSE">Apache 2.0</a><span>·</span><a href="/_docs">Documentation</a>` + infoLink + `</div>`
 }
 
 // headerBarHTML returns a self-contained sticky navigation bar for HTML content pages.

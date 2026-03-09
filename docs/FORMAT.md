@@ -323,17 +323,30 @@ Path and title indices store tagged IDs, so lookups transparently dispatch to th
 correct table. Redirect targets are always content entry IDs (chains are flattened at
 write time).
 
+**Capacity constraint (v1 format invariant).** Because bit 31 is permanently reserved
+as a type tag, each namespace is capped at 2,147,483,647 entries (2³¹ − 1):
+
+| Namespace | Maximum |
+|-----------|---------|
+| Content entries | 2,147,483,647 |
+| Redirect entries | 2,147,483,647 |
+
+This exceeds any foreseeable archive size (Wikipedia ~6 M articles as of 2026) and is
+not expected to be a practical constraint. However, implementations **must** reject
+archives whose `entry_count` field or redirect table `count` field exceeds this limit,
+and writers **must** return an error rather than silently wrap the ID space.
+
 At Wikipedia scale (~10 M redirects), this saves ~350 MB compared to storing redirects
 as 40-byte entry records.
 
 ### 3.7 Path Index
 
-Front-coded index sorted by path for binary search. Uses the IDX2 format with
+Front-coded index sorted by path for binary search. Uses the IDX1 format with
 restart blocks every 64 entries for efficient random access.
 
 ```
 Header (16 + restart_count * 4 bytes):
-  4 bytes: magic (0x49445832 = "IDX2" little-endian)
+  4 bytes: magic (0x49445831 = "IDX1" little-endian)
   4 bytes: count (total number of entries)
   4 bytes: restart_interval (64)
   4 bytes: restart_count
@@ -361,7 +374,7 @@ block. Overall lookup is O(log(count / 64) + 64) string comparisons.
 
 ### 3.8 Title Index
 
-Same IDX2 format as the path index, but sorted by title. Entries without an explicit
+Same IDX1 format as the path index, but sorted by title. Entries without an explicit
 title use their path. The writer populates this at creation time.
 
 ### 3.9 Content Section
@@ -445,13 +458,13 @@ gracefully. Section-level flags would require every reader to understand the fla
 marker for user-visible content. CSS, JS, images, and internal resources should never
 appear in search results.
 
-### 4.3 Wire Format (v2)
+### 4.3 Wire Format (v1)
 
 Both SEARCH_TITLE and SEARCH_BODY use the same binary format:
 
 ```
 Header (16 bytes):
-  4 bytes: version (2)
+  4 bytes: version (1)
   4 bytes: flags (bit 0: bigram mode for CJK)
   4 bytes: trigram_count
   4 bytes: doc_count (number of distinct entry IDs indexed)
@@ -464,7 +477,7 @@ Trigram Table (sorted for binary search):
     4 bytes: posting_list_length (byte count of posting list data)
 
 Posting Lists:
-  Delta-encoded uint32 entry IDs as unsigned LEB128 varints.
+  Serialized roaring bitmap (Roaring Bitmap portable format, roaring.WriteTo).
 ```
 
 ### 4.4 Query Algorithm

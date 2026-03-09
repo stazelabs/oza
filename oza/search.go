@@ -16,10 +16,10 @@ const flagCJKBigram uint32 = 1
 
 // TrigramIndex is a parsed trigram search section (SEARCH_TITLE or SEARCH_BODY).
 //
-// Wire format (v2):
+// Wire format (v1):
 //
 //	Header (16 bytes):
-//	  [0:4]   version    uint32 = 2
+//	  [0:4]   version    uint32 = 1
 //	  [4:8]   flags      uint32
 //	  [8:12]  count      uint32 (number of distinct trigrams)
 //	  [12:16] doc_count  uint32 (number of distinct entry IDs indexed)
@@ -41,13 +41,13 @@ type TrigramIndex struct {
 	docCount uint32
 }
 
-// ParseTrigramIndex parses a SEARCH_TITLE or SEARCH_BODY section (wire format v2).
+// ParseTrigramIndex parses a SEARCH_TITLE or SEARCH_BODY section (wire format v1).
 func ParseTrigramIndex(data []byte) (*TrigramIndex, error) {
 	if len(data) < 16 {
 		return nil, fmt.Errorf("oza: trigram index section too short")
 	}
 	version := binary.LittleEndian.Uint32(data[0:4])
-	if version != 3 {
+	if version != 1 {
 		return nil, fmt.Errorf("oza: unsupported trigram index version %d", version)
 	}
 
@@ -67,7 +67,7 @@ func ParseTrigramIndex(data []byte) (*TrigramIndex, error) {
 	}, nil
 }
 
-// DocCount returns the number of distinct entry IDs indexed (v2 only; 0 for v1).
+// DocCount returns the number of distinct entry IDs indexed.
 func (idx *TrigramIndex) DocCount() uint32 { return idx.docCount }
 
 // isCJKRune reports whether r is in a CJK Unicode block.
@@ -240,4 +240,3 @@ func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
 	}
 	return bm
 }
-

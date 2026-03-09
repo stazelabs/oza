@@ -11,6 +11,7 @@ require (
 	github.com/stazelabs/gozim v0.0.0-20260309035632-3fdfaf8825d4
 	github.com/tdewolff/minify/v2 v2.24.10
 	github.com/tdewolff/parse/v2 v2.8.10
+	github.com/yuin/goldmark v1.7.16
 )
 
 require (

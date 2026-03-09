@@ -3,6 +3,7 @@ package oza_test
 import (
 	"bytes"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/stazelabs/oza/oza"
@@ -571,6 +572,154 @@ func TestSearch(t *testing.T) {
 	}
 	if _, err := a2.Search("test", oza.SearchOptions{Limit: 10}); err == nil {
 		t.Error("Search on archive without index should return error")
+	}
+}
+
+// --- TestConcurrentReads ---
+
+// TestConcurrentReads verifies the Archive concurrency contract: all read
+// methods are safe to call from multiple goroutines simultaneously after Open
+// returns. Run with -race to catch data races.
+func TestConcurrentReads(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		for i := range 8 {
+			path := "page" + string(rune('a'+i)) + ".html"
+			title := "Page " + string(rune('A'+i))
+			w.AddEntry(path, title, "text/html", []byte("<html>"+path+"</html>"), i%2 == 0)
+		}
+	})
+	defer cleanup()
+
+	paths := make([]string, 8)
+	titles := make([]string, 8)
+	for i := range 8 {
+		paths[i] = "page" + string(rune('a'+i)) + ".html"
+		titles[i] = "Page " + string(rune('A'+i))
+	}
+
+	const goroutines = 8
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := range goroutines {
+		go func(g int) {
+			defer wg.Done()
+			i := g % len(paths)
+
+			if _, err := a.EntryByPath(paths[i]); err != nil {
+				t.Errorf("g%d: EntryByPath: %v", g, err)
+			}
+			if _, err := a.EntryByTitle(titles[i]); err != nil {
+				t.Errorf("g%d: EntryByTitle: %v", g, err)
+			}
+			if _, err := a.EntryByID(uint32(i)); err != nil {
+				t.Errorf("g%d: EntryByID: %v", g, err)
+			}
+			for e := range a.Entries() {
+				if _, err := e.ReadContent(); err != nil {
+					t.Errorf("g%d: ReadContent: %v", g, err)
+				}
+				break // one is enough to exercise the path
+			}
+			_ = a.EntryCount()
+			_ = a.MIMETypes()
+			if _, err := a.Metadata("title"); err != nil {
+				t.Errorf("g%d: Metadata: %v", g, err)
+			}
+		}(g)
+	}
+	wg.Wait()
+}
+
+// --- TestReservedFieldWarnings ---
+
+// TestReservedFieldWarnings verifies that non-zero reserved bytes in the header
+// or section descriptors produce advisory warnings via Archive.Warnings(), but
+// do not prevent the archive from opening.
+func TestReservedFieldWarnings(t *testing.T) {
+	// Build a clean archive and verify it produces no warnings.
+	dir := t.TempDir()
+	f, err := os.CreateTemp(dir, "clean*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clean := ozawrite.WriterOptions{ZstdLevel: 3, BuildSearch: false}
+	w := ozawrite.NewWriter(f, clean)
+	setRequiredMeta(w)
+	w.AddEntry("index.html", "Index", "text/html", []byte("<html>ok</html>"), false)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	raw, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := oza.OpenWithOptions(f.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := a.Warnings(); len(got) != 0 {
+		t.Errorf("clean archive: got %d warnings, want 0: %v", len(got), got)
+	}
+	a.Close()
+
+	// Write a copy with a non-zero header reserved field (bytes [60:64]).
+	modified := make([]byte, len(raw))
+	copy(modified, raw)
+	modified[60] = 0xFF
+
+	f2, err := os.CreateTemp(dir, "hdrres*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f2.Write(modified); err != nil {
+		f2.Close()
+		t.Fatal(err)
+	}
+	f2.Close()
+
+	a2, err := oza.OpenWithOptions(f2.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatalf("open with non-zero header reserved field: %v", err)
+	}
+	defer a2.Close()
+	warns := a2.Warnings()
+	if len(warns) == 0 {
+		t.Error("archive with non-zero header reserved field: got no warnings, want at least one")
+	}
+
+	// Write a copy with a non-zero section descriptor reserved block ([33:36]).
+	// SectionSize = 80; the section table starts at hdr.SectionTableOff.
+	// Read that offset from the raw header (bytes [40:48] of the header = SectionTableOff).
+	sectionTableOff := int(raw[40]) | int(raw[41])<<8 | int(raw[42])<<16 | int(raw[43])<<24 |
+		int(raw[44])<<32 | int(raw[45])<<40 | int(raw[46])<<48 | int(raw[47])<<56
+	modified2 := make([]byte, len(raw))
+	copy(modified2, raw)
+	if sectionTableOff+33 < len(modified2) {
+		modified2[sectionTableOff+33] = 0x01 // reserved byte [33] of first section descriptor
+	}
+
+	f3, err := os.CreateTemp(dir, "secres*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f3.Write(modified2); err != nil {
+		f3.Close()
+		t.Fatal(err)
+	}
+	f3.Close()
+
+	a3, err := oza.OpenWithOptions(f3.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatalf("open with non-zero section reserved field: %v", err)
+	}
+	defer a3.Close()
+	warns3 := a3.Warnings()
+	if len(warns3) == 0 {
+		t.Error("archive with non-zero section reserved bytes: got no warnings, want at least one")
 	}
 }
 

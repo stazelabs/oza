@@ -6,6 +6,12 @@ import (
 )
 
 // Archive provides read access to an OZA archive file.
+//
+// Concurrency: an Archive is safe for concurrent use by multiple goroutines
+// after Open or OpenWithOptions returns. All internal state is populated
+// during opening and never modified afterward; the chunk cache is
+// independently protected by its own mutex. Close must not be called
+// concurrently with any other method.
 type Archive struct {
 	r        reader
 	hdr      Header
@@ -35,16 +41,24 @@ type Archive struct {
 	chunkDescs   []chunkDesc // chunk table from CONTENT section
 	chunkDataOff int64       // file offset of chunk data area
 
-	cache *chunkCache
+	cache                *chunkCache
+	maxDecompressedSize  int64 // decompression bomb limit; 0 = disabled
+	maxBlobSize          int64 // per-blob size limit; 0 = disabled
+	maxMetadataValueSize int64 // per-metadata-value size limit; 0 = disabled
+
+	warnings []string // non-fatal advisory messages from open
 }
 
 // Option configures Archive opening behaviour.
 type Option func(*options)
 
 type options struct {
-	cacheSize    int
-	useMmap      bool
-	verifyOnOpen bool
+	cacheSize            int
+	useMmap              bool
+	verifyOnOpen         bool
+	maxDecompressedSize  int64
+	maxBlobSize          int64
+	maxMetadataValueSize int64
 }
 
 // WithCacheSize sets the number of decompressed chunks to keep in memory.
@@ -56,6 +70,27 @@ func WithMmap(enabled bool) Option { return func(o *options) { o.useMmap = enabl
 // WithVerifyOnOpen verifies all section SHA-256 checksums when opening.
 func WithVerifyOnOpen() Option { return func(o *options) { o.verifyOnOpen = true } }
 
+// WithMaxDecompressedSize sets the maximum allowed decompressed size for any
+// single chunk or section. Archives containing chunks larger than this limit
+// will fail with ErrDecompressedTooLarge. Defaults to 1 GiB.
+func WithMaxDecompressedSize(n int64) Option {
+	return func(o *options) { o.maxDecompressedSize = n }
+}
+
+// WithMaxBlobSize sets the maximum allowed size for a single blob (entry content).
+// Entries whose blob size exceeds this limit will fail with ErrBlobTooLarge.
+// Defaults to 256 MiB.
+func WithMaxBlobSize(n int64) Option {
+	return func(o *options) { o.maxBlobSize = n }
+}
+
+// WithMaxMetadataValueSize sets the maximum allowed size for a single metadata
+// value. Values exceeding this limit will fail with ErrMetadataValueTooLarge.
+// Defaults to 16 MiB.
+func WithMaxMetadataValueSize(n int64) Option {
+	return func(o *options) { o.maxMetadataValueSize = n }
+}
+
 // Open opens an OZA archive at path with default options.
 func Open(path string) (*Archive, error) {
 	return OpenWithOptions(path)
@@ -64,8 +99,11 @@ func Open(path string) (*Archive, error) {
 // OpenWithOptions opens an OZA archive at path with the supplied options.
 func OpenWithOptions(path string, opts ...Option) (*Archive, error) {
 	o := &options{
-		cacheSize: 8,
-		useMmap:   true,
+		cacheSize:            8,
+		useMmap:              true,
+		maxDecompressedSize:  1 << 30,   // 1 GiB default
+		maxBlobSize:          256 << 20, // 256 MiB default
+		maxMetadataValueSize: 16 << 20,  // 16 MiB default
 	}
 	for _, fn := range opts {
 		fn(o)
@@ -77,9 +115,12 @@ func OpenWithOptions(path string, opts ...Option) (*Archive, error) {
 	}
 
 	a := &Archive{
-		r:     r,
-		dicts: make(map[uint32][]byte),
-		cache: newChunkCache(o.cacheSize),
+		r:                    r,
+		dicts:                make(map[uint32][]byte),
+		cache:                newChunkCache(o.cacheSize),
+		maxDecompressedSize:  o.maxDecompressedSize,
+		maxBlobSize:          o.maxBlobSize,
+		maxMetadataValueSize: o.maxMetadataValueSize,
 	}
 	if err := a.load(o.verifyOnOpen); err != nil {
 		r.Close()
@@ -90,6 +131,11 @@ func OpenWithOptions(path string, opts ...Option) (*Archive, error) {
 
 // Close releases all resources held by the archive.
 func (a *Archive) Close() error { return a.r.Close() }
+
+// Warnings returns non-fatal advisory messages generated while opening the
+// archive. A non-empty slice typically indicates the file was written by a
+// newer version of the format that uses reserved fields this reader ignores.
+func (a *Archive) Warnings() []string { return a.warnings }
 
 // load reads and parses all sections.
 func (a *Archive) load(verify bool) error {
@@ -103,6 +149,14 @@ func (a *Archive) load(verify bool) error {
 		return err
 	}
 	a.hdr = hdr
+
+	// 1b. Warn on non-zero header reserved field.
+	if reserv := binary.LittleEndian.Uint32(hdrBuf[60:64]); reserv != 0 {
+		a.warnings = append(a.warnings, fmt.Sprintf(
+			"oza: header reserved field is non-zero (0x%08x); file may have been written by a newer version",
+			reserv,
+		))
+	}
 
 	// 2. Section table.
 	tableSize := int64(hdr.SectionCount) * SectionSize
@@ -118,6 +172,27 @@ func (a *Archive) load(verify bool) error {
 	}
 	a.sections = sections
 
+	// 2b. Warn on non-zero section descriptor reserved bytes.
+	// SectionDesc layout: [33:36] reserved (3 bytes), [40:48] reserved (8 bytes).
+	for i := 0; i < int(hdr.SectionCount); i++ {
+		off := i * SectionSize
+		stype := binary.LittleEndian.Uint32(tableBuf[off : off+4])
+		if tableBuf[off+33]|tableBuf[off+34]|tableBuf[off+35] != 0 {
+			a.warnings = append(a.warnings, fmt.Sprintf(
+				"oza: section %d (type 0x%04x) reserved bytes [33:36] are non-zero; file may have been written by a newer version",
+				i, stype,
+			))
+		}
+		r2 := tableBuf[off+40] | tableBuf[off+41] | tableBuf[off+42] | tableBuf[off+43] |
+			tableBuf[off+44] | tableBuf[off+45] | tableBuf[off+46] | tableBuf[off+47]
+		if r2 != 0 {
+			a.warnings = append(a.warnings, fmt.Sprintf(
+				"oza: section %d (type 0x%04x) reserved bytes [40:48] are non-zero; file may have been written by a newer version",
+				i, stype,
+			))
+		}
+	}
+
 	// 3. Load each section.
 	for _, s := range sections {
 		if err := a.loadSection(s); err != nil {
@@ -126,7 +201,9 @@ func (a *Archive) load(verify bool) error {
 	}
 
 	// 4. Build reverse maps from index data.
-	a.buildReverseMaps()
+	if err := a.buildReverseMaps(); err != nil {
+		return err
+	}
 
 	if verify {
 		results, err := a.VerifyAll()
@@ -167,7 +244,14 @@ func (a *Archive) readSectionData(s SectionDesc) ([]byte, error) {
 	if s.Compression == CompNone {
 		return buf, nil
 	}
-	return decompressSection(buf, s, a.dicts)
+	out, err := decompressSection(buf, s, a.dicts)
+	if err != nil {
+		return nil, err
+	}
+	if a.maxDecompressedSize > 0 && int64(len(out)) > a.maxDecompressedSize {
+		return nil, fmt.Errorf("oza: section 0x%04x decompressed to %d bytes: %w", s.Type, len(out), ErrDecompressedTooLarge)
+	}
+	return out, nil
 }
 
 // parseSection dispatches parsed data to the appropriate field.
@@ -181,7 +265,7 @@ func (a *Archive) parseSection(t SectionType, data []byte) error {
 		a.mimeTypes = types
 
 	case SectionMetadata:
-		meta, err := ParseMetadata(data)
+		meta, err := a.parseMetadata(data)
 		if err != nil {
 			return err
 		}
@@ -263,6 +347,9 @@ func (a *Archive) loadContentSection(s SectionDesc) error {
 		if err != nil {
 			return fmt.Errorf("oza: chunk descriptor %d: %w", i, err)
 		}
+		if desc.ID != uint32(i) {
+			return fmt.Errorf("oza: chunk descriptor %d has ID %d: %w", i, desc.ID, ErrChunkTableUnsorted)
+		}
 		a.chunkDescs[i] = desc
 	}
 	// Chunk data area starts immediately after the chunk table within the section.
@@ -271,23 +358,46 @@ func (a *Archive) loadContentSection(s SectionDesc) error {
 }
 
 // buildReverseMaps populates idToPath and idToTitle from the loaded indices.
-// Uses ForEach for O(N) sequential iteration instead of Record(i) per entry.
+// Uses ForEachErr for O(N) sequential iteration instead of Record(i) per entry.
 // A string interner deduplicates identical strings (common with redirects).
-func (a *Archive) buildReverseMaps() {
+func (a *Archive) buildReverseMaps() error {
 	si := newStringInterner()
 	a.idToPath = make(map[uint32]string)
 	a.idToTitle = make(map[uint32]string)
 
 	if a.pathIdx != nil {
-		a.pathIdx.ForEach(func(id uint32, key string) {
+		if err := a.pathIdx.ForEachErr(func(id uint32, key string) error {
 			a.idToPath[id] = si.Intern(key)
-		})
+			return nil
+		}); err != nil {
+			return fmt.Errorf("oza: building path index: %w", err)
+		}
 	}
 	if a.titleIdx != nil {
-		a.titleIdx.ForEach(func(id uint32, key string) {
+		if err := a.titleIdx.ForEachErr(func(id uint32, key string) error {
 			a.idToTitle[id] = si.Intern(key)
-		})
+			return nil
+		}); err != nil {
+			return fmt.Errorf("oza: building title index: %w", err)
+		}
 	}
+	return nil
+}
+
+// parseMetadata wraps ParseMetadata and enforces the per-value size limit.
+func (a *Archive) parseMetadata(data []byte) (map[string][]byte, error) {
+	meta, err := ParseMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	if a.maxMetadataValueSize > 0 {
+		for k, v := range meta {
+			if int64(len(v)) > a.maxMetadataValueSize {
+				return nil, fmt.Errorf("oza: metadata key %q value is %d bytes: %w", k, len(v), ErrMetadataValueTooLarge)
+			}
+		}
+	}
+	return meta, nil
 }
 
 // parseEntryTable parses the variable-length entry table section.
@@ -324,6 +434,10 @@ func (a *Archive) contentEntryRecord(id uint32) (EntryRecord, error) {
 	rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
 	if err != nil {
 		return EntryRecord{}, err
+	}
+	if int(rec.MIMEIndex) >= len(a.mimeTypes) {
+		return EntryRecord{}, fmt.Errorf("oza: entry %d: mime_index %d out of range (table size %d): %w",
+			id, rec.MIMEIndex, len(a.mimeTypes), ErrInvalidEntry)
 	}
 	rec.ID = id
 	return rec, nil
@@ -470,8 +584,81 @@ func (a *Archive) HasSearch() bool {
 // HasTitleSearch reports whether the archive contains a title trigram search index.
 func (a *Archive) HasTitleSearch() bool { return a.titleSearchIdx != nil }
 
+// ChunkCount returns the number of chunks in the CONTENT section.
+func (a *Archive) ChunkCount() int { return len(a.chunkDescs) }
+
+// CacheStats returns the chunk cache's current fill, capacity, and lifetime hit/miss counts.
+func (a *Archive) CacheStats() (current, capacity int, hits, misses int64) {
+	return a.cache.stats()
+}
+
+// ForEachTitleKey calls fn for each title string in title-sorted order.
+// It is O(N) — significantly faster than iterating via EntriesByTitle, which
+// uses Record(i) and re-decodes from a restart block on every call.
+func (a *Archive) ForEachTitleKey(fn func(title string)) {
+	if a.titleIdx == nil {
+		return
+	}
+	a.titleIdx.ForEach(func(_ uint32, title string) { fn(title) })
+}
+
+// ForEachEntryRecord calls fn for each content entry record in ID order.
+// Unlike Entries or FrontArticles, it skips the idToPath/idToTitle map lookups,
+// making it more efficient when only the record fields (e.g. flags) are needed.
+func (a *Archive) ForEachEntryRecord(fn func(id uint32, rec EntryRecord)) {
+	for i := uint32(0); i < uint32(len(a.entryOffsets)); i++ {
+		off := a.entryOffsets[i]
+		if int(off) >= len(a.entryRecords) {
+			continue
+		}
+		rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
+		if err != nil {
+			continue
+		}
+		rec.ID = i
+		fn(i, rec)
+	}
+}
+
 // HasBodySearch reports whether the archive contains a body trigram search index.
 func (a *Archive) HasBodySearch() bool { return a.bodySearchIdx != nil }
+
+// TitleCount returns the number of records in the title index (content + redirect
+// entries combined). Returns 0 if the archive has no title index.
+func (a *Archive) TitleCount() int {
+	if a.titleIdx == nil {
+		return 0
+	}
+	return a.titleIdx.Count()
+}
+
+// BrowseTitles returns up to limit entries from the title index in alphabetical
+// order, starting at the given offset. Intended for paginated browsing; O(limit)
+// per call. Returns nil if the archive has no title index or offset is out of range.
+func (a *Archive) BrowseTitles(offset, limit int) []Entry {
+	if a.titleIdx == nil || offset < 0 || limit <= 0 {
+		return nil
+	}
+	total := a.titleIdx.Count()
+	if offset >= total {
+		return nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	result := make([]Entry, 0, end-offset)
+	for i := offset; i < end; i++ {
+		id, title, err := a.titleIdx.Record(i)
+		if err != nil {
+			break
+		}
+		if e, ok := a.entryFromIndex(id, title, false); ok {
+			result = append(result, e)
+		}
+	}
+	return result
+}
 
 // TitleSearchDocCount returns the number of distinct entry IDs in the title search
 // index (SectionSearchTitle) and whether the index is present.

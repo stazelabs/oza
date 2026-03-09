@@ -50,6 +50,8 @@ a:hover { text-decoration: underline; }
 .sub { color: #666; font-size: 0.82em; margin-top: 2px; }
 .actions { margin-top: 4px; }
 .arrow { font-size: 0.75em; margin-left: 4px; }
+a.ilink { color: #aaa; text-decoration: none; }
+a.ilink:hover { color: #0366d6; text-decoration: none; }
 </style></head><body>
 <h1><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA Library</h1>
 <div class="search-wrap">
@@ -118,7 +120,7 @@ a:hover { text-decoration: underline; }
 
 		infoCell := ""
 		if !lib.noInfo {
-			infoCell = fmt.Sprintf(`<td><a href="/%s/-/info" title="Archive info">&#x2139;&#xFE0E;</a></td>`,
+			infoCell = fmt.Sprintf(`<td><a href="/%s/-/info" class="ilink" title="Archive info">ⓘ</a></td>`,
 				html.EscapeString(slug))
 		}
 
@@ -214,6 +216,6 @@ a:hover { text-decoration: underline; }
 })();
 </script>
 `)
-	fmt.Fprint(w, footerBarHTML())
+	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
 	fmt.Fprint(w, `</body></html>`)
 }

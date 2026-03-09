@@ -1,5 +1,13 @@
 # 王座 OZA
 
+[![CI](https://github.com/stazelabs/oza/actions/workflows/ci.yml/badge.svg)](https://github.com/stazelabs/oza/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/stazelabs/oza)](https://github.com/stazelabs/oza/releases/latest)
+[![codecov](https://codecov.io/gh/stazelabs/oza/branch/main/graph/badge.svg)](https://codecov.io/gh/stazelabs/oza)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stazelabs/oza)](https://goreportcard.com/report/github.com/stazelabs/oza)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stazelabs/oza/oza.svg)](https://pkg.go.dev/github.com/stazelabs/oza/oza)
+[![Go 1.24+](https://img.shields.io/github/go-mod/go-version/stazelabs/oza)](https://go.dev/dl/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 A modern replacement for the [ZIM file format](https://wiki.openzim.org/wiki/ZIM_file_format). Pure Go library and CLI tools for reading, writing, and serving OZA archives.
 
 > *王座 (oza) -- "throne." OZA takes the throne as the successor to ZIM, with extensible section tables, Zstd compression, SHA-256 integrity, trigram search, and content-addressed deduplication.*

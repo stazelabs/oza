@@ -75,46 +75,46 @@ func (s *Stats) Print(w io.Writer) {
 // PrintJSON writes statistics as a JSON object to w.
 func (s *Stats) PrintJSON(w io.Writer) error {
 	obj := struct {
-		InputSize      int64   `json:"input_size_bytes"`
-		OutputSize     int64   `json:"output_size_bytes"`
-		SizeRatio      float64 `json:"size_ratio,omitempty"`
-		EntryTotal     int     `json:"entry_total"`
-		EntryContent   int     `json:"entry_content"`
-		EntryRedirect  int     `json:"entry_redirect"`
-		BytesRead      int64   `json:"bytes_read"`
-		CacheHits      int64   `json:"cache_hits"`
-		CacheMisses    int64   `json:"cache_misses"`
-		TimeScanMs     int64   `json:"time_scan_ms"`
-		TimeReadMs     int64   `json:"time_read_ms"`
-		TimeTransMs    int64   `json:"time_transform_ms"`
-		TimeDedupMs    int64   `json:"time_dedup_ms"`
-		TimeSearchMs   int64   `json:"time_search_index_ms"`
-		TimeChunkMs    int64   `json:"time_chunk_build_ms"`
-		TimeDictMs     int64   `json:"time_dict_train_ms"`
-		TimeCompMs     int64   `json:"time_compress_ms"`
-		TimeAssemMs    int64   `json:"time_assemble_ms"`
-		TimeCloseMs    int64   `json:"time_close_ms"`
-		TimeTotalMs    int64   `json:"time_total_ms"`
+		InputSize     int64   `json:"input_size_bytes"`
+		OutputSize    int64   `json:"output_size_bytes"`
+		SizeRatio     float64 `json:"size_ratio,omitempty"`
+		EntryTotal    int     `json:"entry_total"`
+		EntryContent  int     `json:"entry_content"`
+		EntryRedirect int     `json:"entry_redirect"`
+		BytesRead     int64   `json:"bytes_read"`
+		CacheHits     int64   `json:"cache_hits"`
+		CacheMisses   int64   `json:"cache_misses"`
+		TimeScanMs    int64   `json:"time_scan_ms"`
+		TimeReadMs    int64   `json:"time_read_ms"`
+		TimeTransMs   int64   `json:"time_transform_ms"`
+		TimeDedupMs   int64   `json:"time_dedup_ms"`
+		TimeSearchMs  int64   `json:"time_search_index_ms"`
+		TimeChunkMs   int64   `json:"time_chunk_build_ms"`
+		TimeDictMs    int64   `json:"time_dict_train_ms"`
+		TimeCompMs    int64   `json:"time_compress_ms"`
+		TimeAssemMs   int64   `json:"time_assemble_ms"`
+		TimeCloseMs   int64   `json:"time_close_ms"`
+		TimeTotalMs   int64   `json:"time_total_ms"`
 	}{
-		InputSize:      s.InputSize,
-		OutputSize:     s.OutputSize,
-		EntryTotal:     s.EntryTotal,
-		EntryContent:   s.EntryContent,
-		EntryRedirect:  s.EntryRedirect,
-		BytesRead:      s.BytesRead,
-		CacheHits:      s.CacheHits,
-		CacheMisses:    s.CacheMisses,
-		TimeScanMs:     s.TimeScan.Milliseconds(),
-		TimeReadMs:     s.TimeRead.Milliseconds(),
-		TimeTransMs:    s.TimeTransform.Milliseconds(),
-		TimeDedupMs:    s.TimeDedup.Milliseconds(),
-		TimeSearchMs:   s.TimeSearchIndex.Milliseconds(),
-		TimeChunkMs:    s.TimeChunkBuild.Milliseconds(),
-		TimeDictMs:     s.TimeDictTrain.Milliseconds(),
-		TimeCompMs:     s.TimeCompress.Milliseconds(),
-		TimeAssemMs:    s.TimeAssemble.Milliseconds(),
-		TimeCloseMs:    s.TimeClose.Milliseconds(),
-		TimeTotalMs:    s.TimeTotal.Milliseconds(),
+		InputSize:     s.InputSize,
+		OutputSize:    s.OutputSize,
+		EntryTotal:    s.EntryTotal,
+		EntryContent:  s.EntryContent,
+		EntryRedirect: s.EntryRedirect,
+		BytesRead:     s.BytesRead,
+		CacheHits:     s.CacheHits,
+		CacheMisses:   s.CacheMisses,
+		TimeScanMs:    s.TimeScan.Milliseconds(),
+		TimeReadMs:    s.TimeRead.Milliseconds(),
+		TimeTransMs:   s.TimeTransform.Milliseconds(),
+		TimeDedupMs:   s.TimeDedup.Milliseconds(),
+		TimeSearchMs:  s.TimeSearchIndex.Milliseconds(),
+		TimeChunkMs:   s.TimeChunkBuild.Milliseconds(),
+		TimeDictMs:    s.TimeDictTrain.Milliseconds(),
+		TimeCompMs:    s.TimeCompress.Milliseconds(),
+		TimeAssemMs:   s.TimeAssemble.Milliseconds(),
+		TimeCloseMs:   s.TimeClose.Milliseconds(),
+		TimeTotalMs:   s.TimeTotal.Milliseconds(),
 	}
 	if s.InputSize > 0 && s.OutputSize > 0 {
 		obj.SizeRatio = float64(s.OutputSize) / float64(s.InputSize)

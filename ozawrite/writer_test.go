@@ -19,7 +19,7 @@ func newTestWriter(t *testing.T) (*ozawrite.Writer, *os.File, func()) {
 		t.Fatal(err)
 	}
 	opts := ozawrite.WriterOptions{
-		ZstdLevel:   3,  // fast for tests
+		ZstdLevel:   3, // fast for tests
 		TrainDict:   false,
 		BuildSearch: false,
 	}
@@ -437,4 +437,3 @@ func TestWriteMissingMetadata(t *testing.T) {
 		t.Error("expected error for missing required metadata, got nil")
 	}
 }
-

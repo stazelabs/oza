@@ -8,11 +8,11 @@ import (
 )
 
 // Index is a parsed path or title index section using front-coded blocks
-// with a shared string table (IDX3 format).
+// with a shared string table (IDX1 format).
 //
-// Wire format (IDX3):
+// Wire format (IDX1):
 //
-//	uint32   magic (0x49445833 = "IDX3")
+//	uint32   magic (0x49445831 = "IDX1")
 //	uint32   count
 //	uint32   restart_interval
 //	uint32   restart_count
@@ -36,8 +36,8 @@ func ParseIndex(data []byte) (*Index, error) {
 		return nil, fmt.Errorf("oza: index section too short")
 	}
 	magic := binary.LittleEndian.Uint32(data[0:4])
-	if magic != IndexV3Magic {
-		return nil, fmt.Errorf("oza: index section bad magic 0x%08x, expected 0x%08x", magic, IndexV3Magic)
+	if magic != IndexV1Magic {
+		return nil, fmt.Errorf("oza: index section bad magic 0x%08x, expected 0x%08x", magic, IndexV1Magic)
 	}
 
 	count := binary.LittleEndian.Uint32(data[4:8])
@@ -153,7 +153,67 @@ func (idx *Index) Record(i int) (entryID uint32, key string, err error) {
 	return entryID, key, nil
 }
 
+// ForEachErr iterates all records sequentially, calling fn for each.
+// It returns the first error encountered during decoding or returned by fn.
+// This is O(N) — much faster than calling Record(i) in a loop.
+func (idx *Index) ForEachErr(fn func(entryID uint32, key string) error) error {
+	var sb strings.Builder
+	for b := 0; b < int(idx.restartCount); b++ {
+		off := int(idx.restartOffsets[b])
+		prevKey := ""
+
+		blockStart := b * int(idx.restartInterval)
+		blockEnd := blockStart + int(idx.restartInterval)
+		if blockEnd > int(idx.count) {
+			blockEnd = int(idx.count)
+		}
+
+		for j := blockStart; j < blockEnd; j++ {
+			if off+5 > len(idx.data) {
+				return fmt.Errorf("oza: index record %d: offset out of bounds", j)
+			}
+
+			entryID := binary.LittleEndian.Uint32(idx.data[off:])
+			var key string
+
+			if j == blockStart {
+				tokenCount := int(idx.data[off+4])
+				off += 5
+				var err error
+				key, off, err = idx.decodeTuples(&sb, off, tokenCount)
+				if err != nil {
+					return fmt.Errorf("oza: index restart record %d: %w", j, err)
+				}
+			} else {
+				if off+7 > len(idx.data) {
+					return fmt.Errorf("oza: index record %d header truncated", j)
+				}
+				prefixLen := int(binary.LittleEndian.Uint16(idx.data[off+4:]))
+				tokenCount := int(idx.data[off+6])
+				off += 7
+				if prefixLen > len(prevKey) {
+					return fmt.Errorf("oza: index record %d: prefixLen %d exceeds prev key len %d", j, prefixLen, len(prevKey))
+				}
+				suffix, newOff, err := idx.decodeTuples(&sb, off, tokenCount)
+				if err != nil {
+					return fmt.Errorf("oza: index record %d: %w", j, err)
+				}
+				off = newOff
+				key = prevKey[:prefixLen] + suffix
+			}
+
+			prevKey = key
+			if err := fn(entryID, key); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // ForEach iterates all records sequentially, calling fn for each.
+// Decode errors cause iteration to stop silently; use ForEachErr if error
+// propagation is required.
 // This is O(N) — much faster than calling Record(i) in a loop which is O(N * restartInterval/2).
 func (idx *Index) ForEach(fn func(entryID uint32, key string)) {
 	var sb strings.Builder

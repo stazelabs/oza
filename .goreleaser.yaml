@@ -1,0 +1,105 @@
+version: 2
+
+project_name: oza
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ozacat
+    main: ./cmd/ozacat/
+    binary: ozacat
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozainfo
+    main: ./cmd/ozainfo/
+    binary: ozainfo
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozasearch
+    main: ./cmd/ozasearch/
+    binary: ozasearch
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozaserve
+    main: ./cmd/ozaserve/
+    binary: ozaserve
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozaverify
+    main: ./cmd/ozaverify/
+    binary: ozaverify
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozamcp
+    main: ./cmd/ozamcp/
+    binary: ozamcp
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: ozakeygen
+    main: ./cmd/ozakeygen/
+    binary: ozakeygen
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+  - id: zim2oza
+    main: ./cmd/zim2oza/
+    binary: zim2oza
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "New Features"
+      regexp: "^feat"
+      order: 0
+    - title: "Bug Fixes"
+      regexp: "^fix"
+      order: 1
+    - title: "Other Changes"
+      order: 999
+
+release:
+  github:
+    owner: stazelabs
+    name: oza
+  draft: false
+  prerelease: auto
+  name_template: "{{ .Tag }}"

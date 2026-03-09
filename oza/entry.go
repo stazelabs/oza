@@ -120,8 +120,9 @@ func (e EntryRecord) IsRedirect() bool { return e.Type == EntryRedirect }
 // RedirectRecord is the compact 5-byte redirect record stored in SectionRedirectTab.
 //
 // Binary layout (little-endian):
-//   [0]     Flags     uint8   (bit 0 = front_article)
-//   [1:5]   TargetID  uint32  (content entry ID, bit 31 always clear)
+//
+//	[0]     Flags     uint8   (bit 0 = front_article)
+//	[1:5]   TargetID  uint32  (content entry ID, bit 31 always clear)
 type RedirectRecord struct {
 	Flags    uint8
 	TargetID uint32
@@ -172,14 +173,23 @@ func (e Entry) Path() string { return e.path }
 // Title returns the entry's display title.
 func (e Entry) Title() string { return e.title }
 
+// MIMEIndex returns the raw MIME type index for this entry. The index can be
+// compared against the package-level constants (MIMEIndexHTML, MIMEIndexCSS,
+// MIMEIndexJS) for fast type checks without string allocation. Returns 0 for
+// redirect entries (the index has no meaning for redirects; check IsRedirect
+// first if that distinction matters).
+func (e Entry) MIMEIndex() uint { return uint(e.record.MIMEIndex) }
+
 // MIMEType returns the MIME type string for this entry.
-// Returns an empty string for redirect entries.
+// Returns an empty string for redirect entries. MIMEIndex is validated against
+// the table at entry-record parse time, so an out-of-range index is never
+// reachable here on a well-formed Entry.
 func (e Entry) MIMEType() string {
 	if e.record.IsRedirect() {
 		return ""
 	}
 	if int(e.record.MIMEIndex) >= len(e.archive.mimeTypes) {
-		return ""
+		return "" // unreachable for entries returned by Archive methods
 	}
 	return e.archive.mimeTypes[e.record.MIMEIndex]
 }

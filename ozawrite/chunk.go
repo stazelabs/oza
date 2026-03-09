@@ -17,11 +17,11 @@ import (
 //	[24]    Compression    uint8   (oza.CompNone / CompZstd / CompZstdDict)
 //	[25:28] reserved       3 bytes
 type chunkDesc struct {
-	ID            uint32
-	CompressedOff uint64
+	ID             uint32
+	CompressedOff  uint64
 	CompressedSize uint64
-	DictID        uint32
-	Compression   uint8
+	DictID         uint32
+	Compression    uint8
 }
 
 func marshalChunkDesc(c chunkDesc) [oza.ChunkDescSize]byte {

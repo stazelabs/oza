@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stazelabs/gozim/zim"
+
 	"github.com/stazelabs/oza/ozawrite"
 )
 
@@ -514,7 +514,7 @@ func (c *Converter) writeMetadata(w *ozawrite.Writer, plan *scanPlan) {
 		"Source":      "source",
 		"Description": "description",
 		"Publisher":   "publisher",
-		"Name":       "name",
+		"Name":        "name",
 	}
 
 	for _, ozaKey := range keyMap {
@@ -600,7 +600,6 @@ func mapMetadataKey(zimKey string) string {
 	return strings.ToLower(zimKey)
 }
 
-
 // converterFlags returns a compact string summarising the conversion options.
 func (c *Converter) converterFlags() string {
 	o := c.opts
@@ -620,13 +619,4 @@ func (c *Converter) converterFlags() string {
 		parts = append(parts, "optimize-images")
 	}
 	return strings.Join(parts, " ")
-}
-
-// discardWriteSeeker is a no-op WriteSeeker used for dry runs.
-type discardWriteSeeker struct{}
-
-func (d discardWriteSeeker) Write(p []byte) (int, error) { return len(p), nil }
-func (d discardWriteSeeker) Read(p []byte) (int, error)  { return 0, io.EOF }
-func (d discardWriteSeeker) Seek(offset int64, whence int) (int64, error) {
-	return offset, nil
 }

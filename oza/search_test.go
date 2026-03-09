@@ -26,8 +26,8 @@ func makeTrigramSection(trigrams [][3]byte) []byte {
 	buf := make([]byte, headerSize+tableSize+len(posting)*int(count))
 
 	// Header
-	binary.LittleEndian.PutUint32(buf[0:4], 3)     // version
-	binary.LittleEndian.PutUint32(buf[4:8], 0)     // flags
+	binary.LittleEndian.PutUint32(buf[0:4], 1)      // version
+	binary.LittleEndian.PutUint32(buf[4:8], 0)      // flags
 	binary.LittleEndian.PutUint32(buf[8:12], count) // count
 	binary.LittleEndian.PutUint32(buf[12:16], 1)    // doc_count
 

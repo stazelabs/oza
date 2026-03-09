@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -20,6 +22,7 @@ func main() {
 	root.Flags().BoolP("list", "l", false, "List all entries (path, type, MIME, size)")
 	root.Flags().BoolP("meta", "m", false, "Show all metadata key-value pairs")
 	root.Flags().BoolP("info", "t", false, "Show entry info without extracting content")
+	root.Flags().StringP("output", "o", "", "Write content to file instead of stdout")
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -32,6 +35,7 @@ func run(cmd *cobra.Command, args []string) error {
 	listMode, _ := cmd.Flags().GetBool("list")
 	metaMode, _ := cmd.Flags().GetBool("meta")
 	infoMode, _ := cmd.Flags().GetBool("info")
+	outputPath, _ := cmd.Flags().GetString("output")
 
 	a, err := oza.Open(archivePath)
 	if err != nil {
@@ -53,19 +57,56 @@ func run(cmd *cobra.Command, args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("requires an entry path argument (or use -l, -m, -t)")
 		}
-		return runCat(a, args[1])
+		return runCat(a, args[1], outputPath)
 	}
 }
 
-func runCat(a *oza.Archive, path string) error {
+// isBinaryMIME reports whether mime is likely to contain non-text bytes that
+// could corrupt a terminal.
+func isBinaryMIME(mime string) bool {
+	if strings.HasPrefix(mime, "text/") {
+		return false
+	}
+	switch mime {
+	case "application/javascript", "application/json",
+		"application/xml", "application/xhtml+xml":
+		return false
+	}
+	return true
+}
+
+// isTerminal reports whether f is connected to a terminal (TTY).
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+func runCat(a *oza.Archive, path, outputPath string) error {
 	e, err := a.EntryByPath(path)
 	if err != nil {
 		return fmt.Errorf("entry %q: %w", path, err)
 	}
+
+	mime := e.MIMEType()
+
+	// When writing to stdout, refuse to send binary content to a terminal.
+	if outputPath == "" && isTerminal(os.Stdout) && isBinaryMIME(mime) {
+		return fmt.Errorf("refusing to write binary content (MIME: %s) to terminal; use -o <file> to save", mime)
+	}
+
 	data, err := e.ReadContent()
 	if err != nil {
 		return fmt.Errorf("reading %q: %w", path, err)
 	}
+
+	if outputPath != "" {
+		if err := os.WriteFile(outputPath, data, 0666); err != nil {
+			return fmt.Errorf("writing %q: %w", outputPath, err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote %d bytes to %s\n", len(data), outputPath)
+		return nil
+	}
+
 	_, err = os.Stdout.Write(data)
 	return err
 }

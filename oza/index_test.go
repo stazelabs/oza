@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// makeMinimalIndex builds a minimal valid IDX3 index section with a single
+// makeMinimalIndex builds a minimal valid IDX1 index section with a single
 // record whose key is composed of a single literal-only tuple.
 func makeMinimalIndex(key string, entryID uint32) []byte {
 	// String table: empty (no shared strings needed for literal-only tuples).
@@ -33,9 +33,9 @@ func makeMinimalIndex(key string, entryID uint32) []byte {
 	totalSize := recordStart + recordSize
 	buf := make([]byte, totalSize)
 
-	// IDX3 header
-	binary.LittleEndian.PutUint32(buf[0:4], IndexV3Magic)
-	binary.LittleEndian.PutUint32(buf[4:8], 1)                // count
+	// IDX1 header
+	binary.LittleEndian.PutUint32(buf[0:4], IndexV1Magic)
+	binary.LittleEndian.PutUint32(buf[4:8], 1) // count
 	binary.LittleEndian.PutUint32(buf[8:12], restartInterval)
 	binary.LittleEndian.PutUint32(buf[12:16], restartCount)
 	binary.LittleEndian.PutUint32(buf[16:20], stringTableCount)

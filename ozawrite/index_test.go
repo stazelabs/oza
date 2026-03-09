@@ -8,7 +8,7 @@ import (
 	"github.com/stazelabs/oza/ozawrite"
 )
 
-func TestIndexV3RoundTrip(t *testing.T) {
+func TestIndexV1RoundTrip(t *testing.T) {
 	// Use the public Writer API to build an archive, then verify the path/title
 	// indices produce correct results via the reader.
 	paths := []string{
@@ -74,7 +74,7 @@ func TestIndexV3RoundTrip(t *testing.T) {
 	}
 }
 
-func TestIndexV3EmptyKeys(t *testing.T) {
+func TestIndexV1EmptyKeys(t *testing.T) {
 	// Edge case: entries with empty path or title.
 	a := buildTestArchive(t, []string{"", "a.html"}, []string{"", "A"})
 	defer a.Close()
@@ -88,7 +88,7 @@ func TestIndexV3EmptyKeys(t *testing.T) {
 	}
 }
 
-func TestIndexV3SingleEntry(t *testing.T) {
+func TestIndexV1SingleEntry(t *testing.T) {
 	a := buildTestArchive(t, []string{"only.html"}, []string{"Only"})
 	defer a.Close()
 
@@ -101,7 +101,7 @@ func TestIndexV3SingleEntry(t *testing.T) {
 	}
 }
 
-func TestIndexV3ManyEntries(t *testing.T) {
+func TestIndexV1ManyEntries(t *testing.T) {
 	// Force multiple restart blocks (>64 entries).
 	n := 200
 	paths := make([]string, n)

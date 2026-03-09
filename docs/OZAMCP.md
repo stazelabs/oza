@@ -82,7 +82,7 @@ All paths must be absolute.
 
 #### 3. Restart Claude Desktop
 
-Quit and reopen Claude Desktop. A hammer icon in the chat input area confirms tools are loaded. Click it to verify you see `list_archives`, `search_text`, and `read_entry`.
+Quit and reopen Claude Desktop. A hammer icon in the chat input area confirms tools are loaded. Click it to verify you see `list_archives`, `search_text`, `read_entry`, and the other tools.
 
 While Claude Desktop is connected, you can also browse archives at `http://localhost:8080` in your browser.
 
@@ -124,6 +124,8 @@ ozamcp [file.oza ...] [--dir <dir>] [flags]
 
 ## Tools
 
+Seven tools are available. Start with `list_archives` to discover archives, then use `search_text` or `browse_titles` to find entries, `get_entry_info` to triage without reading content, and `read_entry` to fetch full content.
+
 ### `list_archives`
 
 List all loaded OZA archives with metadata.
@@ -145,6 +147,58 @@ Trigram text search across archives.
 | `limit` | int | no | Max results (default 20) |
 
 **Output:** JSON array of hits with archive, entry_id, path, title, and match indicators. With `ozaserve --mcp`, each hit includes a browsable `url` field.
+
+### `get_entry_info`
+
+Return metadata for an entry without fetching its content. Use this to triage results before deciding whether to call `read_entry`.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `archive` | string | yes | Archive slug |
+| `entry_id` | int | no | Entry ID (provide entry_id or path) |
+| `path` | string | no | Entry path (provide entry_id or path) |
+
+**Output:** JSON object with `entry_id`, `path`, `title`, `mime_type`, `size_bytes`, `is_redirect`, `is_front_article`. With `ozaserve --mcp`, includes a `url` field.
+
+### `browse_titles`
+
+Browse archive entries in alphabetical title order with offset/limit pagination.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `archive` | string | yes | Archive slug |
+| `offset` | int | no | Starting position in the sorted title list (default 0) |
+| `limit` | int | no | Max entries to return (default 50, max 200) |
+
+**Output:** JSON object with `total_count`, `offset`, `count`, and an `entries` array of `{entry_id, path, title, mime_type, is_front_article}`. With `ozaserve --mcp`, each entry includes a `url` field.
+
+### `get_random`
+
+Return a random front-article entry. Useful for exploration and serendipity.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `archive` | string | no | Archive slug (omit to pick from any loaded archive) |
+
+**Output:** JSON object with `archive`, `entry_id`, `path`, `title`, `mime_type`. With `ozaserve --mcp`, includes a `url` field. Follow up with `read_entry` to fetch the content.
+
+### `get_archive_stats`
+
+Return detailed statistics for an archive: entry counts and uncompressed sizes by MIME type, chunk count, and section inventory. More detailed than `list_archives`.
+
+**Input:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `archive` | string | yes | Archive slug |
+
+**Output:** JSON object with `entry_count`, `redirect_count`, `chunk_count`, `has_search`, a `mime_stats` array (sorted by entry count), and a `sections` array with compressed/uncompressed sizes and compression method for each section.
 
 ### `read_entry`
 
@@ -208,6 +262,70 @@ Claude will search for "photosynthesis", read the top results, and synthesize an
 > **You:** Compare and contrast mitosis and meiosis using the encyclopedia.
 
 Claude will search and read both articles, then write a structured comparison with source links.
+
+---
+
+## Getting Claude to Use OZA Resources
+
+By default Claude may answer from training data instead of the archive. These prompting patterns reliably direct it to the OZA tools first.
+
+### Use the archive explicitly
+
+The simplest approach: name the archive in your request.
+
+> Use oza to create a short lesson plan for basic programming. Provide links to browse useful articles.
+
+> Using the encyclopedia, explain how nuclear fusion works.
+
+> According to the Wikipedia archive, who was Marie Curie?
+
+> Look up "plate tectonics" in the archive and summarize it for me.
+
+### Instruct Claude to check the archive before answering
+
+Add a standing instruction at the start of the conversation:
+
+> Before answering any factual questions, always search the OZA archive first and cite the article you used.
+
+Or frame it as a constraint:
+
+> Answer only from the encyclopedia. Do not use your training data.
+
+### Embed the instruction in a system prompt (API / Claude Code)
+
+When calling the API directly, set a system prompt that establishes the archive as the authority:
+
+```
+You have access to a local OZA encyclopedia via the list_archives, search_text,
+and read_entry MCP tools. Always consult these tools before answering factual
+questions. Cite the article title and path in every response.
+```
+
+### Ask Claude to read a specific entry by path
+
+Skip search entirely and go straight to a known article:
+
+> Read the entry at path "Photosynthesis" from the wikipedia archive.
+
+> Use read_entry to get the "Quantum_mechanics" article and explain it simply.
+
+### Ask for citations to force source retrieval
+
+Requiring citations forces Claude to actually fetch content rather than paraphrase from memory:
+
+> Explain the water cycle. Quote at least two sentences directly from the encyclopedia article and include the source link.
+
+### CLAUDE.md for Claude Code sessions
+
+If you use Claude Code, add a standing instruction to `CLAUDE.md` in your project:
+
+```markdown
+## Reference Material
+
+An OZA encyclopedia is available via MCP tools (list_archives, search_text,
+read_entry). Consult it for factual background on the project domain before
+answering questions or making implementation decisions.
+```
 
 ---
 

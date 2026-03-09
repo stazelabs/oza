@@ -20,7 +20,7 @@ func newMmapReader(f *os.File, size int64) (*mmapReader, error) {
 		f.Close()
 		return &mmapReader{data: nil, size: 0}, nil
 	}
-	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ, syscall.MAP_SHARED)
+	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ, syscall.MAP_PRIVATE)
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("oza: mmap: %w", err)

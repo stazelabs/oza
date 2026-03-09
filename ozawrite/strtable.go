@@ -124,20 +124,19 @@ func (t *stringTable) Serialize() []byte {
 }
 
 // writeTuples encodes tokens as (tableIdx, literalLen, literal) tuples and
-// writes them directly to w. Returns the number of tuples written.
-func writeTuples(w io.Writer, tokens []string, table *stringTable) int {
+// writes them directly to w.
+func writeTuples(w io.Writer, tokens []string, table *stringTable) {
 	var tmp [4]byte
 	for _, tok := range tokens {
 		if idx, ok := table.Lookup(tok); ok {
 			binary.LittleEndian.PutUint16(tmp[0:2], idx)
 			binary.LittleEndian.PutUint16(tmp[2:4], 0)
-			w.Write(tmp[:])
+			w.Write(tmp[:]) //nolint:errcheck // w is always a bytes.Buffer
 		} else {
 			binary.LittleEndian.PutUint16(tmp[0:2], noTableEntry)
 			binary.LittleEndian.PutUint16(tmp[2:4], uint16(len(tok)))
-			w.Write(tmp[:])
-			io.WriteString(w, tok)
+			w.Write(tmp[:])        //nolint:errcheck // w is always a bytes.Buffer
+			io.WriteString(w, tok) //nolint:errcheck // w is always a bytes.Buffer
 		}
 	}
-	return len(tokens)
 }

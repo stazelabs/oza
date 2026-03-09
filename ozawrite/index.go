@@ -50,12 +50,12 @@ func buildTitleIndex(records []titleRecord) []byte {
 
 const restartInterval = 64
 
-// serializeIndex encodes a front-coded index with a shared string table (IDX3).
+// serializeIndex encodes a front-coded index with a shared string table (IDX1).
 func serializeIndex(ids []uint32, keys []string, tokenize func(string) []string) []byte {
 	n := len(ids)
 	if n == 0 {
 		buf := make([]byte, 24)
-		binary.LittleEndian.PutUint32(buf[0:4], oza.IndexV3Magic)
+		binary.LittleEndian.PutUint32(buf[0:4], oza.IndexV1Magic)
 		return buf
 	}
 
@@ -119,7 +119,7 @@ func serializeIndex(ids []uint32, keys []string, tokenize func(string) []string)
 	totalSize := recordStart + recordBuf.Len()
 	buf := make([]byte, totalSize)
 
-	binary.LittleEndian.PutUint32(buf[0:4], oza.IndexV3Magic)
+	binary.LittleEndian.PutUint32(buf[0:4], oza.IndexV1Magic)
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(n))
 	binary.LittleEndian.PutUint32(buf[8:12], uint32(restartInterval))
 	binary.LittleEndian.PutUint32(buf[12:16], uint32(restartCount))

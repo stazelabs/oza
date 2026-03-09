@@ -14,6 +14,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+
+	"github.com/stazelabs/oza/internal/mcptools"
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -52,15 +54,6 @@ Archives may be specified as positional arguments, via --dir, or both.`,
 	}
 }
 
-// archiveInfo holds a loaded archive and its derived metadata.
-type archiveInfo struct {
-	archive     *oza.Archive
-	slug        string
-	title       string
-	description string
-	uuidHex     string
-}
-
 func run(paths []string, dirs []string, recursive bool, transport string, cacheSize int) error {
 	dirPaths := collectOZAPaths(dirs, recursive)
 	allPaths := append(paths, dirPaths...)
@@ -71,12 +64,12 @@ func run(paths []string, dirs []string, recursive bool, transport string, cacheS
 	}
 	defer func() {
 		for _, ai := range archives {
-			ai.archive.Close()
+			ai.Archive.Close()
 		}
 	}()
 
 	for _, ai := range archives {
-		log.Printf("loaded: %s — %s (%d entries)", ai.slug, ai.title, ai.archive.EntryCount())
+		log.Printf("loaded: %s — %s (%d entries)", ai.Slug, ai.Title, ai.Archive.EntryCount())
 	}
 
 	server := mcp.NewServer(&mcp.Implementation{
@@ -84,8 +77,9 @@ func run(paths []string, dirs []string, recursive bool, transport string, cacheS
 		Version: "0.1.0",
 	}, nil)
 
-	registerTools(server, archives)
-	registerResources(server, archives)
+	// No URL builders: standalone MCP server has no HTTP base URL.
+	mcptools.RegisterTools(server, archives, nil, nil)
+	mcptools.RegisterResources(server, archives, nil, nil)
 
 	switch transport {
 	case "stdio":
@@ -95,10 +89,10 @@ func run(paths []string, dirs []string, recursive bool, transport string, cacheS
 	}
 }
 
-// loadArchives opens OZA files and returns archiveInfo slices keyed by slug.
-func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]*archiveInfo, error) {
+// loadArchives opens OZA files and returns an ordered slice of ArchiveInfo.
+func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]mcptools.ArchiveInfo, error) {
 	slugs := make(map[string]bool)
-	var archives []*archiveInfo
+	var archives []mcptools.ArchiveInfo
 
 	for i, path := range paths {
 		a, err := oza.OpenWithOptions(path, oza.WithCacheSize(cacheSize))
@@ -124,12 +118,20 @@ func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]*archiveI
 		desc, _ := a.Metadata("description")
 		uuid := a.UUID()
 
-		archives = append(archives, &archiveInfo{
-			archive:     a,
-			slug:        slug,
-			title:       title,
-			description: desc,
-			uuidHex:     hex.EncodeToString(uuid[:]),
+		var faIDs []uint32
+		a.ForEachEntryRecord(func(id uint32, rec oza.EntryRecord) {
+			if rec.IsFrontArticle() {
+				faIDs = append(faIDs, id)
+			}
+		})
+
+		archives = append(archives, mcptools.ArchiveInfo{
+			Archive:         a,
+			Slug:            slug,
+			Title:           title,
+			Description:     desc,
+			UUIDHex:         hex.EncodeToString(uuid[:]),
+			FrontArticleIDs: faIDs,
 		})
 	}
 
@@ -137,7 +139,7 @@ func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]*archiveI
 		return nil, errors.New("no valid OZA files found")
 	}
 	sort.Slice(archives, func(i, j int) bool {
-		return strings.ToLower(archives[i].title) < strings.ToLower(archives[j].title)
+		return strings.ToLower(archives[i].Title) < strings.ToLower(archives[j].Title)
 	})
 	return archives, nil
 }

@@ -8,16 +8,17 @@ import (
 // SectionDesc is the fixed 80-byte section descriptor.
 //
 // Binary layout (all integers little-endian except SHA256 which is raw bytes):
-//   [0:4]   Type             SectionType (uint32)
-//   [4:8]   Flags            uint32
-//   [8:16]  Offset           uint64
-//   [16:24] CompressedSize   uint64
-//   [24:32] UncompressedSize uint64
-//   [32]    Compression      uint8
-//   [33:36] reserved         (3 bytes)
-//   [36:40] DictID           uint32
-//   [40:48] reserved         (8 bytes)
-//   [48:80] SHA256           [32]byte
+//
+//	[0:4]   Type             SectionType (uint32)
+//	[4:8]   Flags            uint32
+//	[8:16]  Offset           uint64
+//	[16:24] CompressedSize   uint64
+//	[24:32] UncompressedSize uint64
+//	[32]    Compression      uint8
+//	[33:36] reserved         (3 bytes)
+//	[36:40] DictID           uint32
+//	[40:48] reserved         (8 bytes)
+//	[48:80] SHA256           [32]byte
 type SectionDesc struct {
 	Type             SectionType
 	Flags            uint32
