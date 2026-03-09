@@ -42,6 +42,9 @@ func ParseIndex(data []byte) (*Index, error) {
 
 	count := binary.LittleEndian.Uint32(data[4:8])
 	interval := binary.LittleEndian.Uint32(data[8:12])
+	if count > 0 && interval == 0 {
+		return nil, fmt.Errorf("oza: index restart_interval is zero with non-empty index")
+	}
 	restartCount := binary.LittleEndian.Uint32(data[12:16])
 	tableCount := binary.LittleEndian.Uint32(data[16:20])
 	tableSize := binary.LittleEndian.Uint32(data[20:24])
@@ -77,6 +80,9 @@ func ParseIndex(data []byte) (*Index, error) {
 
 // parseStringTable reads tableCount length-prefixed strings from data.
 func parseStringTable(data []byte, count int) ([]string, error) {
+	if count > len(data)/2 {
+		return nil, fmt.Errorf("oza: string table count %d too large for %d-byte table", count, len(data))
+	}
 	table := make([]string, count)
 	off := 0
 	for i := 0; i < count; i++ {
