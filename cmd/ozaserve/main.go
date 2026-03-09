@@ -89,6 +89,7 @@ type archiveEntry struct {
 }
 
 func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize int, noInfo bool, mcpEnabled bool) error {
+	initTemplates()
 	startTime := time.Now()
 	dirPaths := collectOZAPaths(dirs, recursive)
 	allPaths := append(paths, dirPaths...)

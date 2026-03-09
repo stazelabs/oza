@@ -30,6 +30,7 @@ linters:
         - G501  # crypto/md5 import — same as G401
         - G705  # XSS taint — content served from archive is intentionally user-facing HTML
         - G706  # log injection — false positive for normal fmt.Printf-style logging
+        - G203  # template.HTML conversion — safeHTML helper wraps pre-rendered trusted content
 
   exclusions:
     rules:

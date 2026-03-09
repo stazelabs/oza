@@ -17,7 +17,7 @@ func ParseMetadata(data []byte) (map[string][]byte, error) {
 	}
 
 	count := int(binary.LittleEndian.Uint32(data[0:4]))
-	m := make(map[string][]byte, count)
+	m := make(map[string][]byte)
 	off := 4
 
 	for i := range count {
