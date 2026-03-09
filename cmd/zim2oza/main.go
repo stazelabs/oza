@@ -1,0 +1,123 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/pprof"
+
+	"github.com/spf13/cobra"
+)
+
+func main() {
+	root := &cobra.Command{
+		Use:   "zim2oza <input.zim> <output.oza>",
+		Short: "Convert a ZIM archive to OZA format",
+		Args:  cobra.ExactArgs(2),
+		RunE:  run,
+	}
+
+	root.Flags().Int("zstd-level", 6, "Zstd compression level (1=fastest, 6=default, 19=best)")
+	root.Flags().Int("dict-samples", 2000, "Max samples for dictionary training")
+	root.Flags().Int("chunk-size", 4*1024*1024, "Target uncompressed chunk size in bytes")
+	root.Flags().Bool("no-search", false, "Disable trigram search indices")
+	root.Flags().Bool("no-dict", false, "Disable Zstd dictionary training")
+	root.Flags().Bool("minify", false, "Enable content minification (HTML, CSS, JS, SVG)")
+	root.Flags().Bool("no-optimize-images", false, "Disable lossless image optimization (JPEG metadata strip)")
+	root.Flags().Int("compress-workers", 0, "Parallel compression workers (0 = min(NumCPU, 4))")
+	root.Flags().Bool("verbose", false, "Print detailed progress and statistics")
+	root.Flags().Bool("json-stats", false, "Output statistics as JSON (implies --verbose)")
+	root.Flags().Bool("dry-run", false, "Scan and report statistics without writing output")
+	root.Flags().String("profile", "", "Write CPU and memory profiles to this directory")
+
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func run(cmd *cobra.Command, args []string) error {
+	inputPath := args[0]
+	outputPath := args[1]
+
+	zstdLevel, _ := cmd.Flags().GetInt("zstd-level")
+	dictSamples, _ := cmd.Flags().GetInt("dict-samples")
+	chunkSize, _ := cmd.Flags().GetInt("chunk-size")
+	noSearch, _ := cmd.Flags().GetBool("no-search")
+	noDict, _ := cmd.Flags().GetBool("no-dict")
+	minify, _ := cmd.Flags().GetBool("minify")
+	noOptimizeImages, _ := cmd.Flags().GetBool("no-optimize-images")
+	compressWorkers, _ := cmd.Flags().GetInt("compress-workers")
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	jsonStats, _ := cmd.Flags().GetBool("json-stats")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	if jsonStats {
+		verbose = true
+	}
+	profileDir, _ := cmd.Flags().GetString("profile")
+
+	// Start CPU profiling if requested.
+	if profileDir != "" {
+		if err := os.MkdirAll(profileDir, 0o755); err != nil {
+			return fmt.Errorf("creating profile dir: %w", err)
+		}
+		cpuf, err := os.Create(filepath.Join(profileDir, "cpu.prof"))
+		if err != nil {
+			return fmt.Errorf("creating CPU profile: %w", err)
+		}
+		if err := pprof.StartCPUProfile(cpuf); err != nil {
+			cpuf.Close()
+			return fmt.Errorf("starting CPU profile: %w", err)
+		}
+		defer func() {
+			pprof.StopCPUProfile()
+			cpuf.Close()
+		}()
+	}
+
+	opts := ConvertOptions{
+		ZstdLevel:       zstdLevel,
+		DictSamples:     dictSamples,
+		ChunkSize:       chunkSize,
+		BuildSearch:     !noSearch,
+		TrainDict:       !noDict,
+		Minify:          minify,
+		OptimizeImages:  !noOptimizeImages,
+		CompressWorkers: compressWorkers,
+		Verbose:         verbose,
+		DryRun:          dryRun,
+	}
+
+	c, err := NewConverter(inputPath, outputPath, opts)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	if err := c.Run(); err != nil {
+		return err
+	}
+
+	// Write memory profile after conversion completes.
+	if profileDir != "" {
+		memf, err := os.Create(filepath.Join(profileDir, "mem.prof"))
+		if err == nil {
+			runtime.GC()
+			_ = pprof.WriteHeapProfile(memf)
+			memf.Close()
+		}
+	}
+
+	if verbose || dryRun {
+		if jsonStats {
+			c.stats.PrintJSON(os.Stdout)
+		} else {
+			c.stats.Print(os.Stderr)
+		}
+	}
+
+	if !dryRun {
+		fmt.Fprintf(os.Stderr, "Converted %s -> %s\n", inputPath, outputPath)
+	}
+	return nil
+}

@@ -1,0 +1,28 @@
+# Claude Code settings
+.claude/
+
+# Build output
+bin/
+/ozainfo
+/ozamcp
+/ozaserve
+/ozacat
+/ozasearch
+/ozaverify
+/zim2oza
+*.test
+
+# Test data (large files)
+testdata/*.zim
+testdata/*.oza
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
