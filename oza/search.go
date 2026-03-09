@@ -152,7 +152,17 @@ func cjkQueryGrams(text []byte) [][3]byte {
 // Returns nil if no results are found or the query is shorter than 3 bytes.
 // In CJK bigram mode (flags bit 0) the query is decomposed into
 // character-aligned grams rather than a raw byte sliding window.
-func (idx *TrigramIndex) Search(query string, limit int) []uint32 {
+func (idx *TrigramIndex) Search(query string, limit int) (ids []uint32) {
+	// A malformed archive can produce a bitmap that ReadFrom accepts but whose
+	// internal run-container state is inconsistent, causing panics during
+	// iteration. Recover and return nil so callers get "no results" instead of
+	// a crash.
+	defer func() {
+		if recover() != nil {
+			ids = nil
+		}
+	}()
+
 	lower := bytes.ToLower([]byte(query))
 	if len(lower) < 3 {
 		return nil
