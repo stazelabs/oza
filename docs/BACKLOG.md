@@ -246,19 +246,23 @@ Added four tools to `internal/mcptools` (shared by both `ozamcp` and `ozaserve -
 Also added `Archive.TitleCount() int` to `oza/archive.go` (returns 0 if no title index)
 and updated `docs/OZAMCP.md` with full parameter tables for all seven tools.
 
-### 5.2 Existing tool enhancements
+### 5.2 Existing tool enhancements ✓ RESOLVED
 
 **`read_entry`:**
-- Add `max_length` parameter — truncate output to N characters/tokens. Critical for
-  token budget management before CONTEXT_HINTS exists.
-- Add `section` parameter — read only content under a specific heading (requires HTML
-  heading parsing). Enables targeted extraction.
+- ✓ Added `max_length` parameter — truncates output to N characters (rune-aware).
+  When truncated, appends `\n\n[truncated]` marker. Applies after markdown conversion
+  and header, so the header always appears.
+- ✓ Added `section` parameter — extracts content under the first heading matching
+  the given text (case-insensitive). Uses `internal/snippet.ExtractSection()` with
+  `golang.org/x/net/html` tokenizer to find the heading and collect everything up to
+  the next heading of equal or higher level. Returns an error if the section is not
+  found. Works with `format=markdown` (section HTML is converted after extraction).
 
 **`search_text`:**
-- Return `mime_type` and `content_size` in results so the LLM can estimate token cost
-  before committing to `read_entry`.
-- Return a text snippet/excerpt around the match location. Currently results have
-  title/path only — the LLM has no preview of relevance.
+- ✓ Added `mime_type` and `content_size` fields to every search result, enabling
+  LLMs to estimate token cost before committing to `read_entry`.
+- ✓ Added `snippets` and `snippet_length` parameters — see §7.2 "Search result
+  snippets".
 
 ### 5.3 Future MCP tools (require new sections)
 
@@ -390,14 +394,21 @@ HTML. Currently only `text/html` entries get served correctly. Markdown is the
 preferred format for extracted text (see ZIM_OBSERVATIONS.md) and will be the format
 for the PLAIN_TEXT section.
 
-#### Search result snippets
+#### Search result snippets ✓ RESOLVED
 
-Search results (HTTP and MCP) return title/path only. No preview of *why* a result
-matched or what the content looks like. Extracting a snippet around the match location
-(or at least the first N characters of the entry) would dramatically improve usability.
+Added `internal/snippet` package with `StripHTML()` (using `golang.org/x/net/html`
+tokenizer), `Extract()` (rune-aware windowed excerpt with word-boundary snapping and
+ellipsis), and `ForEntry()` (convenience wrapper for OZA entries).
 
-**Considerations:** Requires decompressing the entry content for each result. Could be
-optional (`?snippets=true`) to avoid the performance cost by default.
+MCP `search_text` tool gains `snippets` (bool, default false) and `snippet_length`
+(int, default 200, max 500) parameters. When enabled, each `searchHit` includes a
+`snippet` field with a plain-text excerpt centered on the query match.
+
+HTTP search endpoints (`/_search`, `/{archive}/_search`, `/{archive}/-/search`) gain
+`?snippets=true&snippet_length=N` query parameters. The HTML search page renders
+snippets below each result link. Snippets are only generated for `text/html` entries;
+non-HTML entries return an empty snippet. Opt-in design avoids decompression cost by
+default.
 
 #### Structured access logging
 
@@ -660,11 +671,15 @@ Decomposed `ozawrite/writer.go` (1,117 lines) into three focused files:
   `writeContentSection`, `contentSectionSize`, `cleanupTemp`, `newRawSection`,
   `compressRawSection`.
 
-### 12.2 ozaserve inline HTML/JS
+### 12.2 ozaserve inline HTML/JS ✓ RESOLVED
 
-`ozaserve` generates all HTML/CSS/JS inline in Go string literals. This works for the
-current minimal UI but becomes a maintenance burden as the UI grows. Consider
-Go templates or embedding static assets.
+Refactored all inline HTML/CSS/JS from `fmt.Fprintf` calls into Go `html/template`
+files under `cmd/ozaserve/templates/` with `embed.FS`. Added `templates.go` with
+`initTemplates()`, `renderTemplate()`, and a FuncMap (`commaInt`, `formatBytes`,
+`formatBytesShort`, `safeHTML`). Templates: `_head.html`, `_footer.html`,
+`error.html`, `docs.html`, `search.html`, `browse.html`, `index.html`, `info.html`,
+`info_global.html`. Handler files (`errorpage.go`, `docs.go`, `index.go`, `info.go`,
+`handlers.go`) now build typed data structs and call `renderTemplate`.
 
 ### 12.3 Dual MCP implementations ✓ RESOLVED
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html><head>
+{{template "head"}}
+<title>&#x738B;&#x5EA7; Search — {{.Title}}</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
+h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
+form { margin-bottom: 20px; display: flex; gap: 8px; }
+form input[type=text] { flex: 1; padding: 8px 12px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
+form input[type=text]:focus { outline: none; border-color: #0366d6; }
+form button { padding: 8px 16px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+.results .result { padding: 8px 0; border-bottom: 1px solid #eee; }
+.results a { display: block; color: #0366d6; text-decoration: none; }
+.results a:hover { text-decoration: underline; }
+.results .snippet { color: #586069; font-size: 0.9em; margin: 2px 0 0; }
+.empty { color: #666; font-style: italic; }
+.nav { margin-top: 10px; font-size: 0.9em; }
+.nav a { color: #0366d6; }
+</style></head><body>
+<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Search — <a href="/{{.Slug}}/">{{.Title}}</a></h2>
+<form method="get">
+<input type="text" name="q" value="{{.Query}}" placeholder="Search..." autofocus>
+<button type="submit">Search</button>
+</form>
+{{if .Query}}
+  {{if not .Results}}
+    <p class="empty">No results found.</p>
+  {{else}}
+    <p>{{len .Results}} result(s):</p>
+    <div class="results">
+    {{range .Results}}
+      <div class="result"><a href="{{.Path}}">{{.Title}}</a>
+      {{if .Snippet}}<p class="snippet">{{.Snippet}}</p>{{end}}
+      </div>
+    {{end}}
+    </div>
+  {{end}}
+{{end}}
+<div class="nav"><a href="/">Library</a> · <a href="/{{.Slug}}/">Back to main page</a> · <a href="/{{.Slug}}/-/browse">Browse</a> · <a href="/{{.Slug}}/-/random">Random</a></div>
+{{template "footer" .}}
+</body></html>

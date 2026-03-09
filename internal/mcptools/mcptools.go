@@ -18,6 +18,7 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/stazelabs/oza/internal/snippet"
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -88,9 +89,11 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		searchDesc = "Search OZA archives using trigram text search. Returns matching entries with titles, paths, and browsable URLs. Always present each result as a clickable markdown link using the url field, e.g. [Title](url). Use list_archives first to see available archives."
 	}
 	type searchTextInput struct {
-		Query   string `json:"query" jsonschema:"Search query string (min 3 chars for trigram matching)"`
-		Archive string `json:"archive,omitempty" jsonschema:"Archive slug to search (omit to search all)"`
-		Limit   int    `json:"limit,omitempty" jsonschema:"Maximum results to return (default 20)"`
+		Query         string `json:"query" jsonschema:"Search query string (min 3 chars for trigram matching)"`
+		Archive       string `json:"archive,omitempty" jsonschema:"Archive slug to search (omit to search all)"`
+		Limit         int    `json:"limit,omitempty" jsonschema:"Maximum results to return (default 20)"`
+		Snippets      bool   `json:"snippets,omitempty" jsonschema:"Include a text snippet from each matching entry (default false)"`
+		SnippetLength int    `json:"snippet_length,omitempty" jsonschema:"Maximum characters per snippet (default 200, max 500)"`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_text",
@@ -120,13 +123,24 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		}
 
 		type searchHit struct {
-			Archive    string `json:"archive"`
-			EntryID    uint32 `json:"entry_id"`
-			Path       string `json:"path"`
-			Title      string `json:"title"`
-			URL        string `json:"url,omitempty"`
-			TitleMatch bool   `json:"title_match"`
-			BodyMatch  bool   `json:"body_match"`
+			Archive     string `json:"archive"`
+			EntryID     uint32 `json:"entry_id"`
+			Path        string `json:"path"`
+			Title       string `json:"title"`
+			MIMEType    string `json:"mime_type"`
+			ContentSize uint32 `json:"content_size"`
+			URL         string `json:"url,omitempty"`
+			TitleMatch  bool   `json:"title_match"`
+			BodyMatch   bool   `json:"body_match"`
+			Snippet     string `json:"snippet,omitempty"`
+		}
+
+		snippetLen := input.SnippetLength
+		if snippetLen <= 0 {
+			snippetLen = 200
+		}
+		if snippetLen > 500 {
+			snippetLen = 500
 		}
 		var hits []searchHit
 		for _, ai := range targets {
@@ -139,15 +153,20 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			}
 			for _, r := range results {
 				hit := searchHit{
-					Archive:    ai.Slug,
-					EntryID:    r.Entry.ID(),
-					Path:       r.Entry.Path(),
-					Title:      r.Entry.Title(),
-					TitleMatch: r.TitleMatch,
-					BodyMatch:  r.BodyMatch,
+					Archive:     ai.Slug,
+					EntryID:     r.Entry.ID(),
+					Path:        r.Entry.Path(),
+					Title:       r.Entry.Title(),
+					MIMEType:    r.Entry.MIMEType(),
+					ContentSize: r.Entry.Size(),
+					TitleMatch:  r.TitleMatch,
+					BodyMatch:   r.BodyMatch,
 				}
 				if entryURL != nil {
 					hit.URL = entryURL(ai.Slug, r.Entry.Path())
+				}
+				if input.Snippets {
+					hit.Snippet = snippet.ForEntry(r.Entry, input.Query, snippetLen)
 				}
 				hits = append(hits, hit)
 			}
@@ -471,10 +490,12 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		readDesc = "Read the content of an OZA archive entry by ID or path. Returns clean markdown with a browsable source URL in the header. Always include the source link in your response so users can open the full article in their browser."
 	}
 	type readEntryInput struct {
-		Archive string `json:"archive" jsonschema:"Archive slug (required). Use list_archives to see available archives."`
-		EntryID *int   `json:"entry_id,omitempty" jsonschema:"Entry ID (from search results). Provide either entry_id or path."`
-		Path    string `json:"path,omitempty" jsonschema:"Entry path within the archive. Provide either entry_id or path."`
-		Format  string `json:"format,omitempty" jsonschema:"Output format: markdown (default) or html"`
+		Archive   string `json:"archive" jsonschema:"Archive slug (required). Use list_archives to see available archives."`
+		EntryID   *int   `json:"entry_id,omitempty" jsonschema:"Entry ID (from search results). Provide either entry_id or path."`
+		Path      string `json:"path,omitempty" jsonschema:"Entry path within the archive. Provide either entry_id or path."`
+		Format    string `json:"format,omitempty" jsonschema:"Output format: markdown (default) or html"`
+		MaxLength int    `json:"max_length,omitempty" jsonschema:"Truncate output to this many characters (0 = no limit). Useful for managing token budgets."`
+		Section   string `json:"section,omitempty" jsonschema:"Return only the content under this heading (case-insensitive match). Requires HTML content."`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "read_entry",
@@ -528,16 +549,30 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			}
 		}
 
+		raw := string(content)
+
+		// If a section heading is requested, extract just that section's HTML.
+		if input.Section != "" && strings.Contains(mime, "html") {
+			section := snippet.ExtractSection(raw, input.Section)
+			if section == "" {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("error: section %q not found in entry", input.Section)}},
+					IsError: true,
+				}, nil, nil
+			}
+			raw = section
+		}
+
 		var text string
 		if format == "markdown" && strings.Contains(mime, "html") {
-			md, err := htmltomarkdown.ConvertString(string(content))
+			md, err := htmltomarkdown.ConvertString(raw)
 			if err != nil {
-				text = string(content)
+				text = raw
 			} else {
 				text = md
 			}
 		} else {
-			text = string(content)
+			text = raw
 		}
 
 		var header string
@@ -552,8 +587,18 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			header = fmt.Sprintf("# %s\n\n", entry.Title())
 		}
 
+		result := header + text
+
+		// Truncate to max_length if specified.
+		if input.MaxLength > 0 {
+			runes := []rune(result)
+			if len(runes) > input.MaxLength {
+				result = string(runes[:input.MaxLength]) + "\n\n[truncated]"
+			}
+		}
+
 		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: header + text}},
+			Content: []mcp.Content{&mcp.TextContent{Text: result}},
 		}, nil, nil
 	})
 }

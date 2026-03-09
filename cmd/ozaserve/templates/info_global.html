@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html><head>
+{{template "head"}}
+<title>&#x738B;&#x5EA7; Server Info</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
+h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 1.15em; margin-top: 28px; color: #333; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
+th { width: 200px; color: #555; font-weight: 600; white-space: nowrap; }
+td { word-break: break-all; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.nav { margin-top: 20px; font-size: 0.9em; }
+.archives-wrap { overflow-x: auto; }
+.archives { width: max-content; min-width: 100%; }
+.archives td, .archives th { white-space: nowrap; }
+.archives .col-name { white-space: normal; min-width: 180px; word-break: break-word; }
+.archives .col-name a.ilink { color: #aaa; font-size: 0.85em; margin-left: 4px; vertical-align: middle; text-decoration: none; }
+.archives .col-name a.ilink:hover { color: #0366d6; }
+.archives th[data-col] { cursor: pointer; user-select: none; }
+.archives th[data-col]:hover { background: #f6f8fa; }
+.archives th.sorted { color: #0366d6; }
+.arrow { font-size: 0.75em; margin-left: 4px; }
+</style></head><body>
+<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Server Info</h2>
+
+<h2>Process</h2><table>
+{{range .ProcessRows}}<tr><th>{{.Label}}</th><td{{if .Class}} class="{{.Class}}"{{end}}>{{.Value}}</td></tr>
+{{end}}
+</table>
+
+<h2>Archives</h2><div class="archives-wrap">
+<table class="archives" id="archives-tbl">
+<thead><tr>
+  <th class="col-name" data-col="0">Archive<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="1">File Size<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="2">Structural RAM<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="3">Total RAM (est.)<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="4">Entries<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="5">Redirects<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="6">Chunks<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="7">Cache<span class="arrow"></span></th>
+  <th style="text-align:right" data-col="8">Load<span class="arrow"></span></th>
+</tr></thead>
+<tbody>
+{{range .ArchiveRows}}
+<tr>
+  <td class="col-name" data-val="{{.Title}}"><a href="/{{.Slug}}/">{{.Title}}</a><a href="/{{.Slug}}/-/info" class="ilink" title="Archive info">ⓘ</a></td>
+  <td class="num" data-val="{{.FileSizeRaw}}">{{.FileSize}}</td>
+  <td class="num" data-val="{{.StructuralRaw}}">{{.Structural}}</td>
+  <td class="num" data-val="{{.TotalRaw}}">{{.Total}}</td>
+  <td class="num" data-val="{{.EntryCount}}">{{commaInt .EntryCount}}</td>
+  <td class="num" data-val="{{.RedirectCount}}">{{commaInt .RedirectCount}}</td>
+  <td class="num" data-val="{{.ChunkCount}}">{{commaInt .ChunkCount}}</td>
+  <td class="num mono" data-val="{{.CacheVal}}" style="font-size:0.9em">{{.CacheStr}}</td>
+  <td class="num" data-val="{{.LoadSecs}}">{{.LoadStr}}</td>
+</tr>
+{{end}}
+</tbody><tfoot><tr style="font-weight:600;border-top:2px solid #ccc">
+  <td>Total ({{.ArchiveCount}} archives)</td>
+  <td class="num">{{.TotFileSize}}</td>
+  <td class="num">{{.TotStructural}}</td>
+  <td class="num">{{.TotTotal}}</td>
+  <td class="num">{{commaInt .TotEntries}}</td>
+  <td class="num">{{commaInt .TotRedirects}}</td>
+  <td class="num">{{commaInt .TotChunks}}</td>
+  <td class="num">{{.TotCacheNow}}/{{.TotCacheCap}}</td>
+  <td></td>
+</tr></tfoot>
+</table></div>
+<script>
+(function(){
+  var col = 0, asc = true;
+  var tbl = document.getElementById('archives-tbl');
+  var ths = tbl.querySelectorAll('thead th[data-col]');
+  var tbody = tbl.querySelector('tbody');
+  var numCols = {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1};
+  function sort(c, a) {
+    col = c; asc = a;
+    ths.forEach(function(th, i) {
+      var arrow = th.querySelector('.arrow');
+      arrow.textContent = i === c ? (a ? ' \u25b2' : ' \u25bc') : '';
+      th.classList.toggle('sorted', i === c);
+    });
+    var rows = Array.from(tbody.rows);
+    rows.sort(function(ra, rb) {
+      var av = ra.cells[c].dataset.val;
+      var bv = rb.cells[c].dataset.val;
+      var cmp = numCols[c] ? +av - +bv : av.toLowerCase().localeCompare(bv.toLowerCase());
+      return a ? cmp : -cmp;
+    });
+    rows.forEach(function(r){ tbody.appendChild(r); });
+  }
+  ths.forEach(function(th, i){
+    th.addEventListener('click', function(){ sort(i, col === i ? !asc : true); });
+  });
+  sort(0, true);
+})();
+</script>
+<p style="font-size:0.85em;color:#666">Structural RAM: exact (decompressed sections + chunk table). Total RAM: adds ~48 bytes/entry for reverse maps. Chunk content not counted (on-demand).</p>
+
+{{if .BuildInfo}}
+<h2>Build</h2><table>
+{{range .BuildRows}}<tr><th>{{.Label}}</th><td class="mono"{{if .Style}} style="{{.Style}}"{{end}}>{{safeHTML .Value}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+{{if .Deps}}
+<h2>Dependencies</h2>
+<table>
+<tr><th style="width:auto">Module</th><th style="width:160px">Version</th><th style="width:auto">Replace</th></tr>
+{{range .Deps}}<tr><td class="mono" style="word-break:break-all">{{.Path}}</td><td class="mono">{{.Version}}</td><td class="mono" style="font-size:0.85em;color:#666">{{.Replace}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+<div class="nav"><a href="/">Library</a></div>
+{{template "footer" .}}
+</body></html>

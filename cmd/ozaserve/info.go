@@ -16,6 +16,61 @@ import (
 	"github.com/stazelabs/oza/oza"
 )
 
+// --- Shared row types for info templates ---
+
+type infoRow struct {
+	Label string
+	Value string
+	Class string
+	Style string
+}
+
+type indexInfo struct {
+	Name   string
+	Badge  string
+	Detail string
+}
+
+type metaRow struct {
+	Key   string
+	Value string // rendered as safeHTML in template
+}
+
+type mimeTypeRow struct {
+	Index int
+	Type  string
+}
+
+type sectionRow struct {
+	Index       int
+	Type        string
+	CompSize    string
+	UncompSize  string
+	Compression string
+	SHA256Short string
+}
+
+// --- Per-archive info page ---
+
+type infoPageData struct {
+	Slug        string
+	Title       string
+	FormatRows  []infoRow
+	RuntimeRows []infoRow
+	Indices     []indexInfo
+	MetaRows    []metaRow
+	MIMETypes   []mimeTypeRow
+	Sections    []sectionRow
+	FooterHTML  string
+}
+
+func yesNoBadge(b bool) string {
+	if b {
+		return `<span class="badge badge-yes">Yes</span>`
+	}
+	return `<span class="badge badge-no">No</span>`
+}
+
 // handleInfo serves GET /{archive}/-/info — diagnostic overview for a single archive.
 func (lib *library) handleInfo(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("archive")
@@ -28,67 +83,29 @@ func (lib *library) handleInfo(w http.ResponseWriter, r *http.Request) {
 	a := ae.archive
 	hdr := a.FileHeader()
 
-	// Collect all metadata keys, sorted.
-	rawMeta := a.AllMetadata()
-	metaKeys := make([]string, 0, len(rawMeta))
-	for k := range rawMeta {
-		metaKeys = append(metaKeys, k)
-	}
-	sort.Strings(metaKeys)
-
 	uuidStr := fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		hdr.UUID[0:4], hdr.UUID[4:6], hdr.UUID[6:8], hdr.UUID[8:10], hdr.UUID[10:16])
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>&#x738B;&#x5EA7; Info &#x2014; %s</title>
-`+faviconLink+`
-<style>
-body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
-h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
-h1 a { color: inherit; text-decoration: none; }
-h2 { font-size: 1.15em; margin-top: 28px; color: #333; }
-table { border-collapse: collapse; width: 100%%; margin-bottom: 16px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
-th { width: 200px; color: #555; font-weight: 600; white-space: nowrap; }
-td { word-break: break-all; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: 600; }
-.badge-yes { background: #dcffe4; color: #1a7f37; }
-.badge-no { background: #ffebe9; color: #cf222e; }
-a { color: #0366d6; text-decoration: none; }
-a:hover { text-decoration: underline; }
-.nav { margin-top: 20px; font-size: 0.9em; }
-</style></head><body>
-<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Info &#x2014; <a href="/%s/">%s</a></h2>`,
-		html.EscapeString(ae.title),
-		html.EscapeString(slug), html.EscapeString(ae.title))
-
-	// Format / header section.
-	yesNo := func(b bool) string {
-		if b {
-			return `<span class="badge badge-yes">Yes</span>`
-		}
-		return `<span class="badge badge-no">No</span>`
-	}
-
 	sections := a.Sections()
+	rawMeta := a.AllMetadata()
 
-	fmt.Fprint(w, `<h2>Format</h2><table>`)
-	fmt.Fprintf(w, `<tr><th>Filename</th><td>%s</td></tr>`, html.EscapeString(ae.filename))
-	fmt.Fprintf(w, `<tr><th>UUID</th><td class="mono">%s</td></tr>`, uuidStr)
-	fmt.Fprintf(w, `<tr><th>Version</th><td>%d.%d</td></tr>`, hdr.MajorVersion, hdr.MinorVersion)
-	fmt.Fprintf(w, `<tr><th>Entry Count</th><td>%s</td></tr>`, commaInt(int(hdr.EntryCount)))
-	fmt.Fprintf(w, `<tr><th>Content Size</th><td>%s</td></tr>`, formatBytes(int64(hdr.ContentSize)))
-	if chunkSize, ok := rawMeta["chunk_target_size"]; ok {
-		fmt.Fprintf(w, `<tr><th>Chunk Target Size</th><td>%s</td></tr>`, formatBytes(parseMetaInt64(chunkSize)))
+	// Format rows.
+	formatRows := []infoRow{
+		{Label: "Filename", Value: ae.filename},
+		{Label: "UUID", Value: uuidStr, Class: "mono"},
+		{Label: "Version", Value: fmt.Sprintf("%d.%d", hdr.MajorVersion, hdr.MinorVersion)},
+		{Label: "Entry Count", Value: commaInt(int(hdr.EntryCount))},
+		{Label: "Content Size", Value: formatBytes(int64(hdr.ContentSize))},
 	}
-	fmt.Fprintf(w, `<tr><th>Redirect Count</th><td>%s</td></tr>`, commaInt(int(a.RedirectCount())))
-	fmt.Fprintf(w, `<tr><th>Chunk Count</th><td>%s</td></tr>`, commaInt(a.ChunkCount()))
-	fmt.Fprintf(w, `<tr><th>Front Articles</th><td>%s</td></tr>`, commaInt(len(ae.frontArticleIDs)))
-	fmt.Fprintf(w, `<tr><th>Section Count</th><td>%d</td></tr>`, hdr.SectionCount)
-	// Compression ratio across all sections.
+	if chunkSize, ok := rawMeta["chunk_target_size"]; ok {
+		formatRows = append(formatRows, infoRow{Label: "Chunk Target Size", Value: formatBytes(parseMetaInt64(chunkSize))})
+	}
+	formatRows = append(formatRows,
+		infoRow{Label: "Redirect Count", Value: commaInt(int(a.RedirectCount()))},
+		infoRow{Label: "Chunk Count", Value: commaInt(a.ChunkCount())},
+		infoRow{Label: "Front Articles", Value: commaInt(len(ae.frontArticleIDs))},
+		infoRow{Label: "Section Count", Value: strconv.Itoa(int(hdr.SectionCount))},
+	)
 	var totalComp, totalUncomp int64
 	for _, s := range sections {
 		totalComp += int64(s.CompressedSize)
@@ -98,28 +115,29 @@ a:hover { text-decoration: underline; }
 	}
 	if totalUncomp > 0 {
 		ratio := float64(totalComp) / float64(totalUncomp) * 100
-		fmt.Fprintf(w, `<tr><th>Compression Ratio</th><td>%.1f%% of uncompressed</td></tr>`, ratio)
+		formatRows = append(formatRows, infoRow{Label: "Compression Ratio", Value: fmt.Sprintf("%.1f%% of uncompressed", ratio)})
 	}
-	// Main entry.
 	main, mainErr := a.MainEntry()
 	if mainErr == nil {
 		resolved, _ := main.Resolve()
-		fmt.Fprintf(w, `<tr><th>Main Entry</th><td><a href="/%s/%s">%s</a></td></tr>`,
-			html.EscapeString(slug), html.EscapeString(resolved.Path()),
-			html.EscapeString(resolved.Path()))
+		formatRows = append(formatRows, infoRow{
+			Label: "Main Entry",
+			Value: fmt.Sprintf(`<a href="/%s/%s">%s</a>`,
+				html.EscapeString(slug), html.EscapeString(resolved.Path()),
+				html.EscapeString(resolved.Path())),
+		})
 	} else {
-		fmt.Fprintf(w, `<tr><th>Main Entry</th><td>%s</td></tr>`, yesNo(false))
+		formatRows = append(formatRows, infoRow{Label: "Main Entry", Value: yesNoBadge(false)})
 	}
-	fmt.Fprint(w, `</table>`)
 
-	// Runtime section.
+	// Runtime rows.
 	var structuralRAM int64
 	for _, s := range sections {
 		if s.Type != oza.SectionContent {
 			structuralRAM += int64(s.UncompressedSize)
 		}
 	}
-	structuralRAM += int64(a.ChunkCount()) * oza.ChunkDescSize // chunk table kept in memory
+	structuralRAM += int64(a.ChunkCount()) * oza.ChunkDescSize
 	mapOverhead := int64(a.EntryCount()+a.RedirectCount()) * 48
 	totalRAM := structuralRAM + mapOverhead
 	cacheNow, cacheCap, cacheHits, cacheMisses := a.CacheStats()
@@ -129,24 +147,24 @@ a:hover { text-decoration: underline; }
 			float64(cacheHits)/float64(total)*100,
 			commaInt(int(cacheHits)), commaInt(int(total)))
 	} else {
-		hitRateStr = "— (no requests yet)"
+		hitRateStr = "\u2014 (no requests yet)"
 	}
-	fmt.Fprint(w, `<h2>Runtime</h2><table>`)
+	var runtimeRows []infoRow
 	if ae.fileSize > 0 {
-		fmt.Fprintf(w, `<tr><th>File Size</th><td>%s</td></tr>`, formatBytes(ae.fileSize))
+		runtimeRows = append(runtimeRows, infoRow{Label: "File Size", Value: formatBytes(ae.fileSize)})
 	}
-	fmt.Fprintf(w, `<tr><th>Structural RAM</th><td>%s</td></tr>`, formatBytes(structuralRAM))
-	fmt.Fprintf(w, `<tr><th>Map Overhead (est.)</th><td>%s</td></tr>`, formatBytes(mapOverhead))
-	fmt.Fprintf(w, `<tr><th>Total RAM (est.)</th><td>%s</td></tr>`, formatBytes(totalRAM))
-	fmt.Fprintf(w, `<tr><th>Chunk Cache</th><td>%d / %d chunks</td></tr>`, cacheNow, cacheCap)
-	fmt.Fprintf(w, `<tr><th>Cache Hit Rate</th><td>%s</td></tr>`, html.EscapeString(hitRateStr))
+	runtimeRows = append(runtimeRows,
+		infoRow{Label: "Structural RAM", Value: formatBytes(structuralRAM)},
+		infoRow{Label: "Map Overhead (est.)", Value: formatBytes(mapOverhead)},
+		infoRow{Label: "Total RAM (est.)", Value: formatBytes(totalRAM)},
+		infoRow{Label: "Chunk Cache", Value: fmt.Sprintf("%d / %d chunks", cacheNow, cacheCap)},
+		infoRow{Label: "Cache Hit Rate", Value: hitRateStr},
+	)
 	if ae.loadDuration > 0 {
-		fmt.Fprintf(w, `<tr><th>Load Time</th><td>%.2fs</td></tr>`, ae.loadDuration.Seconds())
+		runtimeRows = append(runtimeRows, infoRow{Label: "Load Time", Value: fmt.Sprintf("%.2fs", ae.loadDuration.Seconds())})
 	}
-	fmt.Fprint(w, `<tr><td colspan="2" style="font-size:0.85em;color:#666">Structural RAM is exact (sum of decompressed sections). Map overhead is ~48 bytes/entry. Chunk content loads on demand and is not counted.</td></tr>`)
-	fmt.Fprint(w, `</table>`)
 
-	// Indices section.
+	// Indices.
 	var hasPathIdx, hasTitleIdx bool
 	for _, s := range sections {
 		switch s.Type {
@@ -158,82 +176,79 @@ a:hover { text-decoration: underline; }
 	}
 	titleDocCount, hasTitleSearch := a.TitleSearchDocCount()
 	bodyDocCount, hasBodySearch := a.BodySearchDocCount()
-	fmt.Fprint(w, `<h2>Indices</h2><table>
-<tr><th style="width:200px">Index</th><th>Present</th><th>Details</th></tr>`)
-	fmt.Fprintf(w, `<tr><td>Path</td><td>%s</td><td></td></tr>`, yesNo(hasPathIdx))
-	fmt.Fprintf(w, `<tr><td>Title</td><td>%s</td><td></td></tr>`, yesNo(hasTitleIdx))
 
-	titleSearchDetail := ""
+	indices := []indexInfo{
+		{Name: "Path", Badge: yesNoBadge(hasPathIdx)},
+		{Name: "Title", Badge: yesNoBadge(hasTitleIdx)},
+	}
+	titleDetail := ""
 	if hasTitleSearch && titleDocCount > 0 {
-		titleSearchDetail = commaInt(int(titleDocCount)) + " docs indexed"
+		titleDetail = commaInt(int(titleDocCount)) + " docs indexed"
 	}
-	fmt.Fprintf(w, `<tr><td>Search &#x2014; Title</td><td>%s</td><td>%s</td></tr>`,
-		yesNo(hasTitleSearch), html.EscapeString(titleSearchDetail))
-
-	bodySearchDetail := ""
+	indices = append(indices, indexInfo{Name: "Search \u2014 Title", Badge: yesNoBadge(hasTitleSearch), Detail: titleDetail})
+	bodyDetail := ""
 	if hasBodySearch && bodyDocCount > 0 {
-		bodySearchDetail = commaInt(int(bodyDocCount)) + " docs indexed"
+		bodyDetail = commaInt(int(bodyDocCount)) + " docs indexed"
 	}
-	fmt.Fprintf(w, `<tr><td>Search &#x2014; Body</td><td>%s</td><td>%s</td></tr>`,
-		yesNo(hasBodySearch), html.EscapeString(bodySearchDetail))
+	indices = append(indices, indexInfo{Name: "Search \u2014 Body", Badge: yesNoBadge(hasBodySearch), Detail: bodyDetail})
 
-	fmt.Fprint(w, `</table>`)
-
-	// Metadata section.
-	if len(metaKeys) > 0 {
-		fmt.Fprint(w, `<h2>Metadata</h2><table>`)
-		for _, k := range metaKeys {
-			raw := rawMeta[k]
-			var display string
-			switch {
-			case strings.HasPrefix(k, "illustration_") && isBinaryMeta(raw):
-				// Render inline as a thumbnail image.
-				b64 := base64.StdEncoding.EncodeToString(raw)
-				display = fmt.Sprintf(`<img src="data:image/png;base64,%s" style="max-width:96px;max-height:96px;image-rendering:pixelated">`, b64)
-			case isBinaryMeta(raw):
-				display = fmt.Sprintf(`<code>&lt;binary %d bytes&gt;</code>`, len(raw))
-			default:
-				display = html.EscapeString(string(raw))
-				if len(raw) > 200 {
-					display = `<div style="max-height:100px;overflow-y:auto">` + display + `</div>`
-				}
+	// Metadata.
+	metaKeys := make([]string, 0, len(rawMeta))
+	for k := range rawMeta {
+		metaKeys = append(metaKeys, k)
+	}
+	sort.Strings(metaKeys)
+	var metaRows []metaRow
+	for _, k := range metaKeys {
+		raw := rawMeta[k]
+		var display string
+		switch {
+		case strings.HasPrefix(k, "illustration_") && isBinaryMeta(raw):
+			b64 := base64.StdEncoding.EncodeToString(raw)
+			display = fmt.Sprintf(`<img src="data:image/png;base64,%s" style="max-width:96px;max-height:96px;image-rendering:pixelated">`, b64)
+		case isBinaryMeta(raw):
+			display = fmt.Sprintf(`<code>&lt;binary %d bytes&gt;</code>`, len(raw))
+		default:
+			display = html.EscapeString(string(raw))
+			if len(raw) > 200 {
+				display = `<div style="max-height:100px;overflow-y:auto">` + display + `</div>`
 			}
-			fmt.Fprintf(w, `<tr><th>%s</th><td>%s</td></tr>`, html.EscapeString(k), display)
 		}
-		fmt.Fprint(w, `</table>`)
+		metaRows = append(metaRows, metaRow{Key: k, Value: display})
 	}
 
-	// MIME types section.
+	// MIME types.
 	mimeTypes := a.MIMETypes()
-	if len(mimeTypes) > 0 {
-		fmt.Fprint(w, `<h2>MIME Types</h2><table><tr><th style="width:60px">Index</th><th>Type</th></tr>`)
-		for i, m := range mimeTypes {
-			fmt.Fprintf(w, `<tr><td>%d</td><td class="mono">%s</td></tr>`, i, html.EscapeString(m))
-		}
-		fmt.Fprint(w, `</table>`)
+	var mimeRows []mimeTypeRow
+	for i, m := range mimeTypes {
+		mimeRows = append(mimeRows, mimeTypeRow{Index: i, Type: m})
 	}
 
-	// Sections table.
-	if len(sections) > 0 {
-		fmt.Fprint(w, `<h2>Sections</h2><table>
-<tr><th style="width:40px">#</th><th>Type</th><th style="text-align:right">Comp. Size</th><th style="text-align:right">Uncomp. Size</th><th>Compression</th><th>SHA-256</th></tr>`)
-		for i, s := range sections {
-			shaHex := hex.EncodeToString(s.SHA256[:])
-			shaShort := shaHex[:16] + "..."
-			fmt.Fprintf(w, `<tr><td>%d</td><td class="mono">%s</td><td class="num">%s</td><td class="num">%s</td><td class="mono">%s</td><td class="mono" style="font-size:0.8em">%s</td></tr>`,
-				i, html.EscapeString(sectionTypeName(s.Type)),
-				formatBytes(int64(s.CompressedSize)),
-				formatBytes(int64(s.UncompressedSize)),
-				html.EscapeString(compressionName(s.Compression)),
-				shaShort)
-		}
-		fmt.Fprint(w, `</table>`)
+	// Sections.
+	var sectionRows []sectionRow
+	for i, s := range sections {
+		shaHex := hex.EncodeToString(s.SHA256[:])
+		sectionRows = append(sectionRows, sectionRow{
+			Index:       i,
+			Type:        sectionTypeName(s.Type),
+			CompSize:    formatBytes(int64(s.CompressedSize)),
+			UncompSize:  formatBytes(int64(s.UncompressedSize)),
+			Compression: compressionName(s.Compression),
+			SHA256Short: shaHex[:16] + "...",
+		})
 	}
 
-	fmt.Fprintf(w, `<div class="nav"><a href="/">Library</a> · <a href="/%s/">Main page</a> · <a href="/%s/-/search">Search</a> · <a href="/%s/-/browse">Browse</a></div>`,
-		html.EscapeString(slug), html.EscapeString(slug), html.EscapeString(slug))
-	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
-	fmt.Fprint(w, `</body></html>`)
+	renderTemplate(w, "info.html", infoPageData{
+		Slug:        slug,
+		Title:       ae.title,
+		FormatRows:  formatRows,
+		RuntimeRows: runtimeRows,
+		Indices:     indices,
+		MetaRows:    metaRows,
+		MIMETypes:   mimeRows,
+		Sections:    sectionRows,
+		FooterHTML:  footerBarHTML(!lib.noInfo),
+	})
 }
 
 // isBinaryMeta reports whether b contains bytes outside printable ASCII + common whitespace.
@@ -328,6 +343,50 @@ func formatUptime(d time.Duration) string {
 	}
 }
 
+// --- Global info page ---
+
+type globalInfoArchiveRow struct {
+	Slug          string
+	Title         string
+	FileSizeRaw   int64
+	FileSize      string
+	StructuralRaw int64
+	Structural    string
+	TotalRaw      int64
+	Total         string
+	EntryCount    int
+	RedirectCount int
+	ChunkCount    int
+	CacheVal      float64
+	CacheStr      string
+	LoadSecs      float64
+	LoadStr       string
+}
+
+type globalInfoDep struct {
+	Path    string
+	Version string
+	Replace string
+}
+
+type globalInfoData struct {
+	ProcessRows   []infoRow
+	ArchiveRows   []globalInfoArchiveRow
+	ArchiveCount  int
+	TotFileSize   string
+	TotStructural string
+	TotTotal      string
+	TotEntries    int
+	TotRedirects  int
+	TotChunks     int
+	TotCacheNow   int
+	TotCacheCap   int
+	BuildInfo     bool
+	BuildRows     []infoRow
+	Deps          []globalInfoDep
+	FooterHTML    string
+}
+
 // handleGlobalInfo serves GET /_info — process-wide runtime overview.
 func (lib *library) handleGlobalInfo(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(lib.startTime)
@@ -335,68 +394,21 @@ func (lib *library) handleGlobalInfo(w http.ResponseWriter, r *http.Request) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>&#x738B;&#x5EA7; Server Info</title>
-`+faviconLink+`
-<style>
-body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
-h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
-h1 a { color: inherit; text-decoration: none; }
-h2 { font-size: 1.15em; margin-top: 28px; color: #333; }
-table { border-collapse: collapse; width: 100%%; margin-bottom: 16px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
-th { width: 200px; color: #555; font-weight: 600; white-space: nowrap; }
-td { word-break: break-all; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
-a { color: #0366d6; text-decoration: none; }
-a:hover { text-decoration: underline; }
-.nav { margin-top: 20px; font-size: 0.9em; }
-.archives-wrap { overflow-x: auto; }
-.archives { width: max-content; min-width: 100%%; }
-.archives td, .archives th { white-space: nowrap; }
-.archives .col-name { white-space: normal; min-width: 180px; word-break: break-word; }
-.archives .col-name a.ilink { color: #aaa; font-size: 0.85em; margin-left: 4px; vertical-align: middle; text-decoration: none; }
-.archives .col-name a.ilink:hover { color: #0366d6; }
-.archives th[data-col] { cursor: pointer; user-select: none; }
-.archives th[data-col]:hover { background: #f6f8fa; }
-.archives th.sorted { color: #0366d6; }
-.arrow { font-size: 0.75em; margin-left: 4px; }
-</style></head><body>
-<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Server Info</h2>`)
-
-	// Process section.
-	fmt.Fprint(w, `<h2>Process</h2><table>`)
-	fmt.Fprintf(w, `<tr><th>Uptime</th><td>%s</td></tr>`, html.EscapeString(formatUptime(uptime)))
-	fmt.Fprintf(w, `<tr><th>Started</th><td>%s</td></tr>`, lib.startTime.Format("2006-01-02 15:04:05 MST"))
-	fmt.Fprintf(w, `<tr><th>Go Version</th><td class="mono">%s</td></tr>`, html.EscapeString(runtime.Version()))
-	fmt.Fprintf(w, `<tr><th>Goroutines</th><td>%d</td></tr>`, runtime.NumGoroutine())
-	fmt.Fprintf(w, `<tr><th>Go Heap In Use</th><td>%s</td></tr>`, formatBytes(int64(ms.HeapInuse)))
-	fmt.Fprintf(w, `<tr><th>Go Heap Idle</th><td>%s</td></tr>`, formatBytes(int64(ms.HeapIdle)))
-	fmt.Fprintf(w, `<tr><th>Go Sys</th><td>%s</td></tr>`, formatBytes(int64(ms.Sys)))
-	fmt.Fprintf(w, `<tr><th>GC Cycles</th><td>%d</td></tr>`, ms.NumGC)
-	fmt.Fprint(w, `</table>`)
-
-	// Per-archive table.
-	fmt.Fprint(w, `<h2>Archives</h2><div class="archives-wrap">
-<table class="archives" id="archives-tbl">
-<thead><tr>
-  <th class="col-name" data-col="0">Archive<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="1">File Size<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="2">Structural RAM<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="3">Total RAM (est.)<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="4">Entries<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="5">Redirects<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="6">Chunks<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="7">Cache<span class="arrow"></span></th>
-  <th style="text-align:right" data-col="8">Load<span class="arrow"></span></th>
-</tr></thead>
-<tbody>`)
+	processRows := []infoRow{
+		{Label: "Uptime", Value: formatUptime(uptime)},
+		{Label: "Started", Value: lib.startTime.Format("2006-01-02 15:04:05 MST")},
+		{Label: "Go Version", Value: runtime.Version(), Class: "mono"},
+		{Label: "Goroutines", Value: strconv.Itoa(runtime.NumGoroutine())},
+		{Label: "Go Heap In Use", Value: formatBytes(int64(ms.HeapInuse))},
+		{Label: "Go Heap Idle", Value: formatBytes(int64(ms.HeapIdle))},
+		{Label: "Go Sys", Value: formatBytes(int64(ms.Sys))},
+		{Label: "GC Cycles", Value: strconv.FormatUint(uint64(ms.NumGC), 10)},
+	}
 
 	var totFileSize, totStructural, totTotal int64
 	var totEntries, totRedirects, totChunks int
 	var totCacheNow, totCacheCap int
+	var archiveRows []globalInfoArchiveRow
 
 	for _, slug := range lib.slugs {
 		ae := lib.archives[slug]
@@ -437,131 +449,83 @@ a:hover { text-decoration: underline; }
 			loadStr = fmt.Sprintf("%.1fs", loadSecs)
 		}
 
-		fmt.Fprintf(w, `<tr>
-  <td class="col-name" data-val="%s"><a href="/%s/">%s</a><a href="/%s/-/info" class="ilink" title="Archive info">ⓘ</a></td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num" data-val="%d">%s</td>
-  <td class="num mono" data-val="%.4f" style="font-size:0.9em">%s</td>
-  <td class="num" data-val="%.4f">%s</td>
-</tr>`,
-			html.EscapeString(ae.title),
-			html.EscapeString(slug), html.EscapeString(ae.title),
-			html.EscapeString(slug),
-			ae.fileSize, formatBytesShort(ae.fileSize),
-			structural, formatBytesShort(structural),
-			total, formatBytesShort(total),
-			a.EntryCount(), commaInt(int(a.EntryCount())),
-			a.RedirectCount(), commaInt(int(a.RedirectCount())),
-			a.ChunkCount(), commaInt(a.ChunkCount()),
-			cacheVal, html.EscapeString(cacheStr),
-			loadSecs, html.EscapeString(loadStr),
-		)
+		archiveRows = append(archiveRows, globalInfoArchiveRow{
+			Slug:          slug,
+			Title:         ae.title,
+			FileSizeRaw:   ae.fileSize,
+			FileSize:      formatBytesShort(ae.fileSize),
+			StructuralRaw: structural,
+			Structural:    formatBytesShort(structural),
+			TotalRaw:      total,
+			Total:         formatBytesShort(total),
+			EntryCount:    int(a.EntryCount()),
+			RedirectCount: int(a.RedirectCount()),
+			ChunkCount:    a.ChunkCount(),
+			CacheVal:      cacheVal,
+			CacheStr:      cacheStr,
+			LoadSecs:      loadSecs,
+			LoadStr:       loadStr,
+		})
 	}
 
-	// Totals row.
-	fmt.Fprintf(w, `</tbody><tfoot><tr style="font-weight:600;border-top:2px solid #ccc">
-  <td>Total (%d archives)</td>
-  <td class="num">%s</td>
-  <td class="num">%s</td>
-  <td class="num">%s</td>
-  <td class="num">%s</td>
-  <td class="num">%s</td>
-  <td class="num">%s</td>
-  <td class="num">%d/%d</td>
-  <td></td>
-</tr></tfoot>`,
-		len(lib.slugs),
-		formatBytesShort(totFileSize),
-		formatBytesShort(totStructural),
-		formatBytesShort(totTotal),
-		commaInt(totEntries),
-		commaInt(totRedirects),
-		commaInt(totChunks),
-		totCacheNow, totCacheCap,
-	)
-	fmt.Fprint(w, `</table></div>
-<script>
-(function(){
-  var col = 0, asc = true;
-  var tbl = document.getElementById('archives-tbl');
-  var ths = tbl.querySelectorAll('thead th[data-col]');
-  var tbody = tbl.querySelector('tbody');
-  var numCols = {1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1};
-  function sort(c, a) {
-    col = c; asc = a;
-    ths.forEach(function(th, i) {
-      var arrow = th.querySelector('.arrow');
-      arrow.textContent = i === c ? (a ? ' \u25b2' : ' \u25bc') : '';
-      th.classList.toggle('sorted', i === c);
-    });
-    var rows = Array.from(tbody.rows);
-    rows.sort(function(ra, rb) {
-      var av = ra.cells[c].dataset.val;
-      var bv = rb.cells[c].dataset.val;
-      var cmp = numCols[c] ? +av - +bv : av.toLowerCase().localeCompare(bv.toLowerCase());
-      return a ? cmp : -cmp;
-    });
-    rows.forEach(function(r){ tbody.appendChild(r); });
-  }
-  ths.forEach(function(th, i){
-    th.addEventListener('click', function(){ sort(i, col === i ? !asc : true); });
-  });
-  sort(0, true);
-})();
-</script>`)
-	fmt.Fprint(w, `<p style="font-size:0.85em;color:#666">Structural RAM: exact (decompressed sections + chunk table). Total RAM: adds ~48 bytes/entry for reverse maps. Chunk content not counted (on-demand).</p>`)
+	data := globalInfoData{
+		ProcessRows:   processRows,
+		ArchiveRows:   archiveRows,
+		ArchiveCount:  len(lib.slugs),
+		TotFileSize:   formatBytesShort(totFileSize),
+		TotStructural: formatBytesShort(totStructural),
+		TotTotal:      formatBytesShort(totTotal),
+		TotEntries:    totEntries,
+		TotRedirects:  totRedirects,
+		TotChunks:     totChunks,
+		TotCacheNow:   totCacheNow,
+		TotCacheCap:   totCacheCap,
+		FooterHTML:    footerBarHTML(!lib.noInfo),
+	}
 
-	// Dependencies section.
+	// Build info + dependencies.
 	if bi, ok := debug.ReadBuildInfo(); ok {
-		// Build settings (GOOS, GOARCH, VCS info, etc.)
+		data.BuildInfo = true
+		data.BuildRows = append(data.BuildRows, infoRow{Label: "Main Module", Value: bi.Main.Path})
+		if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+			data.BuildRows = append(data.BuildRows, infoRow{Label: "Module Version", Value: bi.Main.Version})
+		}
 		var settings []string
 		for _, s := range bi.Settings {
 			if s.Value != "" {
 				settings = append(settings, html.EscapeString(s.Key)+"="+html.EscapeString(s.Value))
 			}
 		}
-		fmt.Fprint(w, `<h2>Build</h2><table>`)
-		fmt.Fprintf(w, `<tr><th>Main Module</th><td class="mono">%s</td></tr>`, html.EscapeString(bi.Main.Path))
-		if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
-			fmt.Fprintf(w, `<tr><th>Module Version</th><td class="mono">%s</td></tr>`, html.EscapeString(bi.Main.Version))
-		}
 		if len(settings) > 0 {
-			fmt.Fprintf(w, `<tr><th>Settings</th><td class="mono" style="font-size:0.85em">%s</td></tr>`, strings.Join(settings, " &nbsp;·&nbsp; "))
+			data.BuildRows = append(data.BuildRows, infoRow{
+				Label: "Settings",
+				Value: strings.Join(settings, " &nbsp;·&nbsp; "),
+				Style: "font-size:0.85em",
+			})
 		}
-		fmt.Fprint(w, `</table>`)
 
 		if len(bi.Deps) > 0 {
-			fmt.Fprint(w, `<h2>Dependencies</h2>
-<table>
-<tr><th style="width:auto">Module</th><th style="width:160px">Version</th><th style="width:auto">Replace</th></tr>`)
 			deps := make([]*debug.Module, len(bi.Deps))
 			copy(deps, bi.Deps)
 			sort.Slice(deps, func(i, j int) bool { return deps[i].Path < deps[j].Path })
 			for _, d := range deps {
-				replaceCell := ""
+				replaceStr := ""
 				if d.Replace != nil {
-					replaceCell = html.EscapeString(d.Replace.Path)
+					replaceStr = d.Replace.Path
 					if d.Replace.Version != "" {
-						replaceCell += " " + html.EscapeString(d.Replace.Version)
+						replaceStr += " " + d.Replace.Version
 					}
 				}
-				fmt.Fprintf(w, `<tr><td class="mono" style="word-break:break-all">%s</td><td class="mono">%s</td><td class="mono" style="font-size:0.85em;color:#666">%s</td></tr>`,
-					html.EscapeString(d.Path),
-					html.EscapeString(d.Version),
-					replaceCell,
-				)
+				data.Deps = append(data.Deps, globalInfoDep{
+					Path:    d.Path,
+					Version: d.Version,
+					Replace: replaceStr,
+				})
 			}
-			fmt.Fprint(w, `</table>`)
 		}
 	}
 
-	fmt.Fprint(w, `<div class="nav"><a href="/">Library</a></div>`)
-	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
-	fmt.Fprint(w, `</body></html>`)
+	renderTemplate(w, "info_global.html", data)
 }
 
 // formatBytesShort formats b as a short human-readable string without the raw byte count.

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html><head>
+{{template "head"}}
+<title>&#x738B;&#x5EA7; Browse — {{.Title}}</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
+h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
+.total { color: #666; font-size: 0.9em; margin: -6px 0 16px; }
+.letters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; }
+.letters a { display: inline-block; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #0366d6; font-weight: bold; }
+.letters a:hover { background: #f6f8fa; }
+.letters a.active { background: #0366d6; color: white; border-color: #0366d6; }
+.letters span { display: inline-block; padding: 6px 10px; border: 1px solid #eee; border-radius: 4px; color: #ccc; font-weight: bold; cursor: default; }
+.letter-info { color: #666; font-size: 0.9em; margin-bottom: 12px; }
+.entries a { display: block; padding: 6px 0; border-bottom: 1px solid #eee; color: #0366d6; text-decoration: none; }
+.entries a:hover { text-decoration: underline; }
+.pager { display: flex; align-items: center; gap: 16px; margin-top: 16px; font-size: 0.9em; color: #666; }
+.pager a { color: #0366d6; text-decoration: none; }
+.pager a:hover { text-decoration: underline; }
+.nav { margin-top: 24px; font-size: 0.9em; }
+.nav a { color: #0366d6; }
+</style></head><body>
+<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Browse — <a href="/{{.Slug}}/">{{.Title}}</a></h2>
+<p class="total">{{commaInt .TotalEntries}} entries total</p>
+<div class="letters">
+{{range .Letters}}
+  {{if .Disabled}}<span>{{.Label}}</span>
+  {{else if .Active}}<a href="/{{$.Slug}}/-/browse?letter={{.Label}}" class="active">{{.Label}}</a>
+  {{else}}<a href="/{{$.Slug}}/-/browse?letter={{.Label}}">{{.Label}}</a>
+  {{end}}
+{{end}}
+</div>
+{{if .Letter}}
+  <p class="letter-info">{{commaInt .LetterCount}} entries</p>
+  <div class="entries">
+  {{if not .Entries}}
+    <p style="color:#666;font-style:italic">No entries.</p>
+  {{else}}
+    {{range .Entries}}
+      <a href="{{.Path}}">{{.Title}}</a>
+    {{end}}
+  {{end}}
+  </div>
+  {{if .ShowPager}}
+  <div class="pager">
+    {{if .HasPrev}}<a href="/{{$.Slug}}/-/browse?letter={{$.Letter}}&amp;offset={{.PrevOffset}}&amp;limit={{$.Limit}}">&#8592; Previous</a>{{end}}
+    <span>{{commaInt .PageStart}}&#x2013;{{commaInt .PageEnd}} of {{commaInt .LetterCount}}</span>
+    {{if .HasNext}}<a href="/{{$.Slug}}/-/browse?letter={{$.Letter}}&amp;offset={{.NextOffset}}&amp;limit={{$.Limit}}">Next &#8594;</a>{{end}}
+  </div>
+  {{end}}
+{{end}}
+<div class="nav"><a href="/">Library</a> · <a href="/{{.Slug}}/">Back to main page</a> · <a href="/{{.Slug}}/-/search">Search</a> · <a href="/{{.Slug}}/-/random">Random</a></div>
+{{template "footer" .}}
+</body></html>

@@ -410,9 +410,6 @@ func makeETag(ae *archiveEntry, entryPath string) string {
 // faviconSVG is the 王座 kanji served at /favicon.ico and /_favicon.svg.
 const faviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".88em" font-size="55" fill="#C9A84C">&#x738B;&#x5EA7;</text></svg>`
 
-// faviconLink is the HTML <link> tag injected into every page.
-const faviconLink = `<link rel="icon" type="image/svg+xml" href="/_favicon.svg">`
-
 func handleFaviconSVG(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

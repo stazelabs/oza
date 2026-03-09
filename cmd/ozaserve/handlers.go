@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/stazelabs/oza/internal/snippet"
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -20,6 +21,52 @@ type searchResult struct {
 	Path       string `json:"path"`
 	Title      string `json:"title"`
 	TitleMatch bool   `json:"title_match,omitempty"`
+	Snippet    string `json:"snippet,omitempty"`
+}
+
+type searchPageData struct {
+	Slug       string
+	Title      string
+	Query      string
+	Results    []searchResult
+	FooterHTML string
+}
+
+type browseLetterLink struct {
+	Label    string
+	Active   bool
+	Disabled bool
+}
+
+type browsePageData struct {
+	Slug         string
+	Title        string
+	TotalEntries int
+	Letters      []browseLetterLink
+	Letter       string
+	LetterCount  int
+	Entries      []searchResult
+	ShowPager    bool
+	HasPrev      bool
+	PrevOffset   int
+	HasNext      bool
+	NextOffset   int
+	PageStart    int
+	PageEnd      int
+	Limit        int
+	FooterHTML   string
+}
+
+// parseSnippetParams extracts snippet options from the request query string.
+func parseSnippetParams(r *http.Request) (enabled bool, maxLen int) {
+	enabled = r.URL.Query().Get("snippets") == "true"
+	maxLen = 200
+	if s := r.URL.Query().Get("snippet_length"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 500 {
+			maxLen = n
+		}
+	}
+	return
 }
 
 // handleSearchAll serves GET /_search?q=... — global JSON search across all archives.
@@ -31,6 +78,7 @@ func (lib *library) handleSearchAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	snippets, snippetLen := parseSnippetParams(r)
 	limit := 20
 	var results []searchResult
 	for _, slug := range lib.slugs {
@@ -43,11 +91,15 @@ func (lib *library) handleSearchAll(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		for _, sr := range sResults {
-			results = append(results, searchResult{
+			res := searchResult{
 				Path:       entryHref(slug, sr.Entry.Path()),
 				Title:      sr.Entry.Title(),
 				TitleMatch: sr.TitleMatch,
-			})
+			}
+			if snippets {
+				res.Snippet = snippet.ForEntry(sr.Entry, q, snippetLen)
+			}
+			results = append(results, res)
 		}
 		if len(results) >= limit {
 			break
@@ -77,16 +129,21 @@ func (lib *library) handleSearchJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	snippets, snippetLen := parseSnippetParams(r)
 	var results []searchResult
 	if ae.archive.HasSearch() {
 		sResults, err := ae.archive.Search(q, oza.SearchOptions{Limit: 20})
 		if err == nil {
 			for _, sr := range sResults {
-				results = append(results, searchResult{
+				res := searchResult{
 					Path:       entryHref(slug, sr.Entry.Path()),
 					Title:      sr.Entry.Title(),
 					TitleMatch: sr.TitleMatch,
-				})
+				}
+				if snippets {
+					res.Snippet = snippet.ForEntry(sr.Entry, q, snippetLen)
+				}
+				results = append(results, res)
 			}
 		}
 	}
@@ -116,16 +173,21 @@ func (lib *library) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	snippets, snippetLen := parseSnippetParams(r)
 	var results []searchResult
 	if q != "" && ae.archive.HasSearch() {
 		sResults, err := ae.archive.Search(q, oza.SearchOptions{Limit: limit})
 		if err == nil {
 			for _, sr := range sResults {
-				results = append(results, searchResult{
+				res := searchResult{
 					Path:       entryHref(slug, sr.Entry.Path()),
 					Title:      sr.Entry.Title(),
 					TitleMatch: sr.TitleMatch,
-				})
+				}
+				if snippets {
+					res.Snippet = snippet.ForEntry(sr.Entry, q, snippetLen)
+				}
+				results = append(results, res)
 			}
 		}
 	}
@@ -139,50 +201,13 @@ func (lib *library) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>&#x738B;&#x5EA7; Search — %s</title>
-`+faviconLink+`
-<style>
-body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
-h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
-h1 a { color: inherit; text-decoration: none; }
-h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
-form { margin-bottom: 20px; display: flex; gap: 8px; }
-form input[type=text] { flex: 1; padding: 8px 12px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
-form input[type=text]:focus { outline: none; border-color: #0366d6; }
-form button { padding: 8px 16px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
-.results a { display: block; padding: 8px 0; border-bottom: 1px solid #eee; color: #0366d6; text-decoration: none; }
-.results a:hover { text-decoration: underline; }
-.empty { color: #666; font-style: italic; }
-.nav { margin-top: 10px; font-size: 0.9em; }
-.nav a { color: #0366d6; }
-</style></head><body>
-<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Search — <a href="/%s/">%s</a></h2>
-<form method="get">
-<input type="text" name="q" value="%s" placeholder="Search..." autofocus>
-<button type="submit">Search</button>
-</form>`,
-		html.EscapeString(ae.title),
-		html.EscapeString(slug), html.EscapeString(ae.title),
-		html.EscapeString(q))
-
-	if q != "" {
-		if len(results) == 0 {
-			fmt.Fprint(w, `<p class="empty">No results found.</p>`)
-		} else {
-			fmt.Fprintf(w, `<p>%d result(s):</p><div class="results">`, len(results))
-			for _, res := range results {
-				fmt.Fprintf(w, `<a href="%s">%s</a>`, html.EscapeString(res.Path), html.EscapeString(res.Title))
-			}
-			fmt.Fprint(w, `</div>`)
-		}
-	}
-
-	fmt.Fprintf(w, `<div class="nav"><a href="/">Library</a> · <a href="/%s/">Back to main page</a> · <a href="/%s/-/browse">Browse</a> · <a href="/%s/-/random">Random</a></div>`,
-		html.EscapeString(slug), html.EscapeString(slug), html.EscapeString(slug))
-	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
-	fmt.Fprint(w, `</body></html>`)
+	renderTemplate(w, "search.html", searchPageData{
+		Slug:       slug,
+		Title:      ae.title,
+		Query:      q,
+		Results:    results,
+		FooterHTML: footerBarHTML(!lib.noInfo),
+	})
 }
 
 // handleRandom serves GET /{archive}/-/random — redirects to a random front article.
@@ -249,61 +274,29 @@ func (lib *library) handleBrowse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>&#x738B;&#x5EA7; Browse — %s</title>
-`+faviconLink+`
-<style>
-body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
-h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
-h1 a { color: inherit; text-decoration: none; }
-h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
-.total { color: #666; font-size: 0.9em; margin: -6px 0 16px; }
-.letters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; }
-.letters a { display: inline-block; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #0366d6; font-weight: bold; }
-.letters a:hover { background: #f6f8fa; }
-.letters a.active { background: #0366d6; color: white; border-color: #0366d6; }
-.letters span { display: inline-block; padding: 6px 10px; border: 1px solid #eee; border-radius: 4px; color: #ccc; font-weight: bold; cursor: default; }
-.letter-info { color: #666; font-size: 0.9em; margin-bottom: 12px; }
-.entries a { display: block; padding: 6px 0; border-bottom: 1px solid #eee; color: #0366d6; text-decoration: none; }
-.entries a:hover { text-decoration: underline; }
-.pager { display: flex; align-items: center; gap: 16px; margin-top: 16px; font-size: 0.9em; color: #666; }
-.pager a { color: #0366d6; text-decoration: none; }
-.pager a:hover { text-decoration: underline; }
-.nav { margin-top: 24px; font-size: 0.9em; }
-.nav a { color: #0366d6; }
-</style></head><body>
-<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Browse — <a href="/%s/">%s</a></h2>
-<p class="total">%s entries total</p>
-<div class="letters">`,
-		html.EscapeString(ae.title),
-		html.EscapeString(slug), html.EscapeString(ae.title),
-		commaInt(int(ae.archive.EntryCount())))
-
-	// A–Z letter bar — greyed out if no entries start with that letter.
+	// Build A–Z + # letter bar.
+	letters := make([]browseLetterLink, 0, 27)
 	for c := byte('A'); c <= 'Z'; c++ {
-		l := string(c)
-		if ae.letterCounts[c] == 0 {
-			fmt.Fprintf(w, `<span>%s</span>`, l)
-		} else if letter == l {
-			fmt.Fprintf(w, `<a href="/%s/-/browse?letter=%s" class="active">%s</a>`,
-				html.EscapeString(slug), l, l)
-		} else {
-			fmt.Fprintf(w, `<a href="/%s/-/browse?letter=%s">%s</a>`,
-				html.EscapeString(slug), l, l)
-		}
+		letters = append(letters, browseLetterLink{
+			Label:    string(c),
+			Active:   letter == string(c),
+			Disabled: ae.letterCounts[c] == 0,
+		})
 	}
-	hashClass := ""
-	if letter == "#" {
-		hashClass = ` class="active"`
+	letters = append(letters, browseLetterLink{Label: "#", Active: letter == "#"})
+
+	data := browsePageData{
+		Slug:         slug,
+		Title:        ae.title,
+		TotalEntries: int(ae.archive.EntryCount()),
+		Letters:      letters,
+		Letter:       letter,
+		Limit:        limit,
+		FooterHTML:   footerBarHTML(!lib.noInfo),
 	}
-	fmt.Fprintf(w, `<a href="/%s/-/browse?letter=%%23"%s>#</a>`, html.EscapeString(slug), hashClass)
-	fmt.Fprint(w, `</div>`)
 
 	if letter != "" {
 		// Collect all entries matching the selected letter via a full title-order scan.
-		// This is O(N) but correct. A future optimisation would add prefix iteration
-		// to the oza package.
 		var entries []searchResult
 		if letter == "#" {
 			for e := range ae.archive.EntriesByTitle() {
@@ -336,52 +329,36 @@ h2 { font-size: 1.15em; margin: 4px 0 16px; color: #333; }
 				}
 			}
 		}
+
 		letterCount := len(entries)
+		data.LetterCount = letterCount
 
-		fmt.Fprintf(w, `<p class="letter-info">%s entries</p>`, commaInt(letterCount))
-		fmt.Fprint(w, `<div class="entries">`)
-		if letterCount == 0 || offset >= letterCount {
-			fmt.Fprint(w, `<p style="color:#666;font-style:italic">No entries.</p>`)
-		} else {
+		// Paginate.
+		if letterCount > 0 && offset < letterCount {
 			end := offset + limit
-			if end > len(entries) {
-				end = len(entries)
+			if end > letterCount {
+				end = letterCount
 			}
-			for _, res := range entries[offset:end] {
-				fmt.Fprintf(w, `<a href="%s">%s</a>`,
-					html.EscapeString(res.Path), html.EscapeString(res.Title))
-			}
-		}
-		fmt.Fprint(w, `</div>`)
+			data.Entries = entries[offset:end]
 
-		if letterCount > 0 {
-			pageEnd := offset + limit
-			if pageEnd > letterCount {
-				pageEnd = letterCount
-			}
-			fmt.Fprint(w, `<div class="pager">`)
+			pageEnd := end
+			data.ShowPager = true
+			data.PageStart = offset + 1
+			data.PageEnd = pageEnd
+			data.HasPrev = offset > 0
 			if offset > 0 {
 				prev := offset - limit
 				if prev < 0 {
 					prev = 0
 				}
-				fmt.Fprintf(w, `<a href="/%s/-/browse?letter=%s&amp;offset=%d&amp;limit=%d">&#8592; Previous</a>`,
-					html.EscapeString(slug), html.EscapeString(letter), prev, limit)
+				data.PrevOffset = prev
 			}
-			fmt.Fprintf(w, `<span>%s&#x2013;%s of %s</span>`,
-				commaInt(offset+1), commaInt(pageEnd), commaInt(letterCount))
-			if offset+limit < letterCount {
-				fmt.Fprintf(w, `<a href="/%s/-/browse?letter=%s&amp;offset=%d&amp;limit=%d">Next &#8594;</a>`,
-					html.EscapeString(slug), html.EscapeString(letter), offset+limit, limit)
-			}
-			fmt.Fprint(w, `</div>`)
+			data.HasNext = offset+limit < letterCount
+			data.NextOffset = offset + limit
 		}
 	}
 
-	fmt.Fprintf(w, `<div class="nav"><a href="/">Library</a> · <a href="/%s/">Back to main page</a> · <a href="/%s/-/search">Search</a> · <a href="/%s/-/random">Random</a></div>`,
-		html.EscapeString(slug), html.EscapeString(slug), html.EscapeString(slug))
-	fmt.Fprint(w, footerBarHTML(!lib.noInfo))
-	fmt.Fprint(w, `</body></html>`)
+	renderTemplate(w, "browse.html", data)
 }
 
 // handleContent serves GET /{archive}/{path...}

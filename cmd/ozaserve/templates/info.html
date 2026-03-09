@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html><head>
+{{template "head"}}
+<title>&#x738B;&#x5EA7; Info &#x2014; {{.Title}}</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+h1 { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 4px; }
+h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 1.15em; margin-top: 28px; color: #333; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
+th { width: 200px; color: #555; font-weight: 600; white-space: nowrap; }
+td { word-break: break-all; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; font-weight: 600; }
+.badge-yes { background: #dcffe4; color: #1a7f37; }
+.badge-no { background: #ffebe9; color: #cf222e; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.nav { margin-top: 20px; font-size: 0.9em; }
+</style></head><body>
+<h1><a href="/"><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA</a></h1><h2>Info &#x2014; <a href="/{{.Slug}}/">{{.Title}}</a></h2>
+
+<h2>Format</h2><table>
+{{range .FormatRows}}<tr><th>{{.Label}}</th><td{{if .Class}} class="{{.Class}}"{{end}}>{{safeHTML .Value}}</td></tr>
+{{end}}
+</table>
+
+<h2>Runtime</h2><table>
+{{range .RuntimeRows}}<tr><th>{{.Label}}</th><td>{{safeHTML .Value}}</td></tr>
+{{end}}
+<tr><td colspan="2" style="font-size:0.85em;color:#666">Structural RAM is exact (sum of decompressed sections). Map overhead is ~48 bytes/entry. Chunk content loads on demand and is not counted.</td></tr>
+</table>
+
+<h2>Indices</h2><table>
+<tr><th style="width:200px">Index</th><th>Present</th><th>Details</th></tr>
+{{range .Indices}}<tr><td>{{.Name}}</td><td>{{safeHTML .Badge}}</td><td>{{.Detail}}</td></tr>
+{{end}}
+</table>
+
+{{if .MetaRows}}
+<h2>Metadata</h2><table>
+{{range .MetaRows}}<tr><th>{{.Key}}</th><td>{{safeHTML .Value}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+{{if .MIMETypes}}
+<h2>MIME Types</h2><table><tr><th style="width:60px">Index</th><th>Type</th></tr>
+{{range .MIMETypes}}<tr><td>{{.Index}}</td><td class="mono">{{.Type}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+{{if .Sections}}
+<h2>Sections</h2><table>
+<tr><th style="width:40px">#</th><th>Type</th><th style="text-align:right">Comp. Size</th><th style="text-align:right">Uncomp. Size</th><th>Compression</th><th>SHA-256</th></tr>
+{{range .Sections}}<tr><td>{{.Index}}</td><td class="mono">{{.Type}}</td><td class="num">{{.CompSize}}</td><td class="num">{{.UncompSize}}</td><td class="mono">{{.Compression}}</td><td class="mono" style="font-size:0.8em">{{.SHA256Short}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+<div class="nav"><a href="/">Library</a> · <a href="/{{.Slug}}/">Main page</a> · <a href="/{{.Slug}}/-/search">Search</a> · <a href="/{{.Slug}}/-/browse">Browse</a></div>
+{{template "footer" .}}
+</body></html>
