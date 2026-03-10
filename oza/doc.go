@@ -8,4 +8,13 @@
 // Open an OZA file with [Open] or [OpenWithOptions], then use [Archive] methods
 // to look up entries by path, title, or ID. Content is accessed through
 // [Entry.ReadContent] which resolves redirects automatically.
+//
+// Basic usage:
+//
+//	a, err := oza.Open("archive.oza")
+//	if err != nil { log.Fatal(err) }
+//	defer a.Close()
+//
+//	entry, _ := a.EntryByPath("index.html")
+//	content, _ := entry.ReadContent()
 package oza

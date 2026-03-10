@@ -23,6 +23,10 @@ testdata/*.oza
 .DS_Store
 Thumbs.db
 
+# Go workspace (local dev only, not checked in)
+go.work
+go.work.sum
+
 # Editor
 *.swp
 *.swo

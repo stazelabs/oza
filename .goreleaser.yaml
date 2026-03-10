@@ -5,59 +5,68 @@ project_name: oza
 before:
   hooks:
     - go mod tidy
+    - cd cmd && go mod tidy
 
 builds:
   - id: ozacat
-    main: ./cmd/ozacat/
+    dir: cmd
+    main: ./ozacat/
     binary: ozacat
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozainfo
-    main: ./cmd/ozainfo/
+    dir: cmd
+    main: ./ozainfo/
     binary: ozainfo
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozasearch
-    main: ./cmd/ozasearch/
+    dir: cmd
+    main: ./ozasearch/
     binary: ozasearch
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozaserve
-    main: ./cmd/ozaserve/
+    dir: cmd
+    main: ./ozaserve/
     binary: ozaserve
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozaverify
-    main: ./cmd/ozaverify/
+    dir: cmd
+    main: ./ozaverify/
     binary: ozaverify
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozamcp
-    main: ./cmd/ozamcp/
+    dir: cmd
+    main: ./ozamcp/
     binary: ozamcp
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: ozakeygen
-    main: ./cmd/ozakeygen/
+    dir: cmd
+    main: ./ozakeygen/
     binary: ozakeygen
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: zim2oza
-    main: ./cmd/zim2oza/
+    dir: cmd
+    main: ./zim2oza/
     binary: zim2oza
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]

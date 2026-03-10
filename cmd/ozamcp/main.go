@@ -15,7 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
-	"github.com/stazelabs/oza/internal/mcptools"
+	"github.com/stazelabs/oza/cmd/internal/mcptools"
 	"github.com/stazelabs/oza/oza"
 )
 

@@ -2,19 +2,21 @@
 
 build:
 	@mkdir -p bin
-	go build -o bin/ozainfo    ./cmd/ozainfo/
-	go build -o bin/ozacat     ./cmd/ozacat/
-	go build -o bin/ozaserve   ./cmd/ozaserve/
-	go build -o bin/ozasearch  ./cmd/ozasearch/
-	go build -o bin/ozaverify  ./cmd/ozaverify/
-	go build -o bin/ozamcp     ./cmd/ozamcp/
-	go build -o bin/zim2oza    ./cmd/zim2oza/
+	cd cmd && go build -o ../bin/ozainfo    ./ozainfo/
+	cd cmd && go build -o ../bin/ozacat     ./ozacat/
+	cd cmd && go build -o ../bin/ozaserve   ./ozaserve/
+	cd cmd && go build -o ../bin/ozasearch  ./ozasearch/
+	cd cmd && go build -o ../bin/ozaverify  ./ozaverify/
+	cd cmd && go build -o ../bin/ozamcp     ./ozamcp/
+	cd cmd && go build -o ../bin/zim2oza    ./zim2oza/
 
 test:
 	go test ./... -count=1
+	cd cmd && go test ./... -count=1
 
 test-race:
 	go test -race ./... -count=1
+	cd cmd && go test -race ./... -count=1
 
 cover:
 	go test -coverprofile=coverage.out -covermode=atomic ./...
@@ -38,12 +40,15 @@ fuzz:
 
 lint:
 	golangci-lint run ./...
+	cd cmd && golangci-lint run ./...
 
 lint-fix:
 	golangci-lint run --fix ./...
+	cd cmd && golangci-lint run --fix ./...
 
 vet:
 	go vet ./...
+	cd cmd && go vet ./...
 
 testdata: testdata/small.zim
 

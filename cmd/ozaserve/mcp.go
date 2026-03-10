@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/stazelabs/oza/internal/mcptools"
+	"github.com/stazelabs/oza/cmd/internal/mcptools"
 )
 
 func registerMCPTools(server *mcp.Server, lib *library, baseURL string) {

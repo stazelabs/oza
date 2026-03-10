@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'cmd/v*'
 
 permissions:
   contents: write
@@ -24,7 +24,9 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -race ./...
+        run: |
+          go test -race ./...
+          cd cmd && go test -race ./...
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

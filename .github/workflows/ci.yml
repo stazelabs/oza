@@ -22,8 +22,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run tests
+      - name: Run library tests
         run: go test -race ./... -count=1
+
+      - name: Run CLI tests
+        run: cd cmd && go test -race ./... -count=1
 
   lint:
     name: Lint
@@ -36,9 +39,16 @@ jobs:
           go-version-file: go.mod
           cache: false  # golangci-lint-action manages its own cache
 
-      - uses: golangci/golangci-lint-action@v9
+      - name: Lint library
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.11.2
+
+      - name: Lint CLI
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.2
+          working-directory: cmd
 
   build:
     name: Build

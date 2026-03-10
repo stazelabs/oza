@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/stazelabs/oza/internal/snippet"
+	"github.com/stazelabs/oza/cmd/internal/snippet"
 	"github.com/stazelabs/oza/oza"
 )
 

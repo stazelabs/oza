@@ -18,7 +18,7 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/stazelabs/oza/internal/snippet"
+	"github.com/stazelabs/oza/cmd/internal/snippet"
 	"github.com/stazelabs/oza/oza"
 )
 

@@ -13,7 +13,12 @@ obligation yet. The format spec and API are still being locked down.
 # Clone and verify
 git clone https://github.com/stazelabs/oza
 cd oza
-go test ./...
+
+# Set up Go workspace (enables cross-module navigation and single go test ./...)
+go work init . ./cmd
+
+# Run tests for both modules
+make test
 
 # Install golangci-lint (required for make lint)
 brew install golangci-lint          # macOS
@@ -43,14 +48,26 @@ pre-commit install
 
 ## Releasing
 
-Releases are automated via [GoReleaser](https://goreleaser.com) and triggered by pushing a version tag:
+The repository contains two Go modules:
+
+| Module | Path | Contents |
+|--------|------|----------|
+| `github.com/stazelabs/oza` | root | Library packages (`oza/`, `ozawrite/`) |
+| `github.com/stazelabs/oza/cmd` | `cmd/` | CLI tools and internal packages |
+
+**Library releases** are triggered by pushing a `v*` tag. **CLI binary releases** are triggered by pushing a `cmd/v*` tag.
 
 ```sh
+# Library release
 git tag v0.x.0
 git push origin v0.x.0
+
+# CLI binary release (after updating cmd/go.mod to point at the library tag)
+git tag cmd/v0.x.0
+git push origin cmd/v0.x.0
 ```
 
-The GitHub Actions release workflow runs `go test -race ./...`, then builds cross-compiled binaries for Linux, macOS, and Windows (amd64 + arm64) and publishes a GitHub Release with archives and a `checksums.txt`.
+The GitHub Actions release workflow runs tests for both modules, then builds cross-compiled binaries for Linux, macOS, and Windows (amd64 + arm64) and publishes a GitHub Release with archives and a `checksums.txt`.
 
 **Local snapshot build** (no tag required, no GitHub push):
 
@@ -66,22 +83,23 @@ Prereleases are auto-detected from the tag: tags matching `v*-*` (e.g. `v0.1.0-r
 ## Code layout
 
 ```
-oza/           — reader library (Archive, Entry, Index, Search)
-ozawrite/      — writer library (Writer, pipeline, assembly)
-internal/      — shared packages not part of the public API
-  mcptools/    — MCP tool/resource registration shared by ozamcp and ozaserve
-cmd/
-  ozacat/      — cat/list/inspect entries from the CLI
-  ozainfo/     — print archive metadata and section table
-  ozasearch/   — full-text search from the CLI
-  ozaserve/    — HTTP + MCP server
-  ozaverify/   — verify file/section/chunk checksums
-  ozamcp/      — standalone MCP server (stdio)
-  ozakeygen/   — generate Ed25519 signing key pairs
-  zim2oza/     — ZIM → OZA converter
+oza/              — reader library (Archive, Entry, Index, Search)
+ozawrite/         — writer library (Writer, pipeline, assembly)
+cmd/              — CLI module (separate go.mod)
+  internal/       — shared packages not part of the public API
+    mcptools/     — MCP tool/resource registration shared by ozamcp and ozaserve
+    snippet/      — snippet extraction utilities
+  ozacat/         — cat/list/inspect entries from the CLI
+  ozainfo/        — print archive metadata and section table
+  ozasearch/      — full-text search from the CLI
+  ozaserve/       — HTTP + MCP server
+  ozaverify/      — verify file/section/chunk checksums
+  ozamcp/         — standalone MCP server (stdio)
+  ozakeygen/      — generate Ed25519 signing key pairs
+  zim2oza/        — ZIM → OZA converter
 docs/
-  FORMAT.md   — binary format specification
-  BACKLOG.md  — known issues, design observations, future work
+  FORMAT.md       — binary format specification
+  BACKLOG.md      — known issues, design observations, future work
 ```
 
 ## Before submitting a PR

@@ -10,4 +10,13 @@
 //
 // The underlying [io.WriteSeeker] must also implement [io.Reader]; in practice
 // callers pass an *os.File opened with os.Create.
+//
+// Basic usage:
+//
+//	f, _ := os.Create("output.oza")
+//	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3})
+//	w.SetMetadata("title", "My Archive")
+//	w.AddEntry("index.html", "Home", "text/html", content, true)
+//	w.Close()
+//	f.Close()
 package ozawrite
