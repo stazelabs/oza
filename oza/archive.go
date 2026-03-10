@@ -418,7 +418,7 @@ func (a *Archive) parseEntryTable(data []byte) error {
 	recordDataOff := binary.LittleEndian.Uint32(data[4:8])
 
 	offsetTableEnd := EntryTableHeaderSize + int(count)*4
-	if offsetTableEnd > len(data) || int(recordDataOff) > len(data) {
+	if offsetTableEnd > len(data) || uint64(recordDataOff) > uint64(len(data)) {
 		return fmt.Errorf("oza: entry table truncated: count=%d, len=%d", count, len(data))
 	}
 
@@ -432,18 +432,18 @@ func (a *Archive) parseEntryTable(data []byte) error {
 
 // contentEntryRecord parses the content entry record for the given ID.
 func (a *Archive) contentEntryRecord(id uint32) (EntryRecord, error) {
-	if int(id) >= len(a.entryOffsets) {
+	if uint64(id) >= uint64(len(a.entryOffsets)) {
 		return EntryRecord{}, fmt.Errorf("oza: entry ID %d out of range (count=%d)", id, len(a.entryOffsets))
 	}
 	off := a.entryOffsets[id]
-	if int(off) >= len(a.entryRecords) {
+	if uint64(off) >= uint64(len(a.entryRecords)) {
 		return EntryRecord{}, fmt.Errorf("oza: entry offset %d out of range", off)
 	}
 	rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
 	if err != nil {
 		return EntryRecord{}, err
 	}
-	if int(rec.MIMEIndex) >= len(a.mimeTypes) {
+	if uint64(rec.MIMEIndex) >= uint64(len(a.mimeTypes)) {
 		return EntryRecord{}, fmt.Errorf("oza: entry %d: mime_index %d out of range (table size %d): %w",
 			id, rec.MIMEIndex, len(a.mimeTypes), ErrInvalidEntry)
 	}
@@ -616,7 +616,7 @@ func (a *Archive) ForEachTitleKey(fn func(title string)) {
 func (a *Archive) ForEachEntryRecord(fn func(id uint32, rec EntryRecord)) {
 	for i := uint32(0); i < uint32(len(a.entryOffsets)); i++ {
 		off := a.entryOffsets[i]
-		if int(off) >= len(a.entryRecords) {
+		if uint64(off) >= uint64(len(a.entryRecords)) {
 			continue
 		}
 		rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])

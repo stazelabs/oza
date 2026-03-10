@@ -693,11 +693,12 @@ func RegisterResources(server *mcp.Server, archives []ArchiveInfo, archiveURL fu
 		if !ok {
 			return nil, mcp.ResourceNotFoundError(uri)
 		}
-		id, err := strconv.ParseUint(idStr, 10, 32)
+		id64, err := strconv.ParseUint(idStr, 10, 32)
 		if err != nil {
 			return nil, mcp.ResourceNotFoundError(uri)
 		}
-		entry, err := ai.Archive.EntryByID(uint32(id))
+		id := uint32(id64)
+		entry, err := ai.Archive.EntryByID(id)
 		if err != nil {
 			return nil, mcp.ResourceNotFoundError(uri)
 		}
