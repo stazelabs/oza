@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-ZIM2OZA="${ZIM2OZA:-$SCRIPT_DIR/../zim2oza}"
+ZIM2OZA="${ZIM2OZA:-$SCRIPT_DIR/../bin/zim2oza}"
 
 usage() {
     echo "Usage: $0 [OPTIONS] <input-dir> <output-dir>"
