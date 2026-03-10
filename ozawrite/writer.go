@@ -589,17 +589,30 @@ func (w *Writer) Close() error {
 	if len(w.opts.SigningKeys) > 0 {
 		flags |= oza.FlagHasSignatures
 	}
+	var frontArticleCount uint32
+	for _, e := range w.entries {
+		if e.isFrontArticle {
+			frontArticleCount++
+		}
+	}
+	for _, e := range w.redirectEntries {
+		if e.isFrontArticle {
+			frontArticleCount++
+		}
+	}
 	hdr := oza.Header{
-		Magic:           oza.Magic,
-		MajorVersion:    oza.MajorVersion,
-		MinorVersion:    oza.MinorVersion,
-		UUID:            uuid,
-		SectionCount:    numSections,
-		EntryCount:      uint32(len(w.entries)), // content entries only; redirects are in SectionRedirectTab
-		ContentSize:     totalContent,
-		SectionTableOff: sectionTableOff,
-		ChecksumOff:     checksumOff,
-		Flags:           flags,
+		Magic:             oza.Magic,
+		MajorVersion:      oza.MajorVersion,
+		MinorVersion:      oza.MinorVersion,
+		UUID:              uuid,
+		SectionCount:      numSections,
+		EntryCount:        uint32(len(w.entries)), // content entries only; redirects are in SectionRedirectTab
+		ContentSize:       totalContent,
+		SectionTableOff:   sectionTableOff,
+		ChecksumOff:       checksumOff,
+		Flags:             flags,
+		RedirectCount:     uint32(len(w.redirectEntries)),
+		FrontArticleCount: frontArticleCount,
 	}
 
 	// 16. Write placeholder header + section table.

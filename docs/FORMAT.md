@@ -125,7 +125,7 @@ the indirection just adds latency.
 
 ```
 +-------------------+
-| File Header       |  64 bytes fixed
+| File Header       |  128 bytes fixed
 +-------------------+
 | Section Table     |  Array of section descriptors (80 bytes each)
 +-------------------+
@@ -159,7 +159,7 @@ the indirection just adds latency.
 
 All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 
-### 3.2 File Header (64 bytes)
+### 3.2 File Header (128 bytes)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
@@ -173,7 +173,9 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 40 | 8 | `section_table_offset` | Offset to section table |
 | 48 | 8 | `checksum_offset` | Offset to trailing SHA-256 |
 | 56 | 4 | `flags` | Bit flags (see below) |
-| 60 | 4 | `reserved` | Must be zero |
+| 60 | 4 | `redirect_count` | Number of redirect entries |
+| 64 | 4 | `front_article_count` | Number of front-article entries (content + redirect) |
+| 68 | 60 | `reserved` | Must be zero |
 
 **Flags:**
 
@@ -685,7 +687,7 @@ Writers must produce self-contained HTML:
 
 | Aspect | ZIM v5/v6 | OZA v1 |
 |--------|-----------|--------|
-| Header | Fixed 80 bytes, no extensibility | 64 bytes + variable section table |
+| Header | Fixed 80 bytes, no extensibility | 128 bytes + variable section table |
 | Extensibility | None (namespace abuse) | Unknown sections skippable |
 | Namespaces | Single byte (C/M/W/X) | None -- flat paths by convention |
 | Entry types | Overloaded MIME index (0xFFFF) | Explicit `entry_type` field |

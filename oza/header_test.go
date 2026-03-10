@@ -10,17 +10,18 @@ func makeTestHeader() Header {
 		uuid[i] = byte(i + 1)
 	}
 	return Header{
-		Magic:           Magic,
-		MajorVersion:    MajorVersion,
-		MinorVersion:    MinorVersion,
-		UUID:            uuid,
-		SectionCount:    7,
-		EntryCount:      1000,
-		ContentSize:     0xDEADBEEF,
-		SectionTableOff: 64,
-		ChecksumOff:     0xCAFEBABE,
-		Flags:           FlagHasSearch | FlagHasChrome,
-		Reserved:        0,
+		Magic:             Magic,
+		MajorVersion:      MajorVersion,
+		MinorVersion:      MinorVersion,
+		UUID:              uuid,
+		SectionCount:      7,
+		EntryCount:        1000,
+		ContentSize:       0xDEADBEEF,
+		SectionTableOff:   128,
+		ChecksumOff:       0xCAFEBABE,
+		Flags:             FlagHasSearch | FlagHasChrome,
+		RedirectCount:     42,
+		FrontArticleCount: 500,
 	}
 }
 
@@ -62,6 +63,12 @@ func TestParseHeader(t *testing.T) {
 	}
 	if got.Flags != h.Flags {
 		t.Errorf("Flags: got %d, want %d", got.Flags, h.Flags)
+	}
+	if got.RedirectCount != h.RedirectCount {
+		t.Errorf("RedirectCount: got %d, want %d", got.RedirectCount, h.RedirectCount)
+	}
+	if got.FrontArticleCount != h.FrontArticleCount {
+		t.Errorf("FrontArticleCount: got %d, want %d", got.FrontArticleCount, h.FrontArticleCount)
 	}
 	if !got.HasSearch() {
 		t.Error("HasSearch() should be true")

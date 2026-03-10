@@ -388,7 +388,7 @@ FlagHasKnowledgeGraph = 1 << 5  // knowledge graph present
 FlagHasContextHints   = 1 << 6  // context hints present
 ```
 
-Technically redundant (scan section table), but enables O(1) capability detection from the 64-byte header alone.
+Technically redundant (scan section table), but enables O(1) capability detection from the 128-byte header alone.
 
 ### New Entry Flags
 

@@ -30,7 +30,7 @@ OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](doc
 
 | Feature | ZIM | OZA |
 |---------|-----|-----|
-| Header | Fixed 80 bytes, no extensibility | 64 bytes + section table |
+| Header | Fixed 80 bytes, no extensibility | 128 bytes + section table |
 | Entry records | Variable length, 3 pointer indirections | Fixed 40 bytes, O(1) by ID |
 | Content size | Must decompress cluster | `blob_size` in every entry |
 | Compression | XZ/Zstd/zlib/bzip2 | Zstd only + dictionaries |

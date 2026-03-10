@@ -150,12 +150,20 @@ func (a *Archive) load(verify bool) error {
 	}
 	a.hdr = hdr
 
-	// 1b. Warn on non-zero header reserved field.
-	if reserv := binary.LittleEndian.Uint32(hdrBuf[60:64]); reserv != 0 {
-		a.warnings = append(a.warnings, fmt.Sprintf(
-			"oza: header reserved field is non-zero (0x%08x); file may have been written by a newer version",
-			reserv,
-		))
+	// 1b. Warn on non-zero header reserved bytes (offsets 68-127).
+	{
+		var nonZero bool
+		for _, b := range hdrBuf[68:128] {
+			if b != 0 {
+				nonZero = true
+				break
+			}
+		}
+		if nonZero {
+			a.warnings = append(a.warnings,
+				"oza: header reserved bytes [68:128] are non-zero; file may have been written by a newer version",
+			)
+		}
 	}
 
 	// 2. Section table.

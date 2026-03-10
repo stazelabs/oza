@@ -16,7 +16,7 @@
 oza/
 ├── oza/                     # Core reader library
 │   ├── archive.go           # Archive type -- Open, Close, entry lookup, chunk cache
-│   ├── header.go            # 64-byte header parse/serialize
+│   ├── header.go            # 128-byte header parse/serialize
 │   ├── section.go           # 80-byte section descriptors, SectionType enum
 │   ├── entry.go             # 40-byte fixed entry records, EntryType enum
 │   ├── metadata.go          # Length-prefixed key-value pairs
@@ -99,7 +99,7 @@ Same as gozim: internal `reader` interface with mmap (default on 64-bit) and pre
 
 ## OZA Format Quick Reference
 
-- **Header:** 64 bytes, little-endian. Magic `0x415A4F01`. Version 1.0.
+- **Header:** 128 bytes, little-endian. Magic `0x415A4F01`. Version 1.0.
 - **Section table:** 80-byte descriptors. Unknown types skippable via `offset + compressed_size`.
 - **Entry table:** Fixed 40-byte records. `entry_type` field (0=content, 1=redirect, 2=metadata_ref).
 - **MIME table:** Length-prefixed strings. Index 0=text/html, 1=text/css, 2=application/javascript.

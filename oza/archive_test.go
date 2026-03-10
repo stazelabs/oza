@@ -437,6 +437,73 @@ func TestIterators(t *testing.T) {
 	}
 }
 
+func TestIteratorsErr(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		w.AddEntry("z.html", "Z", "text/html", []byte("<html>z</html>"), false)
+		w.AddEntry("a.html", "A", "text/html", []byte("<html>a</html>"), true)
+		w.AddEntry("m.html", "M", "text/html", []byte("<html>m</html>"), false)
+	})
+	defer cleanup()
+
+	// EntriesErr should yield all 3 with no errors.
+	count := 0
+	for e, err := range a.EntriesErr() {
+		if err != nil {
+			t.Fatalf("EntriesErr: unexpected error at entry %d: %v", count, err)
+		}
+		if e.Path() == "" {
+			t.Errorf("EntriesErr: entry %d has empty path", count)
+		}
+		count++
+	}
+	if count != 3 {
+		t.Errorf("EntriesErr count = %d, want 3", count)
+	}
+
+	// EntriesByPathErr should be sorted.
+	var paths []string
+	for e, err := range a.EntriesByPathErr() {
+		if err != nil {
+			t.Fatalf("EntriesByPathErr: %v", err)
+		}
+		paths = append(paths, e.Path())
+	}
+	for i := 1; i < len(paths); i++ {
+		if paths[i] < paths[i-1] {
+			t.Errorf("EntriesByPathErr not sorted at index %d: %q < %q", i, paths[i], paths[i-1])
+		}
+	}
+
+	// EntriesByTitleErr should be sorted.
+	var titles []string
+	for e, err := range a.EntriesByTitleErr() {
+		if err != nil {
+			t.Fatalf("EntriesByTitleErr: %v", err)
+		}
+		titles = append(titles, e.Title())
+	}
+	for i := 1; i < len(titles); i++ {
+		if titles[i] < titles[i-1] {
+			t.Errorf("EntriesByTitleErr not sorted at index %d: %q < %q", i, titles[i], titles[i-1])
+		}
+	}
+
+	// FrontArticlesErr should yield only the one with the flag.
+	frontCount := 0
+	for e, err := range a.FrontArticlesErr() {
+		if err != nil {
+			t.Fatalf("FrontArticlesErr: %v", err)
+		}
+		if !e.IsFrontArticle() {
+			t.Errorf("FrontArticlesErr yielded non-front entry %q", e.Path())
+		}
+		frontCount++
+	}
+	if frontCount != 1 {
+		t.Errorf("FrontArticlesErr count = %d, want 1", frontCount)
+	}
+}
+
 // --- TestSearch ---
 
 func TestSearch(t *testing.T) {
@@ -666,10 +733,10 @@ func TestReservedFieldWarnings(t *testing.T) {
 	}
 	a.Close()
 
-	// Write a copy with a non-zero header reserved field (bytes [60:64]).
+	// Write a copy with a non-zero header reserved field (bytes [68:128]).
 	modified := make([]byte, len(raw))
 	copy(modified, raw)
-	modified[60] = 0xFF
+	modified[68] = 0xFF
 
 	f2, err := os.CreateTemp(dir, "hdrres*.oza")
 	if err != nil {

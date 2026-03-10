@@ -138,6 +138,20 @@ Required keys (`date`, `language`, etc.) are checked for presence but not format
 writing). The writer should enforce format; the reader should tolerate sloppiness but
 expose a `ValidateMetadata()` method.
 
+**Converter implications:** All five required metadata fields (`title`, `language`,
+`creator`, `date`, `source`) are copied verbatim from the ZIM file's M/ namespace —
+wild data from upstream authors. If OZA enforces format compliance on the writer,
+`zim2oza` must act as a **sanitizing bridge**: normalize first, fall back to a sensible
+default if normalization fails, and warn in both cases.
+
+| Field | Normalize | Fallback if unparseable |
+|-------|-----------|------------------------|
+| `date` | Parse liberally (multiple date formats), emit ISO 8601 `YYYY-MM-DD` | `time.Now().Format("2006-01-02")` + warning |
+| `language` | Map ISO 639-2/3 codes to BCP-47, strip whitespace, lowercase | `"und"` (BCP-47 "undetermined") + warning |
+
+Note: the current language fallback is `"eng"` (ISO 639-3, not BCP-47). Should become
+`"und"` to avoid a false claim about the content language.
+
 ---
 
 ## 4. API Design & Ergonomics
@@ -153,20 +167,21 @@ access), so the benefit is mainly on the caller side — avoid copying from cach
 new allocation. A `WriteTo(w io.Writer)` method on `Entry` could write directly from
 the cached chunk slice.
 
-### 4.2 Iterator error propagation
+### 4.2 Iterator error propagation ✓ RESOLVED
 
-Go 1.22 `iter.Seq`-based iterators (`Entries()`, `EntriesByPath()`, etc.) cannot
-signal errors by design. If `EntryByID()` fails for entry N, the iterator silently
-stops.
+Added `iter.Seq2[Entry, error]` variants for all five iterators: `EntriesErr()`,
+`RedirectEntriesErr()`, `EntriesByPathErr()`, `EntriesByTitleErr()`,
+`FrontArticlesErr()`. When a non-nil error is yielded, the Entry is zero-valued
+and iteration stops after the error yield. The original `iter.Seq[Entry]` methods
+are retained for callers that don't need error propagation, with godoc updated to
+document the silent-stop behavior and point to the `*Err` variants.
 
-**Fix:** Provide parallel `EntriesErr()` variants that yield `(Entry, error)`, or
-document the silent-stop behavior prominently in godoc.
+### 4.3 Thread-safety documentation ✓ RESOLVED
 
-### 4.3 Thread-safety documentation
-
-`Archive` should clearly document its concurrency contract in the type-level godoc.
-Currently there is no statement. The contract appears to be: safe for concurrent reads
-after `Open()`, not safe for concurrent `Open`/`Close`. This should be explicit.
+Documented in the `Archive` type godoc (`oza/archive.go`): safe for concurrent use by
+multiple goroutines after `Open` or `OpenWithOptions` returns; all internal state is
+write-once during opening; the chunk cache is independently mutex-protected; `Close`
+must not be called concurrently with any other method. See also §1.4.
 
 ### 4.4 FrontArticles scan cost
 
@@ -177,15 +192,10 @@ For Wikipedia (6M+ entries), this is a full scan on every call.
 `ozaserve`'s random feature). Expose from the library. Cost: ~24 MB RAM for 6M
 front articles.
 
-### 4.5 Missing redirect count in header
+### 4.5 Missing redirect count in header ✓ RESOLVED
 
-The file header has `entry_count` (content entries only). To learn the redirect count,
-you must load the redirect table section.
-
-**Design question:** Is this worth a header field? The header is already at 64 bytes
-with 4 bytes reserved. A `redirect_count` field could go in the reserved space for v1.
-Or it can stay as-is — the redirect table header has the count, and the section table
-gives the section offset. Low priority.
+Header expanded from 64 to 128 bytes. Added `redirect_count` (offset 60) and
+`front_article_count` (offset 64). 60 bytes reserved for future use.
 
 ### 4.6 MIME index accessor ✓ RESOLVED
 

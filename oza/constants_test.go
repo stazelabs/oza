@@ -26,7 +26,7 @@ func TestSizes(t *testing.T) {
 		got  int
 		want int
 	}{
-		{"HeaderSize", HeaderSize, 64},
+		{"HeaderSize", HeaderSize, 128},
 		{"SectionSize", SectionSize, 80},
 		{"EntryTableHeaderSize", EntryTableHeaderSize, 8},
 		{"ChunkDescSize", ChunkDescSize, 28},

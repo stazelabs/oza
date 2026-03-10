@@ -2,7 +2,7 @@ package oza
 
 const (
 	Magic                = 0x01415A4F // "OZA\x01" on disk (little-endian uint32)
-	HeaderSize           = 64
+	HeaderSize           = 128
 	SectionSize          = 80
 	EntryTableHeaderSize = 8 // uint32 entry_count + uint32 record_data_offset
 	ChunkDescSize        = 28
