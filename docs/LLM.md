@@ -280,13 +280,11 @@ A medical encyclopedia declares `drug_interaction_check`. A legal archive declar
 
 ## `ozamcp` — MCP Server
 
-The tool that makes everything real. Exposes OZA archives as MCP resources and tools over stdio (Claude Desktop, VS Code) or HTTP/SSE.
+The tool that makes everything real. Exposes OZA archives as MCP resources and tools over stdio (Claude Desktop, VS Code). For networked access with browsable URLs, use `ozaserve --mcp` instead.
 
 ```bash
 ozamcp [file.oza ...] [--dir <path>]
-  --transport stdio    # for Claude Desktop, VS Code
-  --transport sse      # HTTP/SSE
-  --addr :3000
+  --transport stdio    # for Claude Desktop, VS Code (default)
 ```
 
 ### Tools

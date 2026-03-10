@@ -70,7 +70,7 @@ while IFS= read -r -d '' zim; do
     fi
 
     echo "Converting $base..."
-    if "$ZIM2OZA" "${ZIM2OZA_ARGS[@]}" "$zim" "$out"; then
+    if "$ZIM2OZA" ${ZIM2OZA_ARGS[@]+"${ZIM2OZA_ARGS[@]}"} "$zim" "$out"; then
         ((CONVERTED++)) || true
     else
         echo "FAIL $base" >&2

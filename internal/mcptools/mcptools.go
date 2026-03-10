@@ -22,6 +22,23 @@ import (
 	"github.com/stazelabs/oza/oza"
 )
 
+// maxReadContentSize is the maximum entry size (in bytes) that read_entry will
+// load without requiring max_length or section to be set. Entries larger than
+// this are rejected early to avoid unbounded memory use during HTML-to-markdown
+// conversion. The limit applies to the uncompressed blob size.
+const maxReadContentSize = 10 << 20 // 10 MiB
+
+// mustMarshalJSON marshals v as indented JSON. It panics on error, which is
+// safe because all call sites pass plain structs with string/int fields —
+// json.MarshalIndent only fails for truly unsupported types (channels, funcs).
+func mustMarshalJSON(v any) []byte {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic("mcptools: json marshal: " + err.Error())
+	}
+	return data
+}
+
 // ArchiveInfo describes a loaded archive for MCP tool and resource registration.
 type ArchiveInfo struct {
 	Archive         *oza.Archive
@@ -77,7 +94,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			}
 			list = append(list, desc)
 		}
-		data, _ := json.MarshalIndent(list, "", "  ")
+		data := mustMarshalJSON(list)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -180,7 +197,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		if len(hits) > limit {
 			hits = hits[:limit]
 		}
-		data, _ := json.MarshalIndent(hits, "", "  ")
+		data := mustMarshalJSON(hits)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -244,7 +261,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		if entryURL != nil && entry.Path() != "" {
 			info.URL = entryURL(ai.Slug, entry.Path())
 		}
-		data, _ := json.MarshalIndent(info, "", "  ")
+		data := mustMarshalJSON(info)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -314,7 +331,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			Count:      len(results),
 			Entries:    results,
 		}
-		data, _ := json.MarshalIndent(resp, "", "  ")
+		data := mustMarshalJSON(resp)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -386,7 +403,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		if entryURL != nil && entry.Path() != "" {
 			result.URL = entryURL(pick.ai.Slug, entry.Path())
 		}
-		data, _ := json.MarshalIndent(result, "", "  ")
+		data := mustMarshalJSON(result)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -478,7 +495,7 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 			MIMEStats:     mimeList,
 			Sections:      sectionList,
 		}
-		data, _ := json.MarshalIndent(resp, "", "  ")
+		data := mustMarshalJSON(resp)
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: string(data)}},
 		}, nil, nil
@@ -524,6 +541,18 @@ func RegisterTools(server *mcp.Server, archives []ArchiveInfo, archiveURL func(s
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("error: %v", err)}},
+				IsError: true,
+			}, nil, nil
+		}
+
+		// Guard against unbounded memory use: if the entry is large and the
+		// caller hasn't narrowed the request via max_length or section, reject
+		// early so the LLM learns to use those parameters.
+		if uint64(entry.Size()) > maxReadContentSize && input.MaxLength == 0 && input.Section == "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf(
+					"error: entry is %d bytes (limit %d); use max_length or section to limit output",
+					entry.Size(), maxReadContentSize)}},
 				IsError: true,
 			}, nil, nil
 		}
@@ -637,7 +666,7 @@ func RegisterResources(server *mcp.Server, archives []ArchiveInfo, archiveURL fu
 			if archiveURL != nil {
 				m["url"] = archiveURL(ai.Slug)
 			}
-			data, _ := json.MarshalIndent(m, "", "  ")
+			data := mustMarshalJSON(m)
 			return &mcp.ReadResourceResult{
 				Contents: []*mcp.ResourceContents{{
 					URI:      req.Params.URI,

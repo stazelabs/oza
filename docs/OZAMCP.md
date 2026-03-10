@@ -102,7 +102,7 @@ ozamcp [file.oza ...] [--dir <dir>] [flags]
 |------|---------|-------------|
 | `--dir`, `-d` | | Directory of OZA files (repeatable) |
 | `--recursive`, `-r` | `false` | Scan `--dir` directories recursively |
-| `--transport`, `-t` | `stdio` | Transport: `stdio` or `sse` |
+| `--transport`, `-t` | `stdio` | Transport: `stdio` |
 | `--cache`, `-c` | `64` | Chunk cache size per archive |
 
 ### Claude Desktop Config
@@ -212,8 +212,12 @@ Read entry content as clean markdown (or raw HTML).
 | `entry_id` | int | no | Entry ID (provide entry_id or path) |
 | `path` | string | no | Entry path (provide entry_id or path) |
 | `format` | string | no | `markdown` (default) or `html` |
+| `max_length` | int | no | Truncate output to this many characters (0 = no limit) |
+| `section` | string | no | Return only content under this heading (case-insensitive) |
 
 **Output:** Entry content with a title header and source link. HTML is converted to markdown by default. With `ozaserve --mcp`, the header includes a clickable source URL.
+
+**Size guard:** Entries larger than 10 MiB are rejected unless `max_length` or `section` is set. Use `get_entry_info` to check `size_bytes` before reading large entries.
 
 ---
 

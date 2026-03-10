@@ -46,7 +46,7 @@ Archives may be specified as positional arguments, via --dir, or both.`,
 
 	cmd.Flags().StringArrayVarP(&dirs, "dir", "d", nil, "directory of OZA files (repeatable)")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "scan --dir directories recursively")
-	cmd.Flags().StringVarP(&transport, "transport", "t", "stdio", "transport: stdio or sse")
+	cmd.Flags().StringVarP(&transport, "transport", "t", "stdio", "transport: stdio")
 	cmd.Flags().IntVarP(&cacheSize, "cache", "c", 64, "chunk cache size per archive")
 
 	if err := cmd.Execute(); err != nil {
