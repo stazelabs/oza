@@ -5,16 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
+	"github.com/stazelabs/oza/cmd/internal/loadutil"
 	"github.com/stazelabs/oza/cmd/internal/mcptools"
 	"github.com/stazelabs/oza/oza"
 )
@@ -144,63 +143,12 @@ func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]mcptools.
 	return archives, nil
 }
 
-// collectOZAPaths scans directories for .oza files.
+// collectOZAPaths delegates to the shared loadutil package.
 func collectOZAPaths(dirs []string, recursive bool) []string {
-	seen := make(map[string]bool)
-	var paths []string
-	for _, dir := range dirs {
-		if recursive {
-			filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error { //nolint:errcheck
-				if err != nil {
-					log.Printf("warning: skipping %s: %v", path, err)
-					return nil
-				}
-				if d.Type()&fs.ModeSymlink != 0 {
-					info, err := os.Stat(path)
-					if err == nil && info.IsDir() {
-						return filepath.SkipDir
-					}
-				}
-				if !d.IsDir() && strings.HasSuffix(path, ".oza") {
-					if abs, err := filepath.Abs(path); err == nil && !seen[abs] {
-						seen[abs] = true
-						paths = append(paths, abs)
-					}
-				}
-				return nil
-			})
-		} else {
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				log.Printf("warning: cannot read directory %s: %v", dir, err)
-				continue
-			}
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".oza") {
-					if abs, err := filepath.Abs(filepath.Join(dir, e.Name())); err == nil && !seen[abs] {
-						seen[abs] = true
-						paths = append(paths, abs)
-					}
-				}
-			}
-		}
-	}
-	sort.Strings(paths)
-	return paths
+	return loadutil.CollectOZAPaths(dirs, recursive)
 }
 
-// makeSlug derives a URL-friendly slug from an OZA filename.
+// makeSlug delegates to the shared loadutil package.
 func makeSlug(path string) string {
-	name := filepath.Base(path)
-	name = strings.TrimSuffix(name, ".oza")
-	parts := strings.Split(name, "_")
-	for len(parts) > 1 {
-		last := parts[len(parts)-1]
-		if len(last) >= 4 && last[0] >= '0' && last[0] <= '9' {
-			parts = parts[:len(parts)-1]
-		} else {
-			break
-		}
-	}
-	return strings.Join(parts, "_")
+	return loadutil.MakeSlug(path)
 }

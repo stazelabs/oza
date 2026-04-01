@@ -97,9 +97,16 @@ cmd/              — CLI module (separate go.mod)
   ozamcp/         — standalone MCP server (stdio)
   ozakeygen/      — generate Ed25519 signing key pairs
   zim2oza/        — ZIM → OZA converter
-docs/
+docs/             — format spec, design docs, and working notes
   FORMAT.md       — binary format specification
   BACKLOG.md      — known issues, design observations, future work
+  INDICES.md      — trigram search index design and wire format
+  OZAWRITE.md     — writer pipeline documentation
+  EMBEDDINGS.md   — deep dive on vectors and compression dictionaries
+  LLM.md          — AI ecosystem native design document
+  INCREMENTAL.md  — incremental rebuild design
+  OZAMCP.md       — MCP server documentation
+  TESTING_PLAN.md — testing strategy
 ```
 
 ## Before submitting a PR

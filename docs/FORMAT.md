@@ -200,8 +200,8 @@ Each section descriptor is **80 bytes**:
 | 32 | 1 | `compression` | 0=none, 1=zstd, 2=zstd+dict |
 | 33 | 3 | `reserved` | Must be zero |
 | 36 | 4 | `dict_id` | Dictionary ID (0 if none) |
-| 40 | 32 | `sha256` | SHA-256 of compressed section bytes |
-| 72 | 8 | `reserved2` | Must be zero |
+| 40 | 8 | `reserved2` | Must be zero |
+| 48 | 32 | `sha256` | SHA-256 of compressed section bytes |
 
 **Section types:**
 
@@ -347,26 +347,43 @@ Front-coded index sorted by path for binary search. Uses the IDX1 format with
 restart blocks every 64 entries for efficient random access.
 
 ```
-Header (16 + restart_count * 4 bytes):
+Header (24 + restart_count * 4 + string_table_size bytes):
   4 bytes: magic (0x49445831 = "IDX1" little-endian)
   4 bytes: count (total number of entries)
   4 bytes: restart_interval (64)
   4 bytes: restart_count
+  4 bytes: string_table_count (number of interned strings)
+  4 bytes: string_table_size  (byte size of the serialized string table)
   restart_count * 4 bytes: restart_offsets (byte offset from section start)
 
-Records (front-coded within restart blocks):
+String Table (string_table_size bytes):
+  Per interned string:
+    2 bytes: string_length
+    string_length bytes: string data (UTF-8)
+
+Records (front-coded within restart blocks, using token-encoded keys):
 
   Restart record (first in each block of 64):
     4 bytes: entry_id
-    2 bytes: key_length
-    key_length bytes: full key (UTF-8, NFC)
+    1 byte:  token_count
+    token_count tuples of:
+      2 bytes: table_index (0xFFFF = no table lookup)
+      2 bytes: literal_length
+      literal_length bytes: literal data
 
   Non-restart record:
     4 bytes: entry_id
     2 bytes: prefix_length (bytes shared with previous key)
-    2 bytes: suffix_length
-    suffix_length bytes: suffix bytes
+    1 byte:  token_count
+    token_count tuples of:
+      2 bytes: table_index (0xFFFF = no table lookup)
+      2 bytes: literal_length
+      literal_length bytes: literal data
 ```
+
+The string table interns frequently repeated path/title components (e.g. `.html`,
+`/wiki/`). Token-encoded keys reference table entries by index, with optional literal
+suffixes. This reduces index size by ~30% for large archives with repetitive paths.
 
 **No namespaces.** Paths are flat: `Main_Page`, `_res/style.css`, `_meta/Title`.
 Content organization is by convention (path prefix), not by format-level namespace.
@@ -768,7 +785,8 @@ The `Archive` API (`EntryByPath`, `ReadContent`, etc.) abstracts over both forma
 
 ## 11. Test Vectors
 
-The specification includes a reference `test.oza` file with known contents:
+Test vectors are planned but not yet included. The intended reference `test.oza` file
+will contain:
 
 - 4 entries: one HTML article, one CSS file, one redirect, one metadata entry
 - 2 chunks: one Zstd-compressed HTML chunk, one uncompressed CSS chunk
@@ -777,8 +795,8 @@ The specification includes a reference `test.oza` file with known contents:
 - Small enough to include as a hex dump (< 4 KB)
 - Accompanied by a JSON file listing expected parse results for every field
 
-Any implementation that correctly parses `test.oza` and produces the expected JSON is
-conformant.
+Any implementation that correctly parses the reference file and produces the expected
+JSON will be considered conformant.
 
 ---
 

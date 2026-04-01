@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
+	"github.com/stazelabs/oza/cmd/internal/loadutil"
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -123,11 +123,12 @@ func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize
 	mux.HandleFunc("/{archive}/{path...}", lib.handleContent)
 
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      securityHeaders(methodCheck(mux)),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              addr,
+		Handler:           securityHeaders(methodCheck(mux)),
+		ReadTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	if mcpEnabled {
@@ -203,52 +204,9 @@ func serveHTTP(srv *http.Server, addr string) error {
 	return <-done
 }
 
-// collectOZAPaths scans dirs for .oza files. Recursive mode uses filepath.WalkDir
-// and does not follow symlinked directories to avoid cycles.
-// Results are deduplicated by absolute path and sorted for deterministic slug assignment.
+// collectOZAPaths delegates to the shared loadutil package.
 func collectOZAPaths(dirs []string, recursive bool) []string {
-	seen := make(map[string]bool)
-	var paths []string
-	for _, dir := range dirs {
-		if recursive {
-			filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error { //nolint:errcheck
-				if err != nil {
-					log.Printf("warning: skipping %s: %v", path, err)
-					return nil
-				}
-				// Don't follow symlinked directories to avoid cycles.
-				if d.Type()&fs.ModeSymlink != 0 {
-					info, err := os.Stat(path)
-					if err == nil && info.IsDir() {
-						return filepath.SkipDir
-					}
-				}
-				if !d.IsDir() && strings.HasSuffix(path, ".oza") {
-					if abs, err := filepath.Abs(path); err == nil && !seen[abs] {
-						seen[abs] = true
-						paths = append(paths, abs)
-					}
-				}
-				return nil
-			})
-		} else {
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				log.Printf("warning: cannot read directory %s: %v", dir, err)
-				continue
-			}
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".oza") {
-					if abs, err := filepath.Abs(filepath.Join(dir, e.Name())); err == nil && !seen[abs] {
-						seen[abs] = true
-						paths = append(paths, abs)
-					}
-				}
-			}
-		}
-	}
-	sort.Strings(paths)
-	return paths
+	return loadutil.CollectOZAPaths(dirs, recursive)
 }
 
 // loadLibrary opens archives and populates the library. The first hardFailCount
@@ -381,30 +339,19 @@ func collectFrontArticleIDs(a *oza.Archive) []uint32 {
 	return ids
 }
 
-// makeSlug derives a URL-friendly slug from an OZA filename.
-// Trailing underscore-separated segments that start with a digit are stripped.
-// Example: "wikipedia_en_all_2024-01.oza" -> "wikipedia_en_all"
+// makeSlug delegates to the shared loadutil package.
 func makeSlug(path string) string {
-	name := filepath.Base(path)
-	name = strings.TrimSuffix(name, ".oza")
-	parts := strings.Split(name, "_")
-	for len(parts) > 1 {
-		last := parts[len(parts)-1]
-		if len(last) >= 4 && last[0] >= '0' && last[0] <= '9' {
-			parts = parts[:len(parts)-1]
-		} else {
-			break
-		}
-	}
-	return strings.Join(parts, "_")
+	return loadutil.MakeSlug(path)
 }
 
 // makeETag generates an ETag for a content entry from the archive UUID and path.
+// Uses SHA-256 truncated to 16 bytes for a compact, non-cryptographic-MD5 identifier.
 func makeETag(ae *archiveEntry, entryPath string) string {
-	h := md5.New()
+	h := sha256.New()
 	h.Write([]byte(ae.uuidHex))
 	h.Write([]byte(entryPath))
-	return `"` + hex.EncodeToString(h.Sum(nil)) + `"`
+	sum := h.Sum(nil)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
 }
 
 // faviconSVG is the 王座 kanji served at /favicon.ico and /_favicon.svg.

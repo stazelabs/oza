@@ -59,7 +59,11 @@ type WriterOptions struct {
 	SigningKeys      []SigningKey // optional; if set, a SIGNATURES trailer is appended after the file checksum
 }
 
-func defaultOptions() WriterOptions {
+// DefaultOptions returns the default WriterOptions with all features enabled.
+// Callers that want to selectively disable features should start from
+// DefaultOptions() and set individual fields to false, rather than using a
+// zero-value WriterOptions{} (which turns off all boolean features).
+func DefaultOptions() WriterOptions {
 	return WriterOptions{
 		ZstdLevel:        6,
 		ChunkTargetSize:  4 * 1024 * 1024,
@@ -143,8 +147,8 @@ type Writer struct {
 	pendingEntries []*pendingEntry     // entries buffered during training phase
 
 	// Search index builders — fed incrementally during AddEntry.
-	titleTB *TrigramBuilder
-	bodyTB  *TrigramBuilder
+	titleTB *trigramBuilder
+	bodyTB  *trigramBuilder
 
 	// Progress tracking for AddEntry.
 	contentCount int // number of content entries added so far
@@ -164,9 +168,12 @@ func (w *Writer) Timings() Timings { return w.timings }
 func (w *Writer) CompressWorkers() int { return w.opts.CompressWorkers }
 
 // NewWriter creates a Writer that will write the archive to wr.
-// If opts is the zero value, sensible defaults are applied.
+//
+// If opts is the zero value, sensible defaults are applied (all boolean
+// features enabled). To selectively disable features, start from
+// DefaultOptions() and set individual fields to false.
 func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
-	d := defaultOptions()
+	d := DefaultOptions()
 	if opts.ZstdLevel != 0 {
 		d.ZstdLevel = opts.ZstdLevel
 	}
@@ -176,21 +183,31 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 	if opts.DictSamples != 0 {
 		d.DictSamples = opts.DictSamples
 	}
-	// Boolean fields: use caller value (false = off).
-	d.TrainDict = opts.TrainDict
-	d.BuildSearch = opts.BuildSearch
-	d.BuildTitleSearch = opts.BuildTitleSearch
-	d.BuildBodySearch = opts.BuildBodySearch
+	// Boolean fields: only override defaults when the caller has explicitly
+	// configured at least one field, indicating intentional configuration
+	// rather than a zero-value WriterOptions{}.
+	hasAnyConfig := opts.ZstdLevel != 0 || opts.ChunkTargetSize != 0 ||
+		opts.DictSamples != 0 || opts.CompressWorkers != 0 ||
+		opts.TrainDict || opts.BuildSearch || opts.BuildTitleSearch ||
+		opts.BuildBodySearch || opts.MinifyHTML || opts.MinifyCSS ||
+		opts.MinifyJS || opts.MinifySVG || opts.OptimizeImages ||
+		opts.Progress != nil || opts.SigningKeys != nil
+	if hasAnyConfig {
+		d.TrainDict = opts.TrainDict
+		d.BuildSearch = opts.BuildSearch
+		d.BuildTitleSearch = opts.BuildTitleSearch
+		d.BuildBodySearch = opts.BuildBodySearch
+		d.MinifyHTML = opts.MinifyHTML
+		d.MinifyCSS = opts.MinifyCSS
+		d.MinifyJS = opts.MinifyJS
+		d.MinifySVG = opts.MinifySVG
+		d.OptimizeImages = opts.OptimizeImages
+	}
 	// BuildSearch is a convenience that sets both.
-	if opts.BuildSearch {
+	if d.BuildSearch {
 		d.BuildTitleSearch = true
 		d.BuildBodySearch = true
 	}
-	d.MinifyHTML = opts.MinifyHTML
-	d.MinifyCSS = opts.MinifyCSS
-	d.MinifyJS = opts.MinifyJS
-	d.MinifySVG = opts.MinifySVG
-	d.OptimizeImages = opts.OptimizeImages
 	d.Progress = opts.Progress
 	d.SigningKeys = opts.SigningKeys
 	if opts.CompressWorkers != 0 {

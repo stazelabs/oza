@@ -7,9 +7,17 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+// defaultMaxDecoderMemory is the hard cap enforced during decompression itself,
+// preventing a crafted archive from allocating unbounded memory before the
+// post-decompression size check fires. Matches the default maxDecompressedSize.
+const defaultMaxDecoderMemory = 1 << 30 // 1 GiB
+
 var defaultDecoderPool = &sync.Pool{
 	New: func() any {
-		d, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+		d, err := zstd.NewReader(nil,
+			zstd.WithDecoderConcurrency(1),
+			zstd.WithDecoderMaxMemory(defaultMaxDecoderMemory),
+		)
 		if err != nil {
 			panic("oza: zstd.NewReader: " + err.Error())
 		}
@@ -71,6 +79,7 @@ func decodeZstdDict(data []byte, dictID uint32, raw []byte) ([]byte, error) {
 			New: func() any {
 				d, err := zstd.NewReader(nil,
 					zstd.WithDecoderConcurrency(1),
+					zstd.WithDecoderMaxMemory(defaultMaxDecoderMemory),
 					zstd.WithDecoderDicts(capturedRaw),
 				)
 				if err != nil {

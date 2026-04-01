@@ -307,7 +307,7 @@ func (idx *Index) decodeTuples(sb *strings.Builder, off, tokenCount int) (string
 func (idx *Index) Search(key string) (uint32, error) {
 	n := int(idx.restartCount)
 	if n == 0 {
-		return 0, ErrNotFound
+		return 0, fmt.Errorf("oza: entry by key %q: %w", key, ErrNotFound)
 	}
 
 	var sb strings.Builder
@@ -390,7 +390,7 @@ func (idx *Index) Search(key string) (uint32, error) {
 		}
 	}
 
-	return 0, ErrNotFound
+	return 0, fmt.Errorf("oza: entry by key %q: %w", key, ErrNotFound)
 }
 
 // readRestartKey reads the full key at restart block i.

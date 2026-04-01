@@ -702,6 +702,9 @@ func RegisterResources(server *mcp.Server, archives []ArchiveInfo, archiveURL fu
 		if err != nil {
 			return nil, mcp.ResourceNotFoundError(uri)
 		}
+		if uint64(entry.Size()) > maxReadContentSize {
+			return nil, fmt.Errorf("entry size %d exceeds maximum %d bytes", entry.Size(), maxReadContentSize)
+		}
 		content, err := entry.ReadContent()
 		if err != nil {
 			return nil, fmt.Errorf("reading entry content: %w", err)
@@ -745,37 +748,7 @@ func RegisterResources(server *mcp.Server, archives []ArchiveInfo, archiveURL fu
 	})
 }
 
-// sectionTypeName returns a human-readable name for an OZA section type.
-func sectionTypeName(t oza.SectionType) string {
-	switch t {
-	case oza.SectionMetadata:
-		return "METADATA"
-	case oza.SectionMIMETable:
-		return "MIME_TABLE"
-	case oza.SectionEntryTable:
-		return "ENTRY_TABLE"
-	case oza.SectionPathIndex:
-		return "PATH_INDEX"
-	case oza.SectionTitleIndex:
-		return "TITLE_INDEX"
-	case oza.SectionContent:
-		return "CONTENT"
-	case oza.SectionRedirectTab:
-		return "REDIRECT_TABLE"
-	case oza.SectionChrome:
-		return "CHROME"
-	case oza.SectionSignatures:
-		return "SIGNATURES"
-	case oza.SectionZstdDict:
-		return "ZSTD_DICT"
-	case oza.SectionSearchTitle:
-		return "SEARCH_TITLE"
-	case oza.SectionSearchBody:
-		return "SEARCH_BODY"
-	default:
-		return fmt.Sprintf("UNKNOWN(0x%04x)", uint32(t))
-	}
-}
+func sectionTypeName(t oza.SectionType) string { return t.String() }
 
 // ParseEntryURI extracts slug and id from "oza://{slug}/entry/{id}".
 func ParseEntryURI(uri string) (slug, id string, ok bool) {

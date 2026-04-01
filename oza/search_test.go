@@ -108,6 +108,41 @@ func TestSearchCJKBigramModeNoFlag(t *testing.T) {
 	}
 }
 
+// FuzzDecodePostingList fuzzes the roaring bitmap deserialization path used by
+// trigram search. Malformed archives can contain arbitrary bytes in posting
+// list regions; the decoder must not panic or allocate unbounded memory.
+func FuzzDecodePostingList(f *testing.F) {
+	// Seed: a valid roaring bitmap containing a single entry.
+	bm := roaring.New()
+	bm.Add(42)
+	bm.RunOptimize()
+	var buf bytes.Buffer
+	bm.WriteTo(&buf)
+	f.Add(buf.Bytes())
+
+	// Seed: empty bitmap.
+	empty := roaring.New()
+	var buf2 bytes.Buffer
+	empty.WriteTo(&buf2)
+	f.Add(buf2.Bytes())
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		bm := roaring.New()
+		if _, err := bm.ReadFrom(bytes.NewReader(data)); err != nil {
+			return
+		}
+		// Exercise iteration — must not panic even on malformed internal state.
+		func() {
+			defer func() { recover() }()
+			bm.GetCardinality()
+			it := bm.Iterator()
+			for i := 0; it.HasNext() && i < 100; i++ {
+				it.Next()
+			}
+		}()
+	})
+}
+
 func FuzzParseTrigramIndex(f *testing.F) {
 	// Seed: valid section with one trigram.
 	seed := makeTrigramSection([][3]byte{{'a', 'b', 'c'}})

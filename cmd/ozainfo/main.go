@@ -6,16 +6,22 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/stazelabs/oza/oza"
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: ozainfo <archive.oza>\n")
-		os.Exit(1)
+	root := &cobra.Command{
+		Use:   "ozainfo <archive.oza>",
+		Short: "Dump metadata and section table of an OZA archive",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(args[0])
+		},
 	}
-	if err := run(os.Args[1]); err != nil {
-		fmt.Fprintf(os.Stderr, "ozainfo: %v\n", err)
+
+	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
@@ -122,42 +128,5 @@ func formatFlags(hdr oza.Header) string {
 	return " [" + strings.Join(parts, ", ") + "]"
 }
 
-func sectionTypeName(t oza.SectionType) string {
-	switch t {
-	case oza.SectionMetadata:
-		return "METADATA"
-	case oza.SectionMIMETable:
-		return "MIME_TABLE"
-	case oza.SectionEntryTable:
-		return "ENTRY_TABLE"
-	case oza.SectionPathIndex:
-		return "PATH_INDEX"
-	case oza.SectionTitleIndex:
-		return "TITLE_INDEX"
-	case oza.SectionContent:
-		return "CONTENT"
-	case oza.SectionRedirectTab:
-		return "REDIRECT_TAB"
-	case oza.SectionChrome:
-		return "CHROME"
-	case oza.SectionSignatures:
-		return "SIGNATURES"
-	case oza.SectionZstdDict:
-		return "ZSTD_DICT"
-	default:
-		return fmt.Sprintf("0x%04x", uint32(t))
-	}
-}
-
-func compressionName(c uint8) string {
-	switch c {
-	case oza.CompNone:
-		return "none"
-	case oza.CompZstd:
-		return "zstd"
-	case oza.CompZstdDict:
-		return "zstd+dict"
-	default:
-		return fmt.Sprintf("0x%02x", c)
-	}
-}
+func sectionTypeName(t oza.SectionType) string { return t.String() }
+func compressionName(c uint8) string            { return oza.CompressionName(c) }

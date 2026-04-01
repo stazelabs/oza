@@ -65,7 +65,7 @@ Each non-image entry under 4 KB contributes a sample copy to its MIME group's sa
 
 **Why separate "small" buckets?** A dictionary trained on 500-byte entries learns different patterns than one trained on 50 KB entries. The small-entry dictionary captures boilerplate structure; the large-entry dictionary (if trained) captures content patterns. Separating them produces better compression for both.
 
-Source: [chunk.go:70-81](ozawrite/chunk.go#L70-L81) — `smallEntryThreshold` and `ChunkKey()`
+Source: [chunk.go:70-81](../ozawrite/chunk.go#L70-L81) — `smallEntryThreshold` and `ChunkKey()`
 
 #### Step 2: Training trigger
 
@@ -78,7 +78,7 @@ Condition 2: total pending entries ≥ 2 × DictSamples (4,000)  → train anywa
 
 All entries received before training completes are buffered in memory. After training, they are sorted by chunk key and flushed through the compression pipeline with their new dictionaries.
 
-Source: [pipeline.go:42-50](ozawrite/pipeline.go#L42-L50) — `haveSufficientSamples()`
+Source: [pipeline.go:42-50](../ozawrite/pipeline.go#L42-L50) — `haveSufficientSamples()`
 
 #### Step 3: Dictionary training
 
@@ -111,7 +111,7 @@ For each MIME group with ≥ 10 samples, the writer:
    js         → dictID=4, dictionary=112 KB
    ```
 
-Source: [compress.go:109-161](ozawrite/compress.go#L109-L161) — `trainDictionary()` and `validateDict()`
+Source: [compress.go:109-161](../ozawrite/compress.go#L109-L161) — `trainDictionary()` and `validateDict()`
 
 #### Step 4: Compression with dictionaries
 
@@ -135,7 +135,7 @@ Chunk 2 (image, 12 entries, 1.8 MB):
   descriptor: { chunkID=2, dictID=0, compression=CompNone(0) }
 ```
 
-Source: [pipeline.go:169-200](ozawrite/pipeline.go#L169-L200) — `flushChunk()` dispatches to workers with dictionary
+Source: [pipeline.go:169-200](../ozawrite/pipeline.go#L169-L200) — `flushChunk()` dispatches to workers with dictionary
 
 #### Step 5: On-disk storage
 
@@ -171,7 +171,7 @@ a.dicts[3] = <89 KB css dictionary>
 
 This happens once at open time. Total memory: sum of dictionary sizes (typically 200-600 KB).
 
-Source: [archive.go](oza/archive.go) — dictionary section loading
+Source: [archive.go](../oza/archive.go) — dictionary section loading
 
 #### Step 2: Chunk decompression
 
@@ -189,7 +189,7 @@ When a reader requests entry "Aardvark":
 
 **Decoder pooling:** The first decompression for each dictID creates a `sync.Pool` of Zstd decoders pre-initialized with that dictionary. Subsequent decompressions reuse pooled decoders — no dictionary re-parsing on every request.
 
-Source: [compress.go:64-93](oza/compress.go#L64-L93) — `decodeZstdDict()` with `sync.Pool`
+Source: [compress.go:64-93](../oza/compress.go#L64-L93) — `decodeZstdDict()` with `sync.Pool`
 
 ### Real-world compression numbers
 

@@ -36,7 +36,7 @@ Both section types use the same binary format:
 
 ```
 Header (16 bytes):
-  [0:4]   version         uint32 = 3
+  [0:4]   version         uint32 = 1
   [4:8]   flags           uint32 (bit 0: CJK bigram mode; all other bits reserved 0)
   [8:12]  trigram_count   uint32
   [12:16] doc_count       uint32 (distinct entry IDs indexed)

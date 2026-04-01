@@ -340,6 +340,12 @@ func (a *Archive) loadContentSection(s SectionDesc) error {
 	}
 	count := binary.LittleEndian.Uint32(countBuf[:])
 
+	// Validate chunk count against section size to prevent overflow on 32-bit
+	// platforms and OOM from attacker-crafted counts.
+	if int64(count)*int64(ChunkDescSize)+4 > int64(s.CompressedSize) {
+		return fmt.Errorf("oza: chunk count %d exceeds section size", count)
+	}
+
 	// Read chunk table.
 	tableSize := int(count) * ChunkDescSize
 	tableBuf := make([]byte, tableSize)
@@ -626,6 +632,27 @@ func (a *Archive) ForEachEntryRecord(fn func(id uint32, rec EntryRecord)) {
 		rec.ID = i
 		fn(i, rec)
 	}
+}
+
+// ForEachEntryRecordErr calls fn for each content entry record in ID order.
+// Unlike ForEachEntryRecord, parse errors are propagated to the caller and
+// fn may return an error to stop iteration early.
+func (a *Archive) ForEachEntryRecordErr(fn func(id uint32, rec EntryRecord) error) error {
+	for i := uint32(0); i < uint32(len(a.entryOffsets)); i++ {
+		off := a.entryOffsets[i]
+		if uint64(off) >= uint64(len(a.entryRecords)) {
+			return fmt.Errorf("oza: entry %d offset %d out of range", i, off)
+		}
+		rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
+		if err != nil {
+			return fmt.Errorf("oza: entry %d: %w", i, err)
+		}
+		rec.ID = i
+		if err := fn(i, rec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // HasBodySearch reports whether the archive contains a body trigram search index.

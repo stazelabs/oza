@@ -1,5 +1,9 @@
 # 王座 OZA -- AI Ecosystem Native
 
+> **Status: Design document.** The AI-specific section types described below
+> (0x0100–0x0106) are **not yet implemented**. This document describes the
+> planned design. Only the core format and MCP server (`ozamcp`) exist today.
+
 > *OZA is the world's first AI ecosystem native content distribution format.*
 
 ZIM served the offline web for 20 years. OZA serves the offline web *and* the AI ecosystem simultaneously — same file, same format, dual purpose.

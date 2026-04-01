@@ -46,7 +46,7 @@ passes zero.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| ZstdLevel | 19 | Zstd compression level (1–22). Mapped to klauspost's 4 discrete speed levels: ≤1 → Fastest, ≤4 → Default, ≤8 → BetterCompression, ≥9 → BestCompression. |
+| ZstdLevel | 6 | Zstd compression level (1–22). Mapped to klauspost's 4 discrete speed levels: ≤1 → Fastest, ≤4 → Default, ≤8 → BetterCompression, ≥9 → BestCompression. |
 | ChunkTargetSize | 4 MiB | Uncompressed byte threshold per chunk. Each MIME group has its own open chunk; once it reaches this size it is compressed and flushed. |
 | TrainDict | true | Train per-MIME-group Zstd dictionaries from early entries. |
 | DictSamples | 2000 | Maximum content samples collected per MIME group before training triggers. |
@@ -121,8 +121,9 @@ Close is a multi-phase pipeline:
    are always `text/html` (0), `text/css` (1), `application/javascript` (2),
    regardless of whether any entries use them.
 
-5. **Build entry table** — serialises content entry records (40 bytes each) in
-   ID order. Redirect entries are excluded from the entry table.
+5. **Build entry table** — serialises variable-length content entry records
+   (~15 bytes each on average) in ID order with an offset table for O(1) access.
+   Redirect entries are excluded from the entry table.
 
 6. **Build redirect section** — serialises redirect records (5 bytes each:
    1-byte flags + 4-byte target ID) prefixed by a uint32 count. Redirect

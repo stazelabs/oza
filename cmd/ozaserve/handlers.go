@@ -436,8 +436,9 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Header().Set("ETag", etag)
 
-	// For HTML content, inject the sticky navigation bar and footer bar.
+	// For HTML content, set CSP sandbox and inject the sticky navigation bar and footer bar.
 	if entry.MIMEIndex() == oza.MIMEIndexHTML {
+		w.Header().Set("Content-Security-Policy", "sandbox")
 		bar := headerBarHTML(slug, ae.title, ae.letterCounts)
 		content = injectHeaderBar(content, []byte(bar))
 		content = injectFooterBar(content, []byte(footerBarHTML(!lib.noInfo)))

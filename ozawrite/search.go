@@ -38,7 +38,7 @@ import (
 //
 // This avoids cross-byte-boundary trigrams that split multi-byte CJK characters
 // and improves search precision for CJK queries.
-type TrigramBuilder struct {
+type trigramBuilder struct {
 	trigrams      map[[3]byte][]uint32 // trigram -> posting list (entry IDs, insertion order)
 	seen          map[[3]byte]int      // epoch of last time this trigram was added for the current entry
 	docs          map[uint32]bool      // distinct entry IDs indexed
@@ -57,8 +57,8 @@ func isCJKRune(r rune) bool {
 		(r >= 0xF900 && r <= 0xFAFF) // CJK Compatibility Ideographs
 }
 
-func newTrigramBuilder() *TrigramBuilder {
-	return &TrigramBuilder{
+func newTrigramBuilder() *trigramBuilder {
+	return &trigramBuilder{
 		trigrams: make(map[[3]byte][]uint32),
 		seen:     make(map[[3]byte]int),
 		docs:     make(map[uint32]bool),
@@ -73,7 +73,7 @@ func newTrigramBuilder() *TrigramBuilder {
 //
 // For CJK text the indexer uses character-aligned grams (see TrigramBuilder
 // comment) instead of a raw byte sliding window.
-func (b *TrigramBuilder) IndexEntry(entryID uint32, text []byte) {
+func (b *trigramBuilder) IndexEntry(entryID uint32, text []byte) {
 	// Track distinct entry IDs for doc_count.
 	b.docs[entryID] = true
 
@@ -99,7 +99,7 @@ func (b *TrigramBuilder) IndexEntry(entryID uint32, text []byte) {
 // emitGrams adds grams from text to the index for entryID.
 // Non-CJK runs use a 3-byte sliding window. CJK runs use character-aligned
 // unigrams and bigrams (see TrigramBuilder comment).
-func (b *TrigramBuilder) emitGrams(entryID uint32, text []byte) {
+func (b *trigramBuilder) emitGrams(entryID uint32, text []byte) {
 	addGram := func(tri [3]byte) {
 		if b.seen[tri] == b.epoch {
 			return
@@ -170,7 +170,7 @@ type triEntry struct {
 }
 
 // Build serializes the trigram index into the v1 wire format.
-func (b *TrigramBuilder) Build() ([]byte, error) {
+func (b *trigramBuilder) Build() ([]byte, error) {
 	entries := make([]triEntry, 0, len(b.trigrams))
 	for tri, ids := range b.trigrams {
 		// Sort and deduplicate: the same entryID can appear multiple times if
@@ -190,7 +190,7 @@ func (b *TrigramBuilder) Build() ([]byte, error) {
 }
 
 // serializeEntries encodes a sorted slice of triEntries into the v1 wire format.
-func (b *TrigramBuilder) serializeEntries(entries []triEntry) ([]byte, error) {
+func (b *trigramBuilder) serializeEntries(entries []triEntry) ([]byte, error) {
 	sort.Slice(entries, func(i, j int) bool {
 		return bytes.Compare(entries[i].tri[:], entries[j].tri[:]) < 0
 	})

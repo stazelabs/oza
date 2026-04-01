@@ -31,7 +31,7 @@ OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](doc
 | Feature | ZIM | OZA |
 |---------|-----|-----|
 | Header | Fixed 80 bytes, no extensibility | 128 bytes + section table |
-| Entry records | Variable length, 3 pointer indirections | Fixed 40 bytes, O(1) by ID |
+| Entry records | Variable length, 3 pointer indirections | Variable-length (~15 bytes avg), O(1) by ID |
 | Content size | Must decompress cluster | `blob_size` in every entry |
 | Compression | XZ/Zstd/zlib/bzip2 | Zstd only + dictionaries |
 | Integrity | Single MD5 | SHA-256 at file/section/chunk |
@@ -83,7 +83,7 @@ func main() {
     }
     fmt.Printf("Content-Type: %s\n", entry.MIMEType())
     fmt.Printf("Size: %d bytes\n", len(data))
-    fmt.Printf("Blob size: %d bytes\n", entry.BlobSize) // no decompression needed
+    fmt.Printf("Blob size: %d bytes\n", entry.Size()) // no decompression needed
 
     // Iterate all front articles
     for e := range a.FrontArticles() {
@@ -186,6 +186,23 @@ Serve OZA files over HTTP:
 go run ./cmd/ozaserve -a :8080 archive.oza
 ```
 
+### ozamcp
+
+Standalone MCP server for LLM agents (see [docs/OZAMCP.md](docs/OZAMCP.md)):
+
+```bash
+go run ./cmd/ozamcp archive.oza
+```
+
+### ozakeygen
+
+Generate Ed25519 signing key pairs for archive signatures:
+
+```bash
+go run ./cmd/ozakeygen -o mykey
+# Creates mykey.pub and mykey.key
+```
+
 ### zim2oza
 
 Convert ZIM files to OZA format:
@@ -219,7 +236,7 @@ archive.Metadata("title") (string, error)
 archive.Entries() iter.Seq[Entry]
 archive.EntriesByTitle() iter.Seq[Entry]
 archive.FrontArticles() iter.Seq[Entry]
-archive.Search("query", limit) []Entry
+archive.Search("query", SearchOptions{}) ([]SearchResult, error)
 archive.Verify() error
 archive.VerifyAll() ([]VerifyResult, error)
 ```
@@ -229,20 +246,19 @@ archive.VerifyAll() ([]VerifyResult, error)
 ```go
 entry.Path() string
 entry.Title() string
-entry.BlobSize uint32              // content size without decompression
+entry.Size() uint32                  // content size without decompression
 entry.IsRedirect() bool
 entry.IsFrontArticle() bool
 entry.MIMEType() string
 entry.ReadContent() ([]byte, error)  // resolves redirects
 entry.Resolve() (Entry, error)       // follow redirect chain
-entry.ContentHash uint64             // truncated SHA-256
 ```
 
 ### Options
 
 ```go
 oza.WithMmap(false)      // disable memory mapping
-oza.WithCacheSize(32)    // chunk cache size (default: 16)
+oza.WithCacheSize(32)    // chunk cache size (default: 8)
 oza.WithVerifyOnOpen()   // verify section checksums on open
 ```
 

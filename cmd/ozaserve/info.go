@@ -261,49 +261,8 @@ func isBinaryMeta(b []byte) bool {
 	return false
 }
 
-func sectionTypeName(t oza.SectionType) string {
-	switch t {
-	case oza.SectionMetadata:
-		return "METADATA"
-	case oza.SectionMIMETable:
-		return "MIME_TABLE"
-	case oza.SectionEntryTable:
-		return "ENTRY_TABLE"
-	case oza.SectionPathIndex:
-		return "PATH_INDEX"
-	case oza.SectionTitleIndex:
-		return "TITLE_INDEX"
-	case oza.SectionContent:
-		return "CONTENT"
-	case oza.SectionRedirectTab:
-		return "REDIRECT_TAB"
-	case oza.SectionChrome:
-		return "CHROME"
-	case oza.SectionSignatures:
-		return "SIGNATURES"
-	case oza.SectionZstdDict:
-		return "ZSTD_DICT"
-	case oza.SectionSearchTitle:
-		return "SEARCH_TITLE"
-	case oza.SectionSearchBody:
-		return "SEARCH_BODY"
-	default:
-		return fmt.Sprintf("0x%04x", uint32(t))
-	}
-}
-
-func compressionName(c uint8) string {
-	switch c {
-	case oza.CompNone:
-		return "none"
-	case oza.CompZstd:
-		return "zstd"
-	case oza.CompZstdDict:
-		return "zstd+dict"
-	default:
-		return fmt.Sprintf("0x%02x", c)
-	}
-}
+func sectionTypeName(t oza.SectionType) string { return t.String() }
+func compressionName(c uint8) string            { return oza.CompressionName(c) }
 
 // parseMetaInt64 parses a metadata value as an int64, returning 0 on failure.
 func parseMetaInt64(b []byte) int64 {
