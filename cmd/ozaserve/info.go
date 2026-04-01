@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stazelabs/oza/cmd/internal/stats"
 	"github.com/stazelabs/oza/oza"
 )
 
@@ -61,6 +63,11 @@ type infoPageData struct {
 	MetaRows    []metaRow
 	MIMETypes   []mimeTypeRow
 	Sections    []sectionRow
+	MIMECensus  []stats.MIMECensusEntry
+	EntryStats  stats.EntryStats
+	ChunkStats  stats.ChunkStats
+	SearchStats stats.SearchStats
+	SizeSummary stats.SectionSummary
 	FooterHTML  string
 }
 
@@ -238,6 +245,9 @@ func (lib *library) handleInfo(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Collect extended statistics.
+	st := stats.Collect(a, ae.fileSize)
+
 	renderTemplate(w, "info.html", infoPageData{
 		Slug:        slug,
 		Title:       ae.title,
@@ -247,8 +257,28 @@ func (lib *library) handleInfo(w http.ResponseWriter, r *http.Request) {
 		MetaRows:    metaRows,
 		MIMETypes:   mimeRows,
 		Sections:    sectionRows,
+		MIMECensus:  st.MIMECensus,
+		EntryStats:  st.EntryStats,
+		ChunkStats:  st.ChunkStats,
+		SearchStats: st.SearchStats,
+		SizeSummary: st.SectionSummary,
 		FooterHTML:  footerBarHTML(!lib.noInfo),
 	})
+}
+
+// handleInfoJSON serves GET /{archive}/-/info.json — JSON statistics for a single archive.
+func (lib *library) handleInfoJSON(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("archive")
+	ae, ok := lib.archives[slug]
+	if !ok {
+		write404(w, r)
+		return
+	}
+	result := stats.Collect(ae.archive, ae.fileSize)
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(result)
 }
 
 // isBinaryMeta reports whether b contains bytes outside printable ASCII + common whitespace.
@@ -262,7 +292,7 @@ func isBinaryMeta(b []byte) bool {
 }
 
 func sectionTypeName(t oza.SectionType) string { return t.String() }
-func compressionName(c uint8) string            { return oza.CompressionName(c) }
+func compressionName(c uint8) string           { return oza.CompressionName(c) }
 
 // parseMetaInt64 parses a metadata value as an int64, returning 0 on failure.
 func parseMetaInt64(b []byte) int64 {

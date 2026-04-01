@@ -507,7 +507,8 @@ func headerBarHTML(slug, title string, letterCounts map[byte]int) string {
 
 	var b strings.Builder
 	b.WriteString(`<style>
-#oza-bar{position:sticky;top:0;z-index:999999;background:#f6f8fa;border-bottom:1px solid #d0d7de;padding:4px 12px;font:13px/1.4 system-ui,sans-serif;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-sizing:border-box}
+#oza-bar{position:fixed;top:0;left:0;right:0;z-index:999999;background:#f6f8fa;border-bottom:1px solid #d0d7de;padding:4px 12px;font:13px/1.4 system-ui,sans-serif;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-sizing:border-box}
+body{margin-top:32px!important}
 #oza-bar *{box-sizing:border-box;margin:0;padding:0}
 #oza-bar a{color:#0366d6;text-decoration:none}
 #oza-bar a:hover{text-decoration:underline}

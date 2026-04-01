@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -8,8 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/stazelabs/oza/cmd/internal/stats"
 	"github.com/stazelabs/oza/oza"
 )
+
+var jsonOutput bool
 
 func main() {
 	root := &cobra.Command{
@@ -20,6 +24,7 @@ func main() {
 			return run(args[0])
 		},
 	}
+	root.Flags().BoolVar(&jsonOutput, "json", false, "output statistics as JSON")
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -27,18 +32,38 @@ func main() {
 }
 
 func run(path string) error {
+	// Get file size before opening.
+	var fileSize int64
+	if fi, err := os.Stat(path); err == nil {
+		fileSize = fi.Size()
+	}
+
 	a, err := oza.Open(path)
 	if err != nil {
 		return err
 	}
 	defer a.Close()
 
+	st := stats.Collect(a, fileSize)
+
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(st)
+	}
+
+	printText(path, a, st)
+	return nil
+}
+
+func printText(path string, a *oza.Archive, st stats.ArchiveStats) {
 	hdr := a.FileHeader()
 
+	// --- Existing output (unchanged) ---
 	fmt.Printf("File:          %s\n", path)
 	fmt.Printf("Magic:         0x%08X\n", hdr.Magic)
 	fmt.Printf("Version:       %d.%d\n", hdr.MajorVersion, hdr.MinorVersion)
-	fmt.Printf("UUID:          %s\n", formatUUID(hdr.UUID))
+	fmt.Printf("UUID:          %s\n", st.Header.UUID)
 	fmt.Printf("Sections:      %d\n", hdr.SectionCount)
 	fmt.Printf("Entries:       %d\n", hdr.EntryCount)
 	fmt.Printf("Redirects:     %d\n", a.RedirectCount())
@@ -57,9 +82,9 @@ func run(path string) error {
 			sha = sha[:16] + "..."
 		}
 		fmt.Printf("  %-3d  %-15s  0x%010x  %-12d  %-12d  %-10s  %s\n",
-			i, sectionTypeName(s.Type), s.Offset,
+			i, s.Type.String(), s.Offset,
 			s.CompressedSize, s.UncompressedSize,
-			compressionName(s.Compression), sha)
+			oza.CompressionName(s.Compression), sha)
 	}
 	fmt.Println()
 
@@ -92,8 +117,88 @@ func run(path string) error {
 		}
 		fmt.Printf("  %-20s = %s\n", k, v)
 	}
+	fmt.Println()
 
-	return nil
+	// --- Extended statistics ---
+
+	// Entry Statistics.
+	fmt.Println("Entry Statistics:")
+	fmt.Printf("  Content entries:  %d\n", st.EntryStats.ContentEntries)
+	fmt.Printf("  Redirects:        %d\n", st.EntryStats.Redirects)
+	fmt.Printf("  Front articles:   %d\n", st.EntryStats.FrontArticles)
+	fmt.Printf("  Metadata refs:    %d\n", st.EntryStats.MetadataRefs)
+	fmt.Printf("  Total blob bytes: %s\n", formatBytes(st.EntryStats.TotalBlobBytes))
+	fmt.Println()
+
+	// MIME Census.
+	if len(st.MIMECensus) > 0 {
+		fmt.Printf("MIME Census (%d types, by entry count):\n", len(st.MIMECensus))
+		fmt.Printf("  %-35s  %10s  %14s  %10s  %10s  %10s\n",
+			"Type", "Count", "Total Bytes", "Avg", "Min", "Max")
+		limit := len(st.MIMECensus)
+		if limit > 20 {
+			limit = 20
+		}
+		for _, c := range st.MIMECensus[:limit] {
+			fmt.Printf("  %-35s  %10d  %14d  %10.0f  %10d  %10d\n",
+				c.MIMEType, c.Count, c.TotalBytes, c.AvgBytes, c.MinBytes, c.MaxBytes)
+		}
+		if len(st.MIMECensus) > 20 {
+			fmt.Printf("  ... and %d more types\n", len(st.MIMECensus)-20)
+		}
+		fmt.Println()
+	}
+
+	// Chunk Statistics.
+	fmt.Println("Chunk Statistics:")
+	fmt.Printf("  Chunks:           %d\n", st.ChunkStats.ChunkCount)
+	if st.ChunkStats.ChunkCount > 0 {
+		fmt.Printf("  Entries/chunk:    avg %.1f, min %d, max %d\n",
+			st.ChunkStats.AvgEntriesPerChunk,
+			st.ChunkStats.MinEntriesPerChunk,
+			st.ChunkStats.MaxEntriesPerChunk)
+	}
+	fmt.Println()
+
+	// Search Index.
+	fmt.Println("Search Index:")
+	fmt.Printf("  Title search:     %s\n", searchLine(st.SearchStats.HasTitleSearch, st.SearchStats.TitleDocCount))
+	fmt.Printf("  Body search:      %s\n", searchLine(st.SearchStats.HasBodySearch, st.SearchStats.BodyDocCount))
+	fmt.Println()
+
+	// Size Summary.
+	fmt.Println("Size Summary:")
+	fmt.Printf("  Compressed:       %s\n", formatBytes(st.SectionSummary.TotalCompressed))
+	fmt.Printf("  Uncompressed:     %s\n", formatBytes(st.SectionSummary.TotalUncompressed))
+	if st.SectionSummary.TotalUncompressed > 0 {
+		fmt.Printf("  Ratio:            %.1f%%\n", st.SectionSummary.Ratio*100)
+	}
+	if st.FileSize > 0 {
+		fmt.Printf("  File size:        %s\n", formatBytes(st.FileSize))
+	}
+}
+
+func searchLine(has bool, docCount uint32) string {
+	if !has {
+		return "no"
+	}
+	if docCount > 0 {
+		return fmt.Sprintf("yes (%d docs)", docCount)
+	}
+	return "yes"
+}
+
+func formatBytes(b int64) string {
+	switch {
+	case b >= 1<<30:
+		return fmt.Sprintf("%.1f GiB (%d bytes)", float64(b)/float64(1<<30), b)
+	case b >= 1<<20:
+		return fmt.Sprintf("%.1f MiB (%d bytes)", float64(b)/float64(1<<20), b)
+	case b >= 1<<10:
+		return fmt.Sprintf("%.1f KiB (%d bytes)", float64(b)/float64(1<<10), b)
+	default:
+		return fmt.Sprintf("%d bytes", b)
+	}
 }
 
 // isBinary returns true if b contains bytes outside printable ASCII + common whitespace.
@@ -104,11 +209,6 @@ func isBinary(b []byte) bool {
 		}
 	}
 	return false
-}
-
-func formatUUID(uuid [16]byte) string {
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
 }
 
 func formatFlags(hdr oza.Header) string {
@@ -127,6 +227,3 @@ func formatFlags(hdr oza.Header) string {
 	}
 	return " [" + strings.Join(parts, ", ") + "]"
 }
-
-func sectionTypeName(t oza.SectionType) string { return t.String() }
-func compressionName(c uint8) string            { return oza.CompressionName(c) }

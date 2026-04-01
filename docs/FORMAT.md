@@ -520,6 +520,53 @@ For English Wikipedia (~6M front articles):
 The title index is small enough to keep permanently memory-resident, enabling
 sub-millisecond autocomplete without touching the larger body index.
 
+### 4.5.1 Compression Characteristics
+
+Search indices are compressed as single blobs with plain Zstd at level 19.
+Typical compression ratios on real archives:
+
+| Archive type | Body index ratio | Notes |
+|---|---|---|
+| Long-form text (Gutenberg) | 12-15% | Few documents, large posting lists compress well |
+| Video/media (TED) | 18-20% | Sparse index, small posting lists |
+| Developer docs | 26-30% | Moderate trigram density |
+| Encyclopedias (Wikipedia) | 30-40% | Dense trigram coverage, many documents |
+| Dictionaries (Wiktionary) | 45-60% | Very high document count, many short entries |
+
+**Dictionary-trained compression does not help search indices.** Empirical testing
+on Tier 1 archives shows that training Zstd dictionaries on search index data either
+fails (roaring bitmap structures produce invalid dictionary offsets) or produces
+dictionaries larger than the savings they provide (net size increase of 65-224%).
+This is because the index is a single large binary blob -- Zstd at level 19 already
+finds internal patterns within the stream. Dictionaries are designed for many small
+documents with shared structure, not monolithic binary formats.
+
+The dominant factor in search index size is the number of unique trigrams multiplied
+by the cardinality of their posting lists. Reducing index size requires algorithmic
+changes (fewer indexed trigrams, truncated body text, alternative index structures),
+not improved compression.
+
+### 4.5.2 Frequency Pruning
+
+Writers may omit trigrams that appear in a high fraction of indexed documents
+(default: ≥50%). These trigrams provide negligible selectivity during query
+intersection -- a trigram in every document narrows nothing. Pruning removes
+0.3-8.7% of trigrams by count but 3-16% of uncompressed index bytes, since
+high-frequency trigrams have the largest posting lists.
+
+The threshold is configurable via the writer's `SearchPruneFreq` option
+(default `0.5`). Setting it to `0` disables pruning entirely. The decision
+is per-trigram: if `posting_count >= threshold * doc_count`, the trigram is
+omitted from the serialized index. A minimum absolute count floor (1000
+documents) prevents over-pruning in small archives where common substrings
+can reach high relative frequencies despite appearing in few documents.
+
+**Search quality impact:** Queries containing only pruned trigrams (e.g.
+searching for "the" when "the" appears in >50% of documents) return no
+results, but such queries would have returned nearly every document anyway --
+not a useful search result. Queries with at least one selective trigram are
+unaffected.
+
 ### 4.6 CJK Bigram Mode
 
 Chinese, Japanese, and Korean (CJK) scripts are multi-byte in UTF-8 (3 bytes per
@@ -570,6 +617,9 @@ readers must not assume character-aligned grams unless bit 0 is set.
   language-dependent and complex. Users search for stems manually.
 - **No BM25 ranking.** Title-match vs body-match tiers provide relevance signal.
   For offline archives, finding the right article matters more than ranking order.
+- **High-frequency trigrams pruned.** Common substrings like "the", "ing" that appear
+  in ≥50% of documents are omitted from the index by default. This trades a small
+  amount of recall (queries using only ubiquitous terms) for 3-16% index size savings.
 - **False positives < 5%** for queries longer than 4 characters. Can be eliminated by a
   verification pass against actual content.
 
@@ -602,6 +652,33 @@ Writers train dictionaries on 100-1000 representative samples using `zstd --trai
 Dictionaries are most valuable for archives with many small, similar entries (Wiktionary:
 millions of 2-5 KB entries). For Wikipedia with its long articles, dictionaries provide
 marginal benefit but don't hurt.
+
+### 5.4 Dictionary Trial Compression
+
+A trained dictionary is not always beneficial. For small archives, the dictionary
+storage cost (~1 MB) can exceed the compression savings, bloating the output file.
+The reference writer (`ozawrite`) uses **trial compression** to make an exact
+break-even determination:
+
+1. After training a dictionary for a MIME group, build trial chunks from the
+   pending entries (up to 8 chunks at `ChunkTargetSize`).
+2. Compress each trial chunk **with** the dictionary and **without** it, using the
+   same `compressZstd` function and compression level as production.
+3. Compute the total cost: `with_dict = sum(compressed_with) + len(dictionary)`.
+4. If `with_dict >= without_dict`, discard the dictionary. The group's chunks
+   will be compressed with plain Zstd instead.
+
+This is not a heuristic -- it measures actual compression on representative data.
+The trial adds ~2x compression time for the sample chunks (not the whole archive),
+which is negligible relative to total conversion time.
+
+**Observed impact:** On the ray_charles test archive (328 entries, 2.7 MiB ZIM),
+trial compression discards the dictionary and reduces the OZA/ZIM size ratio from
+1.24 (OZA 24% larger) to 0.92 (OZA 8% smaller). On larger archives (50+ MB),
+dictionaries are retained because the per-chunk savings exceed storage cost.
+
+**Note:** Dictionary compression is only applied to content chunks, not to search
+index sections. See §4.5.1 for why search indices do not benefit from dictionaries.
 
 ---
 

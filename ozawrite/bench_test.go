@@ -133,7 +133,7 @@ func BenchmarkBuildTrigramIndex(b *testing.B) {
 		for i, t := range texts {
 			tb.IndexEntry(uint32(i), t)
 		}
-		if _, err := tb.Build(); err != nil {
+		if _, err := tb.Build(0); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -151,7 +151,7 @@ func BenchmarkBuildTrigramIndexLarge(b *testing.B) {
 		for i, t := range texts {
 			tb.IndexEntry(uint32(i), t)
 		}
-		if _, err := tb.Build(); err != nil {
+		if _, err := tb.Build(0); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -8,6 +8,7 @@ build:
 	cd cmd && go build -o ../bin/ozasearch  ./ozasearch/
 	cd cmd && go build -o ../bin/ozaverify  ./ozaverify/
 	cd cmd && go build -o ../bin/ozamcp     ./ozamcp/
+	cd cmd && go build -o ../bin/ozacmp     ./ozacmp/
 	cd cmd && go build -o ../bin/zim2oza    ./zim2oza/
 
 test:

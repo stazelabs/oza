@@ -75,6 +75,16 @@ func (w *Writer) trainAndFlushPending() {
 		w.opts.Progress("dict-train", 1, 1)
 	}
 
+	// Trial compression: discard any dictionary that doesn't produce a
+	// net size reduction when its storage cost is included. This avoids
+	// bloating small archives with disproportionately large dictionaries.
+	//
+	// Open design questions (not yet exposed as options):
+	//   - Should there be a --force-dict flag to skip this trial?
+	//   - Should --dict-trial-chunks N control the sample count (default 8)?
+	//   - Should trial results be reported in converter stats?
+	w.trialCompressDicts()
+
 	// Free samples.
 	w.dictSamples = nil
 	w.dictTrained = true
@@ -251,4 +261,70 @@ func (w *Writer) flushChunkSync(id uint32, mimeGroup string, raw []byte) error {
 	}
 
 	return nil
+}
+
+// trialCompressDicts compresses a sample of pending chunks both with and
+// without each trained dictionary. If a dictionary's storage cost exceeds the
+// compression savings it provides, it is discarded. This prevents small
+// archives from being bloated by disproportionately large dictionaries.
+func (w *Writer) trialCompressDicts() {
+	if len(w.dicts) == 0 {
+		return
+	}
+
+	// Group pending entry content by chunk key.
+	groups := make(map[string][][]byte)
+	for _, pe := range w.pendingEntries {
+		key := ChunkKey(pe.entry.mimeType, len(pe.content))
+		groups[key] = append(groups[key], pe.content)
+	}
+
+	const maxTrialChunks = 8
+
+	for key, dict := range w.dicts {
+		entries := groups[key]
+		if len(entries) == 0 {
+			continue
+		}
+
+		// Build trial chunks by concatenating entries up to ChunkTargetSize.
+		var chunks [][]byte
+		var current []byte
+		for _, content := range entries {
+			current = append(current, content...)
+			if len(current) >= w.opts.ChunkTargetSize {
+				chunks = append(chunks, current)
+				current = nil
+				if len(chunks) >= maxTrialChunks {
+					break
+				}
+			}
+		}
+		if len(current) > 0 && len(chunks) < maxTrialChunks {
+			chunks = append(chunks, current)
+		}
+
+		// Compress each trial chunk both ways.
+		var totalWithDict, totalWithoutDict int64
+		for _, chunk := range chunks {
+			withDict, err := compressZstd(chunk, w.opts.ZstdLevel, dict)
+			if err != nil {
+				continue
+			}
+			withoutDict, err := compressZstd(chunk, w.opts.ZstdLevel, nil)
+			if err != nil {
+				continue
+			}
+			totalWithDict += int64(len(withDict))
+			totalWithoutDict += int64(len(withoutDict))
+		}
+
+		// Include dictionary storage cost.
+		totalWithDict += int64(len(dict))
+
+		if totalWithDict >= totalWithoutDict {
+			delete(w.dicts, key)
+			delete(w.dictIDs, key)
+		}
+	}
 }

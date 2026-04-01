@@ -119,6 +119,7 @@ func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize
 	if !noInfo {
 		mux.HandleFunc("/_info", lib.handleGlobalInfo)
 		mux.HandleFunc("/{archive}/-/info", lib.handleInfo)
+		mux.HandleFunc("/{archive}/-/info.json", lib.handleInfoJSON)
 	}
 	mux.HandleFunc("/{archive}/{path...}", lib.handleContent)
 

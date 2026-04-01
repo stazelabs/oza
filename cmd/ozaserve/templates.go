@@ -18,6 +18,7 @@ func initTemplates() {
 		"formatBytes":      formatBytes,
 		"formatBytesShort": formatBytesShort,
 		"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
+		"mul":              func(a float64, b float64) float64 { return a * b },
 	}
 	templates = template.Must(
 		template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/*.html"),

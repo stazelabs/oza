@@ -61,6 +61,40 @@ a:hover { text-decoration: underline; }
 </table>
 {{end}}
 
-<div class="nav"><a href="/">Library</a> · <a href="/{{.Slug}}/">Main page</a> · <a href="/{{.Slug}}/-/search">Search</a> · <a href="/{{.Slug}}/-/browse">Browse</a></div>
+<h2>Entry Statistics</h2><table>
+<tr><th>Content Entries</th><td>{{.EntryStats.ContentEntries}}</td></tr>
+<tr><th>Redirects</th><td>{{.EntryStats.Redirects}}</td></tr>
+<tr><th>Front Articles</th><td>{{.EntryStats.FrontArticles}}</td></tr>
+<tr><th>Metadata Refs</th><td>{{.EntryStats.MetadataRefs}}</td></tr>
+<tr><th>Total Blob Bytes</th><td class="num">{{.EntryStats.TotalBlobBytes}}</td></tr>
+</table>
+
+{{if .MIMECensus}}
+<h2>MIME Census</h2><table>
+<tr><th style="width:300px">Type</th><th style="text-align:right">Count</th><th style="text-align:right">Total Bytes</th><th style="text-align:right">Avg Bytes</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th></tr>
+{{range .MIMECensus}}<tr><td class="mono">{{.MIMEType}}</td><td class="num">{{.Count}}</td><td class="num">{{.TotalBytes}}</td><td class="num">{{printf "%.0f" .AvgBytes}}</td><td class="num">{{.MinBytes}}</td><td class="num">{{.MaxBytes}}</td></tr>
+{{end}}
+</table>
+{{end}}
+
+<h2>Chunk Statistics</h2><table>
+<tr><th>Chunk Count</th><td>{{.ChunkStats.ChunkCount}}</td></tr>
+{{if .ChunkStats.ChunkCount}}<tr><th>Avg Entries/Chunk</th><td>{{printf "%.1f" .ChunkStats.AvgEntriesPerChunk}}</td></tr>
+<tr><th>Min Entries/Chunk</th><td>{{.ChunkStats.MinEntriesPerChunk}}</td></tr>
+<tr><th>Max Entries/Chunk</th><td>{{.ChunkStats.MaxEntriesPerChunk}}</td></tr>
+{{end}}</table>
+
+<h2>Search Index</h2><table>
+<tr><th>Title Search</th><td>{{if .SearchStats.HasTitleSearch}}<span class="badge badge-yes">Yes</span>{{if .SearchStats.TitleDocCount}} {{.SearchStats.TitleDocCount}} docs{{end}}{{else}}<span class="badge badge-no">No</span>{{end}}</td></tr>
+<tr><th>Body Search</th><td>{{if .SearchStats.HasBodySearch}}<span class="badge badge-yes">Yes</span>{{if .SearchStats.BodyDocCount}} {{.SearchStats.BodyDocCount}} docs{{end}}{{else}}<span class="badge badge-no">No</span>{{end}}</td></tr>
+</table>
+
+<h2>Size Summary</h2><table>
+<tr><th>Total Compressed</th><td class="num">{{.SizeSummary.TotalCompressed}}</td></tr>
+<tr><th>Total Uncompressed</th><td class="num">{{.SizeSummary.TotalUncompressed}}</td></tr>
+{{if .SizeSummary.TotalUncompressed}}<tr><th>Compression Ratio</th><td>{{printf "%.1f%%" (mul .SizeSummary.Ratio 100)}}</td></tr>
+{{end}}</table>
+
+<div class="nav"><a href="/">Library</a> · <a href="/{{.Slug}}/">Main page</a> · <a href="/{{.Slug}}/-/search">Search</a> · <a href="/{{.Slug}}/-/browse">Browse</a> · <a href="/{{.Slug}}/-/info.json">JSON</a></div>
 {{template "footer" .}}
 </body></html>

@@ -11,7 +11,7 @@ func TestTrigramBuilder(t *testing.T) {
 	tb.IndexEntry(1, []byte("world peace"))
 	tb.IndexEntry(2, []byte("hello again"))
 
-	got, err := tb.Build()
+	got, err := tb.Build(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestTrigramBuilderMultipleCallsSameID(t *testing.T) {
 	tb.IndexEntry(1, []byte("hello world"))
 	tb.IndexEntry(1, []byte("another text"))
 
-	got, err := tb.Build()
+	got, err := tb.Build(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestTrigramBuilderCJKBigram(t *testing.T) {
 	tb := newTrigramBuilder()
 	// "日本語" (3 CJK chars) + ASCII suffix so we exercise mixed text.
 	tb.IndexEntry(0, []byte("日本語 hello"))
-	data, err := tb.Build()
+	data, err := tb.Build(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestTrigramBuilderCJKNoPureASCII(t *testing.T) {
 	// Pure ASCII should not set the CJK flag.
 	tb := newTrigramBuilder()
 	tb.IndexEntry(0, []byte("hello world"))
-	data, err := tb.Build()
+	data, err := tb.Build(0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -55,6 +55,7 @@ type WriterOptions struct {
 	MinifySVG        bool         // minify image/svg+xml content; default true
 	OptimizeImages   bool         // lossless image optimization: JPEG metadata strip; default true
 	CompressWorkers  int          // parallel compression workers; 0 = min(NumCPU, 4)
+	SearchPruneFreq  float64      // prune trigrams appearing in >= this fraction of docs; default 0.5, 0 disables
 	Progress         ProgressFunc // optional; called during Close to report progress
 	SigningKeys      []SigningKey // optional; if set, a SIGNATURES trailer is appended after the file checksum
 }
@@ -77,6 +78,7 @@ func DefaultOptions() WriterOptions {
 		MinifyJS:         true,
 		MinifySVG:        true,
 		OptimizeImages:   true,
+		SearchPruneFreq:  0.5,
 	}
 }
 
@@ -188,6 +190,7 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 	// rather than a zero-value WriterOptions{}.
 	hasAnyConfig := opts.ZstdLevel != 0 || opts.ChunkTargetSize != 0 ||
 		opts.DictSamples != 0 || opts.CompressWorkers != 0 ||
+		opts.SearchPruneFreq != 0 ||
 		opts.TrainDict || opts.BuildSearch || opts.BuildTitleSearch ||
 		opts.BuildBodySearch || opts.MinifyHTML || opts.MinifyCSS ||
 		opts.MinifyJS || opts.MinifySVG || opts.OptimizeImages ||
@@ -202,6 +205,7 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 		d.MinifyJS = opts.MinifyJS
 		d.MinifySVG = opts.MinifySVG
 		d.OptimizeImages = opts.OptimizeImages
+		d.SearchPruneFreq = opts.SearchPruneFreq
 	}
 	// BuildSearch is a convenience that sets both.
 	if d.BuildSearch {
@@ -503,7 +507,7 @@ func (w *Writer) Close() error {
 		if w.opts.Progress != nil {
 			w.opts.Progress("index-search-title", 0, 1)
 		}
-		sb, err := w.titleTB.Build()
+		sb, err := w.titleTB.Build(w.opts.SearchPruneFreq)
 		if err != nil {
 			return fmt.Errorf("ozawrite: building title search index: %w", err)
 		}
@@ -518,7 +522,7 @@ func (w *Writer) Close() error {
 		if w.opts.Progress != nil {
 			w.opts.Progress("index-search-body", 0, 1)
 		}
-		sb, err := w.bodyTB.Build()
+		sb, err := w.bodyTB.Build(w.opts.SearchPruneFreq)
 		if err != nil {
 			return fmt.Errorf("ozawrite: building body search index: %w", err)
 		}

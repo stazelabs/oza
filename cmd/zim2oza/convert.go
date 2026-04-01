@@ -19,6 +19,7 @@ type ConvertOptions struct {
 	DictSamples     int
 	ChunkSize       int
 	BuildSearch     bool
+	SearchPruneFreq float64
 	TrainDict       bool
 	Minify          bool
 	OptimizeImages  bool
@@ -284,6 +285,7 @@ func (c *Converter) write(plan *scanPlan) error {
 		BuildSearch:      c.opts.BuildSearch,
 		BuildTitleSearch: c.opts.BuildSearch,
 		BuildBodySearch:  c.opts.BuildSearch,
+		SearchPruneFreq:  c.opts.SearchPruneFreq,
 		MinifyHTML:       c.opts.Minify,
 		MinifyCSS:        c.opts.Minify,
 		MinifyJS:         c.opts.Minify,
@@ -611,6 +613,9 @@ func (c *Converter) converterFlags() string {
 	}
 	if o.BuildSearch {
 		parts = append(parts, "search=all")
+	}
+	if o.SearchPruneFreq > 0 {
+		parts = append(parts, fmt.Sprintf("search-prune=%.2f", o.SearchPruneFreq))
 	}
 	if o.Minify {
 		parts = append(parts, "minify")

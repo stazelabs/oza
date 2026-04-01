@@ -22,6 +22,7 @@ func main() {
 	root.Flags().Int("dict-samples", 2000, "Max samples for dictionary training")
 	root.Flags().Int("chunk-size", 4*1024*1024, "Target uncompressed chunk size in bytes")
 	root.Flags().Bool("no-search", false, "Disable trigram search indices")
+	root.Flags().Float64("search-prune", 0.5, "Prune trigrams appearing in >= this fraction of docs (0 to disable)")
 	root.Flags().Bool("no-dict", false, "Disable Zstd dictionary training")
 	root.Flags().Bool("minify", false, "Enable content minification (HTML, CSS, JS, SVG)")
 	root.Flags().Bool("no-optimize-images", false, "Disable lossless image optimization (JPEG metadata strip)")
@@ -44,6 +45,7 @@ func run(cmd *cobra.Command, args []string) error {
 	dictSamples, _ := cmd.Flags().GetInt("dict-samples")
 	chunkSize, _ := cmd.Flags().GetInt("chunk-size")
 	noSearch, _ := cmd.Flags().GetBool("no-search")
+	searchPrune, _ := cmd.Flags().GetFloat64("search-prune")
 	noDict, _ := cmd.Flags().GetBool("no-dict")
 	minify, _ := cmd.Flags().GetBool("minify")
 	noOptimizeImages, _ := cmd.Flags().GetBool("no-optimize-images")
@@ -80,6 +82,7 @@ func run(cmd *cobra.Command, args []string) error {
 		DictSamples:     dictSamples,
 		ChunkSize:       chunkSize,
 		BuildSearch:     !noSearch,
+		SearchPruneFreq: searchPrune,
 		TrainDict:       !noDict,
 		Minify:          minify,
 		OptimizeImages:  !noOptimizeImages,

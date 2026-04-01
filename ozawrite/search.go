@@ -170,7 +170,12 @@ type triEntry struct {
 }
 
 // Build serializes the trigram index into the v1 wire format.
-func (b *trigramBuilder) Build() ([]byte, error) {
+// If pruneFreq > 0, trigrams appearing in >= pruneFreq fraction of indexed
+// documents are omitted. These high-frequency trigrams provide negligible
+// selectivity during query intersection -- a trigram in every document
+// narrows nothing. Typical default: 0.5.
+func (b *trigramBuilder) Build(pruneFreq float64) ([]byte, error) {
+	docCount := len(b.docs)
 	entries := make([]triEntry, 0, len(b.trigrams))
 	for tri, ids := range b.trigrams {
 		// Sort and deduplicate: the same entryID can appear multiple times if
@@ -183,6 +188,14 @@ func (b *trigramBuilder) Build() ([]byte, error) {
 			if id != deduped[len(deduped)-1] {
 				deduped = append(deduped, id)
 			}
+		}
+		// Prune trigrams that appear in too many documents.
+		// Require a minimum absolute count (1000 docs) before pruning kicks in,
+		// so that small archives with few documents are not over-pruned.
+		const pruneMinDocs = 1000
+		if pruneFreq > 0 && docCount > 0 && len(deduped) >= pruneMinDocs &&
+			float64(len(deduped)) >= pruneFreq*float64(docCount) {
+			continue
 		}
 		entries = append(entries, triEntry{tri: tri, ids: deduped})
 	}

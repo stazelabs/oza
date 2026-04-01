@@ -272,6 +272,31 @@ For each test archive:
   Target: ratio <= 1.0 (OZA should be same size or smaller)
 ```
 
+**Tooling (implemented):**
+
+- `ozainfo --json <archive.oza>` — emits comprehensive JSON stats including section
+  breakdown, MIME census, entry/chunk/search statistics.
+- `ozacmp <source.zim> <converted.oza>` — head-to-head ZIM vs OZA comparison with
+  size budget analysis (content vs overhead breakdown with visual bars). Supports
+  `--format text|json|md` and `--deep` for ZIM-side byte-size stats.
+
+**Dictionary trial compression (implemented):** The writer automatically discards
+trained dictionaries when trial compression proves they cost more to store than they
+save. This eliminated a 30% overhead on small archives (e.g. ray_charles: 1.24x → 0.92x).
+All Tier 1 archives now achieve ratio ≤ 1.0.
+
+**Search index compression (investigated, no action):** Dictionary-trained compression
+on search index sections was tested empirically and found to be counterproductive.
+Zstd dictionaries either fail on roaring bitmap data or produce dictionaries larger
+than the savings. Plain Zstd at level 19 is near-optimal for these binary blobs.
+See FORMAT.md §4.5.1 and §5.4.
+
+**Search index frequency pruning (implemented):** Trigrams appearing in ≥50% of
+indexed documents are omitted from the search index. These high-frequency trigrams
+provide negligible query selectivity but contribute 3-16% of index size via large
+posting lists. A 1000-document minimum floor prevents over-pruning in small archives.
+Configurable via `--search-prune` (default 0.5, 0 disables). See FORMAT.md §4.5.2.
+
 **Breakdown tool:** Extend `ozainfo` to emit a JSON size report:
 
 ```json
