@@ -1,4 +1,4 @@
-.PHONY: test test-race cover cover-html lint lint-fix bench fuzz vet build clean testdata snapshot
+.PHONY: test test-race cover cover-html lint lint-fix bench fuzz vet build clean testdata testdata-bench snapshot
 
 build:
 	@mkdir -p bin
@@ -50,11 +50,16 @@ vet:
 	go vet ./...
 	cd cmd && go vet ./...
 
-testdata: testdata/small.zim
+testdata: testdata/.stamp-tier1
 
-testdata/small.zim:
+testdata/.stamp-tier1:
 	@mkdir -p testdata
-	curl -sL "https://github.com/openzim/zim-testing-suite/raw/main/data/nons/small.zim" -o $@
+	bash testdata/fetch.sh
+	@touch $@
+
+testdata-bench: testdata
+	@mkdir -p testdata/bench
+	bash testdata/fetch-bench.sh
 
 bench-convert: build testdata
 	@echo "Converting small.zim to OZA..."

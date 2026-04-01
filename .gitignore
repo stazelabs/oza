@@ -18,6 +18,9 @@ coverage.out
 # Test data (large files)
 testdata/*.zim
 testdata/*.oza
+testdata/bench/*.zim
+testdata/bench/*.oza
+testdata/.stamp-*
 
 # OS files
 .DS_Store
