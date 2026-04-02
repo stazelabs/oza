@@ -223,8 +223,17 @@ func (w *Writer) compressionWorker() {
 		res.chunkID = job.chunkID
 		res.dictID = job.dictID
 		if job.mimeGroup == "image" {
-			res.compressed = job.raw
-			res.compression = oza.CompNone
+			// Trial-compress at SpeedFastest; keep only if smaller.
+			// Chunks of many small images share header structure and can
+			// compress 1-5% even for formats with internal compression.
+			cd, err := cache.compress(job.raw, 1, nil, 0)
+			if err == nil && len(cd) < len(job.raw) {
+				res.compressed = cd
+				res.compression = oza.CompZstd
+			} else {
+				res.compressed = job.raw
+				res.compression = oza.CompNone
+			}
 		} else {
 			cd, err := cache.compress(job.raw, job.level, job.dict, job.dictID)
 			if err != nil {

@@ -58,13 +58,17 @@ Early return in `ozawrite/transcode.go` `Transcode()` for PNGs < 2 KB and GIFs <
 
 ## Tier 3 -- Additional Size Wins
 
-### 7. Try-compress image chunks with zstd
+### 7. Try-compress image chunks with zstd ✅
 
-Trial-compress image chunks at `SpeedFastest` in `ozawrite/compress.go` `compressionWorker()`; keep the compressed version only if it is smaller. The same pattern is already used in `compressRawSection` (assembly.go).
+**Implemented** in `ozawrite/compress.go` `compressionWorker()`. Image chunks are
+trial-compressed at `SpeedFastest` (level 1); the compressed version is kept only
+if it is smaller than the raw data. Falls back to `CompNone` when compression
+doesn't help (e.g. a chunk containing a single large JPEG).
 
-Chunks of many small WebP/JPEG images share header structure. Even 1-3% savings on 340 MB of images is meaningful.
-
-**Impact:** LOW-MEDIUM size | **Effort:** Low
+Observed results: chunks of many small JPEG/WebP images share header structure
+and compress ~5-9% at SpeedFastest. On a 2-book EPUB collection the image
+content section shrank from 589 KiB to 536 KiB (9%), flipping the overall
+archive from 1.06x (larger than input) to 0.98x (smaller).
 
 ### 8. Search index size budget
 

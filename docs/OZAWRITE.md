@@ -165,10 +165,12 @@ are:
 
 MIME parameters (e.g., `; charset=utf-8`) are stripped before classification.
 
-**Image chunks are stored uncompressed** (CompNone) because raster image formats
-already use internal compression. **SVG chunks are compressed with Zstd** because
-SVG is XML text and compresses very well (typically 60-80% reduction). All other
-groups also use Zstd, optionally with a trained dictionary.
+**Image chunks are trial-compressed** with Zstd at `SpeedFastest` (level 1); the
+compressed version is kept only if smaller, otherwise stored as CompNone. Chunks
+of many small images share header structure and typically compress 5-9%.
+**SVG chunks are compressed with Zstd** because SVG is XML text and compresses
+very well (typically 60-80% reduction). All other groups also use Zstd,
+optionally with a trained dictionary.
 
 ## Content transforms
 
