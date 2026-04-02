@@ -208,11 +208,6 @@ handles 99% of cases. A per-entry flag adds complexity for diminishing returns.
 
 ### Platform
 
-#### 3.14 Cross-platform CI
-
-No automated testing on Windows or macOS. The mmap/pread abstraction layer exists but
-is untested in CI.
-
 #### 3.15 No resume for interrupted conversions
 
 A large ZIM → OZA conversion can take hours. If interrupted, must restart. No
@@ -538,6 +533,15 @@ Built a `mimeToEntries map[uint16][]uint32` index in `Archive` at load time via
 `EntriesByMIME(string) iter.Seq[Entry]`, `EntriesByMIMEErr(string) iter.Seq2[Entry,error]`,
 `EntryCountByMIME(string) int`, and `MIMEEntryCount(uint16) int`. Memory overhead
 is one `uint32` per content entry (~24 MB at Wikipedia scale).
+
+### 3.14 Cross-platform CI ~~P3~~
+
+The `test` job already ran on all three platforms via an OS matrix
+(`ubuntu-latest`, `macos-latest`, `windows-latest`). Extended the `build` job with
+the same matrix: `go build ./...` now runs natively on all three OSes, verifying
+the library and all CLI tools compile on Windows and macOS. The Windows mmap stub
+(`io_mmap_windows.go`) is exercised by the Windows test run. `make build` (which
+uses Unix Makefile syntax) remains Linux-only as a full binary assembly step.
 
 ### 2.9 Benchmark regression tracking ~~P2~~
 

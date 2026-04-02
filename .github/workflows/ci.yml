@@ -55,8 +55,12 @@ jobs:
           working-directory: cmd
 
   build:
-    name: Build
-    runs-on: ubuntu-latest
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +69,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build all binaries
+      - name: Build library
+        run: go build ./...
+
+      - name: Build CLI tools
+        run: go build ./...
+        working-directory: cmd
+
+      - name: Build all binaries (Linux only)
+        if: runner.os == 'Linux'
         run: make build
 
   coverage:
