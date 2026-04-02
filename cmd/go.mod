@@ -1,10 +1,10 @@
 module github.com/stazelabs/oza/cmd
 
-go 1.24.6
+go 1.25.0
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
-	github.com/modelcontextprotocol/go-sdk v1.4.0
+	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stazelabs/gozim v0.0.0-20260309181310-bed055aa399b
 	github.com/stazelabs/oza v0.1.0
@@ -21,7 +21,7 @@ require (
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
-	github.com/segmentio/encoding v0.5.3 // indirect
+	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tdewolff/minify/v2 v2.24.10 // indirect
 	github.com/tdewolff/parse/v2 v2.8.10 // indirect
