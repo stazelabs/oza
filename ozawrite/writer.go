@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
 	"github.com/tdewolff/minify/v2/html"
@@ -92,7 +93,7 @@ type entryBuilder struct {
 	path           string
 	title          string
 	mimeType       string
-	contentHash    [32]byte // SHA-256 of (transformed) content
+	contentHash    uint64 // xxhash of (transformed) content
 	isFrontArticle bool
 	isRedirect     bool
 	redirectIndex  uint32 // index into redirectEntries (only valid for redirects)
@@ -314,7 +315,7 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 
 	// 2. Compute content hash + dedup check.
 	tDedup := time.Now()
-	hash := sha256.Sum256(content)
+	hash := xxhash.Sum64(content)
 
 	// 3. Create entry (without content).
 	e := &entryBuilder{

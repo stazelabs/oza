@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 // VerifyResult records the outcome of one integrity check.
@@ -134,8 +136,7 @@ func (a *Archive) VerifyAll() ([]VerifyResult, error) {
 			results = append(results, r)
 			continue
 		}
-		full := sha256.Sum256(blob)
-		computed := binary.LittleEndian.Uint64(full[:8])
+		computed := xxhash.Sum64(blob)
 		var r VerifyResult
 		r.Tier = "entry"
 		r.ID = fmt.Sprintf("entry-%d", i)

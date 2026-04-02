@@ -1,9 +1,12 @@
 package oza
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"sync"
 
+	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -54,6 +57,8 @@ func decompressBytes(data []byte, compression uint8, dictID uint32, dicts map[ui
 			return nil, fmt.Errorf("oza: dict %d not found", dictID)
 		}
 		return decodeZstdDict(data, dictID, raw)
+	case CompBrotli:
+		return decodeBrotli(data)
 	default:
 		return nil, fmt.Errorf("oza: unknown compression type %d", compression)
 	}
@@ -97,6 +102,14 @@ func decodeZstdDict(data []byte, dictID uint32, raw []byte) ([]byte, error) {
 	pool.Put(d)
 	if err != nil {
 		return nil, fmt.Errorf("oza: zstd dict %d decompress: %w", dictID, err)
+	}
+	return out, nil
+}
+
+func decodeBrotli(data []byte) ([]byte, error) {
+	out, err := io.ReadAll(brotli.NewReader(bytes.NewReader(data)))
+	if err != nil {
+		return nil, fmt.Errorf("oza: brotli decompress: %w", err)
 	}
 	return out, nil
 }

@@ -14,8 +14,9 @@ import (
 // skipped because the WebP container overhead often produces larger output,
 // and the external tool invocation cost isn't worthwhile.
 const (
-	minPNGTranscodeSize = 2048 // 2 KB
-	minGIFTranscodeSize = 1024 // 1 KB
+	minPNGTranscodeSize  = 2048 // 2 KB
+	minGIFTranscodeSize  = 1024 // 1 KB
+	minJPEGTranscodeSize = 1024 // 1 KB
 )
 
 // TranscodeTools holds paths to external image transcoding tools.
@@ -27,8 +28,11 @@ const (
 //	Ubuntu: sudo apt install webp
 //	Fedora: sudo dnf install libwebp-tools
 type TranscodeTools struct {
-	GIF2WebP string // path to gif2webp, "" if not found
-	CWebP    string // path to cwebp, "" if not found
+	GIF2WebP  string // path to gif2webp, "" if not found
+	CWebP     string // path to cwebp, "" if not found
+	AVIFEnc   string // path to avifenc, "" if not found
+	LossyJPEG bool   // if true, transcode JPEG→WebP lossy (opt-in)
+	UseAVIF   bool   // if true, prefer AVIF over WebP for PNG/JPEG (opt-in)
 
 	mu    sync.Mutex
 	stats TranscodeStats
@@ -36,12 +40,18 @@ type TranscodeTools struct {
 
 // TranscodeStats tracks per-format transcoding results.
 type TranscodeStats struct {
-	GIFCount   int   // successfully transcoded
-	GIFSaved   int64 // bytes saved (original - transcoded)
-	GIFSkipped int   // kept original (error, larger output, tool missing)
-	PNGCount   int
-	PNGSaved   int64
-	PNGSkipped int
+	GIFCount    int   // successfully transcoded
+	GIFSaved    int64 // bytes saved (original - transcoded)
+	GIFSkipped  int   // kept original (error, larger output, tool missing)
+	PNGCount    int
+	PNGSaved    int64
+	PNGSkipped  int
+	JPEGCount   int
+	JPEGSaved   int64
+	JPEGSkipped int
+	AVIFCount   int
+	AVIFSaved   int64
+	AVIFSkipped int
 }
 
 // Stats returns a snapshot of the accumulated transcode statistics.
@@ -51,30 +61,31 @@ func (t *TranscodeTools) Stats() TranscodeStats {
 	return t.stats
 }
 
-// DiscoverTranscodeTools probes PATH for gif2webp and cwebp.
+// DiscoverTranscodeTools probes PATH for gif2webp, cwebp, and avifenc.
 func DiscoverTranscodeTools() *TranscodeTools {
 	t := &TranscodeTools{}
 	t.GIF2WebP, _ = exec.LookPath("gif2webp")
 	t.CWebP, _ = exec.LookPath("cwebp")
+	t.AVIFEnc, _ = exec.LookPath("avifenc")
 	return t
 }
 
 // Available reports whether any transcoding tools were found.
 func (t *TranscodeTools) Available() bool {
-	return t.GIF2WebP != "" || t.CWebP != ""
+	return t.GIF2WebP != "" || t.CWebP != "" || t.AVIFEnc != ""
 }
 
 // String returns a human-readable summary of discovered tools.
 func (t *TranscodeTools) String() string {
-	gif := t.GIF2WebP
-	if gif == "" {
-		gif = "(not found)"
+	toolStr := func(name, path string) string {
+		if path == "" {
+			return name + "=(not found)"
+		}
+		return name + "=" + path
 	}
-	cwp := t.CWebP
-	if cwp == "" {
-		cwp = "(not found)"
-	}
-	return fmt.Sprintf("gif2webp=%s cwebp=%s", gif, cwp)
+	return toolStr("gif2webp", t.GIF2WebP) + " " +
+		toolStr("cwebp", t.CWebP) + " " +
+		toolStr("avifenc", t.AVIFEnc)
 }
 
 // transcodeTimeout is the maximum time allowed for a single transcoding operation.
@@ -107,13 +118,33 @@ func (t *TranscodeTools) Transcode(mimeType string, data []byte) ([]byte, string
 		return out, "image/webp"
 
 	case "image/png":
-		if t.CWebP == "" || len(data) < minPNGTranscodeSize {
+		if len(data) < minPNGTranscodeSize {
 			t.mu.Lock()
 			t.stats.PNGSkipped++
 			t.mu.Unlock()
 			return data, mimeType
 		}
-		// cwebp supports stdin/stdout: cwebp [flags] -o - -- -
+		// Prefer AVIF if enabled and available.
+		if t.UseAVIF && t.AVIFEnc != "" {
+			// avifenc doesn't support stdin; use temp file for input.
+			out, err := t.runToolFile(t.AVIFEnc, []string{"-s", "6", "--lossless"}, data)
+			t.mu.Lock()
+			if err == nil && len(out) < len(data) {
+				t.stats.AVIFCount++
+				t.stats.AVIFSaved += int64(len(data)) - int64(len(out))
+				t.mu.Unlock()
+				return out, "image/avif"
+			}
+			t.stats.AVIFSkipped++
+			t.mu.Unlock()
+			// Fall through to WebP.
+		}
+		if t.CWebP == "" {
+			t.mu.Lock()
+			t.stats.PNGSkipped++
+			t.mu.Unlock()
+			return data, mimeType
+		}
 		out, err := t.runToolPipe(t.CWebP, []string{"-lossless"}, data)
 		t.mu.Lock()
 		if err != nil || len(out) >= len(data) {
@@ -123,6 +154,45 @@ func (t *TranscodeTools) Transcode(mimeType string, data []byte) ([]byte, string
 		}
 		t.stats.PNGCount++
 		t.stats.PNGSaved += int64(len(data)) - int64(len(out))
+		t.mu.Unlock()
+		return out, "image/webp"
+
+	case "image/jpeg":
+		if len(data) < minJPEGTranscodeSize {
+			t.mu.Lock()
+			t.stats.JPEGSkipped++
+			t.mu.Unlock()
+			return data, mimeType
+		}
+		// Prefer AVIF if enabled and available.
+		if t.UseAVIF && t.AVIFEnc != "" {
+			out, err := t.runToolFile(t.AVIFEnc, []string{"-s", "6", "-q", "70"}, data)
+			t.mu.Lock()
+			if err == nil && len(out) < len(data) {
+				t.stats.AVIFCount++
+				t.stats.AVIFSaved += int64(len(data)) - int64(len(out))
+				t.mu.Unlock()
+				return out, "image/avif"
+			}
+			t.stats.AVIFSkipped++
+			t.mu.Unlock()
+			// Fall through to WebP if lossy JPEG enabled.
+		}
+		if !t.LossyJPEG || t.CWebP == "" {
+			t.mu.Lock()
+			t.stats.JPEGSkipped++
+			t.mu.Unlock()
+			return data, mimeType
+		}
+		out, err := t.runToolPipe(t.CWebP, []string{"-q", "80", "-m", "4"}, data)
+		t.mu.Lock()
+		if err != nil || len(out) >= len(data) {
+			t.stats.JPEGSkipped++
+			t.mu.Unlock()
+			return data, mimeType
+		}
+		t.stats.JPEGCount++
+		t.stats.JPEGSaved += int64(len(data)) - int64(len(out))
 		t.mu.Unlock()
 		return out, "image/webp"
 	}

@@ -82,34 +82,52 @@ Generalizes fix #3 to all profiles. Prevents search index from ever dominating f
 
 ## Tier 4 -- Experimental
 
-### 9. JPEG -> WebP lossy transcoding
+### 9. JPEG→WebP lossy transcoding ✅
 
-Add `cwebp -q 80` for JPEG input in `ozawrite/transcode.go`. Gate behind a `--transcode-lossy-jpeg` flag (opt-in since it's lossy).
+**Implemented** in `ozawrite/transcode.go`. Opt-in via `--transcode-lossy-jpeg`.
+Uses `cwebp -q 80 -m 4` via stdin/stdout pipe. Keeps original if WebP output is
+larger. Minimum size threshold: 1 KB.
 
-JPEG->WebP lossy at q80 saves 25-35% with no visible quality loss. xkcd has 173 JPEGs (13 MB), but photo-heavy encyclopedias would benefit much more.
+On the 2-book EPUB test corpus (small Gutenberg cover JPEGs), lossy transcoding
+produced slightly larger output due to WebP container overhead exceeding the
+compression gain. Photo-heavy encyclopedias with large JPEGs would benefit
+significantly (~25-35% savings per image).
 
-**Impact:** MEDIUM-HIGH size (for photo archives) | **Effort:** Low
+Install: `brew install webp` (macOS) / `apt install webp` (Ubuntu)
 
-### 10. Brotli as alternative compression codec
+### 10. Brotli as alternative compression codec ✅
 
-Add `CompBrotli = 3` in `oza/constants.go`. Trial-compress text chunks with both zstd and brotli, keep whichever is smaller. Pure Go: `github.com/andybalholm/brotli`.
+**Implemented** in `ozawrite/compress.go` and `oza/compress.go`. `CompBrotli = 3`
+added to `oza/constants.go`. For non-dict text chunks, the compression worker
+trial-compresses with both Zstd and Brotli, keeping whichever is smaller.
+Brotli quality is mapped from the Zstd level (e.g. zstd 6 → brotli 6).
 
-Brotli achieves 10-15% better compression than zstd on text at comparable decode speed. Could definitively beat ZIM's LZMA ratios.
+Reader decompression uses `github.com/andybalholm/brotli` (pure Go).
+FORMAT.md updated: compression field values are now `0=none, 1=zstd, 2=zstd+dict, 3=brotli`.
 
-**Impact:** MEDIUM size | **Effort:** Medium (format change required in reader+writer+FORMAT.md)
+On the 2-book EPUB test corpus: baseline 635 KiB → 625 KiB with Brotli trial
+(1.6% improvement, Brotli winning on some text chunks).
 
-### 11. AVIF transcoding for images
+### 11. AVIF transcoding for images ✅
 
-Add `avifenc` support in `ozawrite/transcode.go`. PNG: `avifenc --lossless`. JPEG: `avifenc -q 70`. Gate behind `--transcode-avif` flag.
+**Implemented** in `ozawrite/transcode.go`. Opt-in via `--transcode-avif`.
+Discovered at startup alongside gif2webp/cwebp. Uses `avifenc` with temp file
+input and stdout capture. PNG: `avifenc -s 6 --lossless`. JPEG: `avifenc -s 6 -q 70`.
+Falls back to WebP if AVIF output is larger or avifenc is unavailable.
 
-AVIF achieves 20-50% smaller files than WebP. Encoding is 10-100x slower, so requires parallel transcoding (#4) first.
+Install: `brew install libavif` (macOS) / `apt install libavif-bin` (Ubuntu)
 
-**Impact:** HIGH size | **Effort:** Medium | **Prerequisite:** #4
+Encoding is slower than WebP (~3-10x) but leverages the existing parallel
+transcoding worker pool (#4). AVIF achieves 20-50% smaller files than WebP on
+photographic content.
 
-### 12. Faster dedup hash (xxhash instead of SHA-256)
+### 12. Faster dedup hash (xxhash instead of SHA-256) ✅
 
-Replace `sha256.Sum256` with `xxhash.Sum64` for dedup lookups in `ozawrite/writer.go`. The on-disk hash is already truncated to 8 bytes, so this is purely an implementation detail.
+**Implemented** in `ozawrite/dedup.go`, `ozawrite/writer.go`, `oza/checksum.go`.
+Replaced `sha256.Sum256` with `xxhash.Sum64` (`github.com/cespare/xxhash/v2`)
+for both dedup map lookups and the 8-byte content hash stored in entry records.
+File-level and section-level integrity checks remain SHA-256.
 
-xxhash is 5-10x faster. Helps archives with 200K+ entries (wp_simple_mini: 392K entries).
-
-**Impact:** LOW speed | **Effort:** Low
+xxhash is 5-10x faster than SHA-256 for the same data. The on-disk content hash
+was already truncated to 8 bytes (uint64), so switching to xxhash is a pure
+implementation improvement with no format change.

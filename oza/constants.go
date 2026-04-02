@@ -115,6 +115,8 @@ const (
 	CompZstd = 1
 	// CompZstdDict indicates Zstd compression with a shared dictionary.
 	CompZstdDict = 2
+	// CompBrotli indicates Brotli compression.
+	CompBrotli = 3
 )
 
 // String returns a human-readable name for a SectionType.
@@ -158,6 +160,8 @@ func CompressionName(c uint8) string {
 		return "zstd"
 	case CompZstdDict:
 		return "zstd+dict"
+	case CompBrotli:
+		return "brotli"
 	default:
 		return fmt.Sprintf("0x%02x", c)
 	}

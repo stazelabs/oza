@@ -4,6 +4,8 @@ go 1.24.6
 
 require (
 	github.com/RoaringBitmap/roaring/v2 v2.14.5
+	github.com/andybalholm/brotli v1.2.1
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/klauspost/compress v1.18.4
 	github.com/tdewolff/minify/v2 v2.24.10
 	github.com/tdewolff/parse/v2 v2.8.10

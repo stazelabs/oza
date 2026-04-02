@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/zstd"
 
 	"github.com/stazelabs/oza/oza"
@@ -90,6 +91,35 @@ func (c encoderCache) compress(data []byte, level int, dict []byte, dictID uint3
 		return nil, err
 	}
 	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// mapBrotliQuality maps a zstd level (1-22) to a Brotli quality (0-11).
+// Brotli quality 5-6 is roughly comparable to zstd level 6 in speed/ratio.
+func mapBrotliQuality(zstdLevel int) int {
+	switch {
+	case zstdLevel <= 1:
+		return 2
+	case zstdLevel <= 4:
+		return 4
+	case zstdLevel <= 8:
+		return 6
+	default:
+		return 9
+	}
+}
+
+// compressBrotli compresses data with Brotli at the given quality level (0-11).
+func compressBrotli(data []byte, quality int) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Grow(len(data) / 2)
+	w := brotli.NewWriterLevel(&buf, quality)
+	if _, err := w.Write(data); err != nil {
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -244,6 +274,14 @@ func (w *Writer) compressionWorker() {
 					res.compression = oza.CompZstdDict
 				} else {
 					res.compression = oza.CompZstd
+				}
+				// Trial Brotli for non-dict text chunks; keep if smaller.
+				if job.dictID == 0 {
+					bq := mapBrotliQuality(job.level)
+					if bd, berr := compressBrotli(job.raw, bq); berr == nil && len(bd) < len(res.compressed) {
+						res.compressed = bd
+						res.compression = oza.CompBrotli
+					}
 				}
 			}
 		}

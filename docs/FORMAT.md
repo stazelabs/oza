@@ -197,7 +197,7 @@ Each section descriptor is **80 bytes**:
 | 8 | 8 | `offset` | Absolute file offset |
 | 16 | 8 | `compressed_size` | On-disk size |
 | 24 | 8 | `uncompressed_size` | Decompressed size |
-| 32 | 1 | `compression` | 0=none, 1=zstd, 2=zstd+dict |
+| 32 | 1 | `compression` | 0=none, 1=zstd, 2=zstd+dict, 3=brotli |
 | 33 | 3 | `reserved` | Must be zero |
 | 36 | 4 | `dict_id` | Dictionary ID (0 if none) |
 | 40 | 8 | `reserved2` | Must be zero |
@@ -425,7 +425,7 @@ Chunk Table (at section start):
     8 bytes:  compressed_offset (uint64, byte offset from start of chunk data area)
     8 bytes:  compressed_size   (uint64)
     4 bytes:  dict_id           (uint32, 0 if not dict-compressed)
-    1 byte:   compression       (0=none, 1=zstd, 2=zstd+dict)
+    1 byte:   compression       (0=none, 1=zstd, 2=zstd+dict, 3=brotli)
     3 bytes:  reserved
 
 [Compressed chunk data follows immediately after the chunk table]

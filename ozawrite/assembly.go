@@ -104,7 +104,7 @@ func (w *Writer) buildEntryTable(mimeMap map[string]uint16) []byte {
 		rec.ChunkID = e.chunkID
 		rec.BlobOffset = e.blobOffset
 		rec.BlobSize = e.blobSize
-		rec.ContentHash = truncateHash(e.contentHash)
+		rec.ContentHash = e.contentHash
 		if e.isFrontArticle {
 			rec.Flags |= oza.EntryFlagFrontArticle
 		}

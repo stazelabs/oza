@@ -93,14 +93,6 @@ func FuzzParseMetadata(f *testing.F) {
 	})
 }
 
-func copyMeta(m map[string][]byte) map[string][]byte {
-	out := make(map[string][]byte, len(m))
-	for k, v := range m {
-		out[k] = append([]byte(nil), v...)
-	}
-	return out
-}
-
 func hasErrKey(errs []ValidationError, key string) bool {
 	for _, e := range errs {
 		if e.Key == key {

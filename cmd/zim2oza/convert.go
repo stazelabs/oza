@@ -559,7 +559,7 @@ func (c *Converter) write(plan *scanPlan) error {
 
 // needsTranscode reports whether a MIME type will be processed by TranscodeTools.
 func needsTranscode(mimeType string) bool {
-	return mimeType == "image/png" || mimeType == "image/gif"
+	return mimeType == "image/png" || mimeType == "image/gif" || mimeType == "image/jpeg"
 }
 
 // preTranscoded holds a pre-transcoded entry ready for AddEntry.
@@ -567,7 +567,6 @@ type preTranscoded struct {
 	idx     int
 	content []byte
 	mime    string
-	err     error
 }
 
 // addEntriesParallel adds entries to the writer with parallel image transcoding.
@@ -601,7 +600,7 @@ func (c *Converter) addEntriesParallel(w *ozawrite.Writer, buffered []bufferedEn
 				if needsTranscode(item.mime) {
 					item.content, item.mime = c.opts.TranscodeTools.Transcode(item.mime, item.content)
 				}
-				resultCh <- preTranscoded{idx: item.idx, content: item.content, mime: item.mime}
+				resultCh <- preTranscoded(item)
 			}
 		}()
 	}

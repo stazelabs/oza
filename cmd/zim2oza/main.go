@@ -42,6 +42,8 @@ apply recommended parameters, or --dry-run to preview without writing.`,
 	root.Flags().Bool("minify", false, "Enable content minification (HTML, CSS, JS, SVG)")
 	root.Flags().Bool("no-optimize-images", false, "Disable lossless image optimization (JPEG metadata strip)")
 	root.Flags().String("transcode", "auto", "image transcoding: auto (use tools if found), off, require")
+	root.Flags().Bool("transcode-lossy-jpeg", false, "Enable lossy JPEG→WebP transcoding (opt-in, ~25-35% savings)")
+	root.Flags().Bool("transcode-avif", false, "Prefer AVIF over WebP for PNG/JPEG (requires avifenc; brew install libavif)")
 	root.Flags().Int("compress-workers", 0, "Parallel compression workers (0 = min(NumCPU, 4))")
 	root.Flags().Bool("verbose", false, "Print detailed progress and statistics")
 	root.Flags().Bool("json-stats", false, "Output statistics as JSON (implies --verbose)")
@@ -120,6 +122,15 @@ func run(cmd *cobra.Command, args []string) error {
 		// nil, no transcoding
 	default:
 		return fmt.Errorf("unknown --transcode value %q (use auto, off, or require)", transcode)
+	}
+
+	lossyJPEG, _ := cmd.Flags().GetBool("transcode-lossy-jpeg")
+	if lossyJPEG && transcodeTools != nil {
+		transcodeTools.LossyJPEG = true
+	}
+	useAVIF, _ := cmd.Flags().GetBool("transcode-avif")
+	if useAVIF && transcodeTools != nil {
+		transcodeTools.UseAVIF = true
 	}
 
 	autoMode, _ := cmd.Flags().GetBool("auto")
