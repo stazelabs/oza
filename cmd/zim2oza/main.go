@@ -8,6 +8,9 @@ import (
 	"runtime/pprof"
 
 	"github.com/spf13/cobra"
+
+	"github.com/stazelabs/oza/cmd/internal/classify"
+	"github.com/stazelabs/oza/ozawrite"
 )
 
 func main() {
@@ -26,10 +29,12 @@ func main() {
 	root.Flags().Bool("no-dict", false, "Disable Zstd dictionary training")
 	root.Flags().Bool("minify", false, "Enable content minification (HTML, CSS, JS, SVG)")
 	root.Flags().Bool("no-optimize-images", false, "Disable lossless image optimization (JPEG metadata strip)")
+	root.Flags().String("transcode", "auto", "image transcoding: auto (use tools if found), off, require")
 	root.Flags().Int("compress-workers", 0, "Parallel compression workers (0 = min(NumCPU, 4))")
 	root.Flags().Bool("verbose", false, "Print detailed progress and statistics")
 	root.Flags().Bool("json-stats", false, "Output statistics as JSON (implies --verbose)")
 	root.Flags().Bool("dry-run", false, "Scan and report statistics without writing output")
+	root.Flags().Bool("auto", false, "Auto-detect content profile and apply recommended conversion parameters")
 	root.Flags().String("profile", "", "Write CPU and memory profiles to this directory")
 
 	if err := root.Execute(); err != nil {
@@ -77,6 +82,36 @@ func run(cmd *cobra.Command, args []string) error {
 		}()
 	}
 
+	transcode, _ := cmd.Flags().GetString("transcode")
+	var transcodeTools *ozawrite.TranscodeTools
+	switch transcode {
+	case "auto":
+		tools := ozawrite.DiscoverTranscodeTools()
+		if tools.Available() {
+			transcodeTools = tools
+			if verbose {
+				fmt.Fprintf(os.Stderr, "Transcode tools: %s\n", tools.String())
+			}
+		} else if verbose {
+			fmt.Fprintln(os.Stderr, "Transcode tools: none found (install libwebp: brew install webp)")
+		}
+	case "require":
+		tools := ozawrite.DiscoverTranscodeTools()
+		if !tools.Available() {
+			return fmt.Errorf("--transcode=require but no tools found (install libwebp: brew install webp / apt install webp)")
+		}
+		transcodeTools = tools
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Transcode tools: %s\n", tools.String())
+		}
+	case "off":
+		// nil, no transcoding
+	default:
+		return fmt.Errorf("unknown --transcode value %q (use auto, off, or require)", transcode)
+	}
+
+	autoMode, _ := cmd.Flags().GetBool("auto")
+
 	opts := ConvertOptions{
 		ZstdLevel:       zstdLevel,
 		DictSamples:     dictSamples,
@@ -86,9 +121,23 @@ func run(cmd *cobra.Command, args []string) error {
 		TrainDict:       !noDict,
 		Minify:          minify,
 		OptimizeImages:  !noOptimizeImages,
+		TranscodeTools:  transcodeTools,
 		CompressWorkers: compressWorkers,
 		Verbose:         verbose,
 		DryRun:          dryRun,
+	}
+
+	if autoMode {
+		qs, err := prescanZIM(inputPath)
+		if err != nil {
+			return fmt.Errorf("auto prescan: %w", err)
+		}
+		features := classify.ExtractFromZIMQuick(qs)
+		result := classify.Classify(features)
+		applyAutoRecs(&opts, result.Recommendations, cmd.Flags().Changed)
+		if verbose {
+			printAutoProfile(result.Profile, result.Confidence, result.Recommendations)
+		}
 	}
 
 	c, err := NewConverter(inputPath, outputPath, opts)

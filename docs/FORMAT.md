@@ -642,9 +642,45 @@ No zlib. No bzip2. No XZ/LZMA.
 |-------------|----------|
 | HTML/text | Zstd level 19, with dictionary for small articles |
 | CSS/JS | Zstd level 19, with dictionary |
-| JPEG/PNG/WebP | Store uncompressed (already compressed) |
+| JPEG/WebP | Store uncompressed (already compressed) |
+| GIF | Transcode to WebP via `gif2webp` if available; store uncompressed |
+| PNG | Transcode to lossless WebP via `cwebp` if available; store uncompressed |
 | SVG | Zstd level 19 |
 | Video | Store uncompressed (single-blob chunks) |
+
+### 5.2.1 Image Transcoding
+
+Writers may transcode GIF and PNG content to WebP before storage using external
+tools from libwebp. This is a pre-storage transform, not a compression step --
+the resulting WebP bytes are stored uncompressed in image chunks (WebP is already
+a compressed format).
+
+**Tools used:**
+
+| Source format | Tool | Command | Target |
+|---|---|---|---|
+| GIF (static + animated) | `gif2webp` | `gif2webp -q 75 -m 4 input -o output` | image/webp |
+| PNG | `cwebp` | `cwebp -lossless input -o output` | image/webp |
+
+**Install libwebp:**
+
+- macOS: `brew install webp`
+- Ubuntu/Debian: `sudo apt install webp`
+- Fedora/RHEL: `sudo dnf install libwebp-tools`
+
+**Behaviour:**
+
+- Tool discovery via `PATH` at converter startup. If tools are not found,
+  original formats are preserved (no error).
+- Per-entry size comparison: if the WebP output is larger than the original,
+  the original is kept. This handles edge cases where GIF is already optimal.
+- The original entry **path is preserved** (e.g. `Molecule.gif`); only the MIME
+  type changes to `image/webp`. Readers serve content by MIME type, not extension.
+- Controlled via `--transcode` flag: `auto` (default, use if found), `off`
+  (never transcode), `require` (fail if tools missing).
+
+**Observed impact:** On wp_en_chemistry_maxi (586 GIFs, 168 MiB), GIF→WebP
+transcoding saves 30-50% of GIF bytes.
 
 ### 5.3 Dictionary Training
 

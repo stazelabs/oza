@@ -19,6 +19,14 @@ type Stats struct {
 	CacheHits   int64 // gozim cluster cache hits
 	CacheMisses int64 // gozim cluster cache misses
 
+	// Transcode stats (populated from ozawrite.TranscodeTools.Stats).
+	TranscodeGIFCount   int
+	TranscodeGIFSaved   int64
+	TranscodeGIFSkipped int
+	TranscodePNGCount   int
+	TranscodePNGSaved   int64
+	TranscodePNGSkipped int
+
 	TimeScan        time.Duration // scan + classify all ZIM entries
 	TimeRead        time.Duration // time inside ReadContent calls
 	TimeTransform   time.Duration // minify + image optimize (in AddEntry)
@@ -69,6 +77,18 @@ func (s *Stats) Print(w io.Writer) {
 		fmt.Fprintf(w, "--- Cluster Cache ---\n")
 		fmt.Fprintf(w, "  Hits:            %d (%.1f%%)\n", s.CacheHits, hitPct)
 		fmt.Fprintf(w, "  Misses:          %d (%.1f%%)\n", s.CacheMisses, 100-hitPct)
+	}
+
+	if s.TranscodeGIFCount+s.TranscodeGIFSkipped+s.TranscodePNGCount+s.TranscodePNGSkipped > 0 {
+		fmt.Fprintf(w, "--- Transcode ---\n")
+		if s.TranscodeGIFCount+s.TranscodeGIFSkipped > 0 {
+			fmt.Fprintf(w, "  GIF\u2192WebP:        %d transcoded, %d skipped, %s saved\n",
+				s.TranscodeGIFCount, s.TranscodeGIFSkipped, formatBytes(s.TranscodeGIFSaved))
+		}
+		if s.TranscodePNGCount+s.TranscodePNGSkipped > 0 {
+			fmt.Fprintf(w, "  PNG\u2192WebP:        %d transcoded, %d skipped, %s saved\n",
+				s.TranscodePNGCount, s.TranscodePNGSkipped, formatBytes(s.TranscodePNGSaved))
+		}
 	}
 }
 

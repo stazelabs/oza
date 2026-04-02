@@ -42,22 +42,23 @@ type ProgressFunc func(phase string, n, total int)
 
 // WriterOptions controls the behaviour of Close.
 type WriterOptions struct {
-	ZstdLevel        int          // compression level (1-22); default 6
-	ChunkTargetSize  int          // uncompressed bytes per chunk; default 4 MB
-	TrainDict        bool         // train per-MIME Zstd dictionaries; default true
-	DictSamples      int          // max samples for dictionary training; default 2000
-	BuildSearch      bool         // convenience: sets both BuildTitleSearch and BuildBodySearch
-	BuildTitleSearch bool         // build title trigram search index
-	BuildBodySearch  bool         // build body trigram search index
-	MinifyHTML       bool         // minify text/html content; default true
-	MinifyCSS        bool         // minify text/css content; default true
-	MinifyJS         bool         // minify application/javascript content; default true
-	MinifySVG        bool         // minify image/svg+xml content; default true
-	OptimizeImages   bool         // lossless image optimization: JPEG metadata strip; default true
-	CompressWorkers  int          // parallel compression workers; 0 = min(NumCPU, 4)
-	SearchPruneFreq  float64      // prune trigrams appearing in >= this fraction of docs; default 0.5, 0 disables
-	Progress         ProgressFunc // optional; called during Close to report progress
-	SigningKeys      []SigningKey // optional; if set, a SIGNATURES trailer is appended after the file checksum
+	ZstdLevel        int             // compression level (1-22); default 6
+	ChunkTargetSize  int             // uncompressed bytes per chunk; default 4 MB
+	TrainDict        bool            // train per-MIME Zstd dictionaries; default true
+	DictSamples      int             // max samples for dictionary training; default 2000
+	BuildSearch      bool            // convenience: sets both BuildTitleSearch and BuildBodySearch
+	BuildTitleSearch bool            // build title trigram search index
+	BuildBodySearch  bool            // build body trigram search index
+	MinifyHTML       bool            // minify text/html content; default true
+	MinifyCSS        bool            // minify text/css content; default true
+	MinifyJS         bool            // minify application/javascript content; default true
+	MinifySVG        bool            // minify image/svg+xml content; default true
+	OptimizeImages   bool            // lossless image optimization: JPEG metadata strip; default true
+	CompressWorkers  int             // parallel compression workers; 0 = min(NumCPU, 4)
+	SearchPruneFreq  float64         // prune trigrams appearing in >= this fraction of docs; default 0.5, 0 disables
+	TranscodeTools   *TranscodeTools // nil = no transcoding; use DiscoverTranscodeTools() to populate
+	Progress         ProgressFunc    // optional; called during Close to report progress
+	SigningKeys      []SigningKey    // optional; if set, a SIGNATURES trailer is appended after the file checksum
 }
 
 // DefaultOptions returns the default WriterOptions with all features enabled.
@@ -214,6 +215,7 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 	}
 	d.Progress = opts.Progress
 	d.SigningKeys = opts.SigningKeys
+	d.TranscodeTools = opts.TranscodeTools
 	if opts.CompressWorkers != 0 {
 		d.CompressWorkers = opts.CompressWorkers
 	}
@@ -301,9 +303,9 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 	}
 	id := uint32(len(w.entries))
 
-	// 1. Transform content in-place (minify, image optimise).
+	// 1. Transform content in-place (minify, image optimise, transcode).
 	tTransform := time.Now()
-	content = w.transformContent(mimeType, content)
+	content, mimeType = w.transformContent(mimeType, content)
 	w.timings.Transform += time.Since(tTransform)
 
 	// 2. Compute content hash + dedup check.
@@ -398,10 +400,12 @@ func (w *Writer) AddRedirect(path, title string, targetID uint32) (uint32, error
 	return oza.MakeRedirectID(ridx), nil
 }
 
-// transformContent applies minification and image optimization to content.
-func (w *Writer) transformContent(mimeType string, content []byte) []byte {
+// transformContent applies minification, image optimization, and optional
+// transcoding to content. Returns the (possibly modified) content and the
+// (possibly changed) MIME type.
+func (w *Writer) transformContent(mimeType string, content []byte) ([]byte, string) {
 	if len(content) == 0 {
-		return content
+		return content, mimeType
 	}
 	if w.minifier != nil {
 		content = minifyContent(w.minifier, mimeType, content)
@@ -409,7 +413,10 @@ func (w *Writer) transformContent(mimeType string, content []byte) []byte {
 	if w.opts.OptimizeImages && isImageMIME(mimeType) {
 		content = optimizeImage(mimeType, content)
 	}
-	return content
+	if w.opts.TranscodeTools != nil {
+		content, mimeType = w.opts.TranscodeTools.Transcode(mimeType, content)
+	}
+	return content, mimeType
 }
 
 // Close finalises the archive and writes it to the underlying writer.

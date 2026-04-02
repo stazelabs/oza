@@ -23,6 +23,7 @@ type ConvertOptions struct {
 	TrainDict       bool
 	Minify          bool
 	OptimizeImages  bool
+	TranscodeTools  *ozawrite.TranscodeTools
 	CompressWorkers int
 	Verbose         bool
 	DryRun          bool
@@ -291,6 +292,7 @@ func (c *Converter) write(plan *scanPlan) error {
 		MinifyJS:         c.opts.Minify,
 		MinifySVG:        c.opts.Minify,
 		OptimizeImages:   c.opts.OptimizeImages,
+		TranscodeTools:   c.opts.TranscodeTools,
 		CompressWorkers:  c.opts.CompressWorkers,
 	}
 	chunks := 0 // updated by progress callback, shown on the "Adding entries" line
@@ -502,6 +504,17 @@ func (c *Converter) write(plan *scanPlan) error {
 	c.stats.EntryContent = len(plan.content)
 	c.stats.EntryRedirect = len(plan.redirects)
 
+	// Transcode stats.
+	if c.opts.TranscodeTools != nil {
+		ts := c.opts.TranscodeTools.Stats()
+		c.stats.TranscodeGIFCount = ts.GIFCount
+		c.stats.TranscodeGIFSaved = ts.GIFSaved
+		c.stats.TranscodeGIFSkipped = ts.GIFSkipped
+		c.stats.TranscodePNGCount = ts.PNGCount
+		c.stats.TranscodePNGSaved = ts.PNGSaved
+		c.stats.TranscodePNGSkipped = ts.PNGSkipped
+	}
+
 	return nil
 }
 
@@ -622,6 +635,9 @@ func (c *Converter) converterFlags() string {
 	}
 	if o.OptimizeImages {
 		parts = append(parts, "optimize-images")
+	}
+	if o.TranscodeTools != nil {
+		parts = append(parts, "transcode")
 	}
 	return strings.Join(parts, " ")
 }

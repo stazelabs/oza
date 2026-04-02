@@ -9,11 +9,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/stazelabs/oza/cmd/internal/classify"
 	"github.com/stazelabs/oza/cmd/internal/stats"
 	"github.com/stazelabs/oza/oza"
 )
 
-var jsonOutput bool
+var (
+	jsonOutput   bool
+	classifyFlag bool
+)
 
 func main() {
 	root := &cobra.Command{
@@ -25,6 +29,7 @@ func main() {
 		},
 	}
 	root.Flags().BoolVar(&jsonOutput, "json", false, "output statistics as JSON")
+	root.Flags().BoolVar(&classifyFlag, "classify", false, "classify archive content profile and show recommendations")
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -47,12 +52,23 @@ func run(path string) error {
 	st := stats.Collect(a, fileSize)
 
 	if jsonOutput {
+		out := struct {
+			stats.ArchiveStats
+			Classification *classify.Result `json:"classification,omitempty"`
+		}{ArchiveStats: st}
+		if classifyFlag {
+			cr := classify.Classify(classify.ExtractFromOZA(st))
+			out.Classification = &cr
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(st)
+		return enc.Encode(out)
 	}
 
 	printText(path, a, st)
+	if classifyFlag {
+		printClassification(st)
+	}
 	return nil
 }
 
@@ -209,6 +225,41 @@ func isBinary(b []byte) bool {
 		}
 	}
 	return false
+}
+
+func printClassification(st stats.ArchiveStats) {
+	r := classify.Classify(classify.ExtractFromOZA(st))
+	fmt.Println("Content Classification:")
+	fmt.Printf("  Profile:          %s (confidence %.0f%%)\n", r.Profile, r.Confidence*100)
+	fmt.Println()
+	fmt.Println("  Features:")
+	f := r.Features
+	fmt.Printf("    Text bytes:     %.1f%%\n", f.TextBytesRatio*100)
+	fmt.Printf("    HTML bytes:     %.1f%%\n", f.HTMLBytesRatio*100)
+	fmt.Printf("    Image bytes:    %.1f%%\n", f.ImageBytesRatio*100)
+	if f.PDFBytesRatio > 0 {
+		fmt.Printf("    PDF bytes:      %.1f%%\n", f.PDFBytesRatio*100)
+	}
+	if f.VideoBytesRatio > 0 {
+		fmt.Printf("    Video bytes:    %.1f%%\n", f.VideoBytesRatio*100)
+	}
+	fmt.Printf("    Redirect density: %.1f%%\n", f.RedirectDensity*100)
+	fmt.Printf("    Avg entry size: %s\n", formatBytes(int64(f.AvgEntryBytes)))
+	fmt.Printf("    Small entries:  %.1f%%\n", f.SmallEntryRatio*100)
+	fmt.Printf("    MIME types:     %d\n", f.MIMETypeCount)
+	if f.SourceHint != "" {
+		fmt.Printf("    Source hint:    %s\n", f.SourceHint)
+	}
+	fmt.Println()
+	fmt.Println("  Recommended conversion parameters:")
+	rec := r.Recommendations
+	fmt.Printf("    Chunk size:     %s\n", formatBytes(int64(rec.ChunkSize)))
+	fmt.Printf("    Zstd level:     %d\n", rec.ZstdLevel)
+	fmt.Printf("    Dict samples:   %d\n", rec.DictSamples)
+	fmt.Printf("    Minify:         %v\n", rec.Minify)
+	fmt.Printf("    Optimize imgs:  %v\n", rec.OptimizeImages)
+	fmt.Printf("    Search prune:   %.1f\n", rec.SearchPruneFreq)
+	fmt.Printf("    Notes:          %s\n", rec.Notes)
 }
 
 func formatFlags(hdr oza.Header) string {

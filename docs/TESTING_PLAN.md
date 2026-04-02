@@ -297,6 +297,12 @@ provide negligible query selectivity but contribute 3-16% of index size via larg
 posting lists. A 1000-document minimum floor prevents over-pruning in small archives.
 Configurable via `--search-prune` (default 0.5, 0 disables). See FORMAT.md §4.5.2.
 
+**Image transcoding (implemented):** `--transcode=auto` (default) discovers `gif2webp`
+and `cwebp` from libwebp in PATH and transcodes GIF/PNG→WebP during conversion.
+Per-entry size comparison keeps originals if transcoding produces larger output.
+Original paths are preserved; only MIME types change. Install: `brew install webp` /
+`apt install webp`. See FORMAT.md §5.2.1.
+
 **Breakdown tool:** Extend `ozainfo` to emit a JSON size report:
 
 ```json
