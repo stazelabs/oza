@@ -72,20 +72,11 @@ Trigram search has no ranking beyond title-match > body-match > entry-ID order.
 **Near-term:** BM25-lite scoring using content size (already in entry records) and
 trigram hit count. No new data needed.
 
-### ~~2.7 Metadata duplicate keys~~ — Resolved
-
-*Moved to §Completed.*
-
 ### 2.9 Benchmark regression tracking
 
 Benchmarks exist but results aren't tracked across commits.
 
 **Fix:** Consider `benchstat` in CI or a lightweight tracking solution.
-
-### 2.17 Structured access logging
-
-`ozaserve` has no access logging beyond Go's default logger. Structured JSON access
-logs would be valuable for analytics, debugging, and cache tuning.
 
 ### 2.18 Markdown content rendering
 
@@ -98,20 +89,10 @@ Per-archive `browse_exclude` metadata key (glob patterns) for filtering non-arti
 entries from browse views. `zim2oza` could auto-detect ZIM source type and suggest
 defaults.
 
-### 2.20 Entry enumeration by MIME type
-
-API to enumerate entries by MIME type. Currently requires a full entry scan.
-
-**Fix:** Build a MIME-to-entry-ID index at load time.
-
 ### 2.21 Content dedup detection at read time
 
 SHA-256 content hashes are stored per entry but not leveraged at read time. Exposing
 this enables duplicate detection, storage analysis, and cross-archive dedup.
-
-### ~~2.22 No tests for ozawrite pipeline internals~~ — Resolved
-
-*Moved to §Completed.*
 
 ### 2.23 No writer-side index benchmarks
 
@@ -544,3 +525,19 @@ a key appears more than once in the binary metadata section. Added sentinel erro
 so duplicates are structurally impossible on the write path; this protects against
 hand-crafted or corrupted archives on the read path. Tests added for both duplicate
 and unique key parsing.
+
+### 2.17 Structured access logging ~~P2~~
+
+Added `cmd/ozaserve/accesslog.go` with a `responseRecorder` wrapper that captures
+status code and bytes written, and an `accessLog` middleware that emits structured
+per-request log lines via `slog`. Middleware is a no-op pass-through when the logger
+is nil, so it composes cleanly with the existing server setup.
+
+### 2.20 Entry enumeration by MIME type ~~P2~~
+
+Built a `mimeToEntries map[uint16][]uint32` index in `Archive` at load time via
+`buildMIMEIndex()` — a single O(N) pass over entry records using the existing
+`ParseVarEntryRecord` pattern. Added four public APIs in `oza/iter.go`:
+`EntriesByMIME(string) iter.Seq[Entry]`, `EntriesByMIMEErr(string) iter.Seq2[Entry,error]`,
+`EntryCountByMIME(string) int`, and `MIMEEntryCount(uint16) int`. Memory overhead
+is one `uint32` per content entry (~24 MB at Wikipedia scale).
