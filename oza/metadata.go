@@ -3,6 +3,10 @@ package oza
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
 )
 
 // RequiredMetadataKeys lists the metadata keys that must be present in every OZA archive.
@@ -89,4 +93,103 @@ func ValidateMetadata(m map[string][]byte) error {
 		}
 	}
 	return nil
+}
+
+// ValidationError describes a single metadata validation failure.
+type ValidationError struct {
+	Key     string // metadata key (e.g. "date")
+	Message string // human-readable description
+}
+
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("oza: metadata %q: %s", e.Key, e.Message)
+}
+
+// ValidateMetadataStrict checks that all required keys are present and that
+// values with a defined format conform to the spec (FORMAT.md §3.4):
+//
+//   - date: ISO 8601 (YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ)
+//   - language: BCP-47 primary subtag (2–3 lowercase ASCII letters, optional subtags)
+//   - title, creator, source: non-empty valid UTF-8
+//   - favicon_entry, main_entry: decimal uint32 if present
+//   - license: non-empty if present
+//
+// All issues are collected and returned; the caller gets the full picture rather
+// than failing on the first problem. Returns nil if validation passes.
+func ValidateMetadataStrict(m map[string][]byte) []ValidationError {
+	var errs []ValidationError
+	add := func(key, msg string) {
+		errs = append(errs, ValidationError{Key: key, Message: msg})
+	}
+
+	// Required key presence.
+	for _, key := range RequiredMetadataKeys {
+		if _, ok := m[key]; !ok {
+			add(key, "required key missing")
+		}
+	}
+
+	// All values must be valid UTF-8.
+	for key, val := range m {
+		if !utf8.Valid(val) {
+			add(key, "value is not valid UTF-8")
+		}
+	}
+
+	// Non-empty required string keys.
+	for _, key := range []string{"title", "creator", "source"} {
+		if v, ok := m[key]; ok && len(strings.TrimSpace(string(v))) == 0 {
+			add(key, "must be non-empty")
+		}
+	}
+
+	// date: ISO 8601.
+	if v, ok := m["date"]; ok && len(v) > 0 {
+		s := string(v)
+		valid := false
+		for _, layout := range []string{"2006-01-02", time.RFC3339} {
+			if _, err := time.Parse(layout, s); err == nil {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			add("date", fmt.Sprintf("not ISO 8601 (got %q, want YYYY-MM-DD or RFC 3339)", s))
+		}
+	}
+
+	// language: BCP-47.
+	if v, ok := m["language"]; ok && len(v) > 0 {
+		s := string(v)
+		subtags := strings.Split(s, "-")
+		primary := subtags[0]
+		if len(primary) < 2 || len(primary) > 3 {
+			add("language", fmt.Sprintf("primary subtag must be 2-3 letters (got %q)", primary))
+		} else {
+			for _, c := range primary {
+				if c < 'a' || c > 'z' {
+					add("language", fmt.Sprintf("primary subtag must be lowercase ASCII letters (got %q)", primary))
+					break
+				}
+			}
+		}
+	}
+
+	// Optional uint32 keys.
+	for _, key := range []string{"favicon_entry", "main_entry"} {
+		if v, ok := m[key]; ok {
+			n, err := strconv.ParseUint(string(v), 10, 32)
+			if err != nil {
+				add(key, fmt.Sprintf("must be a decimal uint32 (got %q)", string(v)))
+			}
+			_ = n
+		}
+	}
+
+	// Optional non-empty keys.
+	if v, ok := m["license"]; ok && len(strings.TrimSpace(string(v))) == 0 {
+		add("license", "must be non-empty if present")
+	}
+
+	return errs
 }

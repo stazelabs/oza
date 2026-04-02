@@ -1,8 +1,10 @@
 package oza
 
 import (
+	"cmp"
 	"encoding/binary"
 	"fmt"
+	"slices"
 )
 
 // Archive provides read access to an OZA archive file.
@@ -785,15 +787,8 @@ func (a *Archive) searchTwoTier(query string, limit int, titleOnly bool) ([]Sear
 			bodyOnlyMatches = append(bodyOnlyMatches, *m)
 		}
 	}
-	sortByID := func(s []match) {
-		for i := 1; i < len(s); i++ {
-			for j := i; j > 0 && s[j].id < s[j-1].id; j-- {
-				s[j], s[j-1] = s[j-1], s[j]
-			}
-		}
-	}
-	sortByID(titleMatches)
-	sortByID(bodyOnlyMatches)
+	slices.SortFunc(titleMatches, func(a, b match) int { return cmp.Compare(a.id, b.id) })
+	slices.SortFunc(bodyOnlyMatches, func(a, b match) int { return cmp.Compare(a.id, b.id) })
 
 	// Merge: title matches first, then body-only.
 	merged := make([]match, 0, len(titleMatches)+len(bodyOnlyMatches))

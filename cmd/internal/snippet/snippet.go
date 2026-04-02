@@ -38,13 +38,12 @@ func StripHTML(s string) string {
 	var b strings.Builder
 	skip := 0 // nesting depth inside script/style elements
 
+	var lastRune rune
 	// ensureSpace adds a space separator if the last character isn't already one.
 	ensureSpace := func() {
-		if b.Len() > 0 {
-			last, _ := utf8.DecodeLastRuneInString(b.String())
-			if last != ' ' {
-				b.WriteByte(' ')
-			}
+		if b.Len() > 0 && lastRune != ' ' {
+			b.WriteByte(' ')
+			lastRune = ' '
 		}
 	}
 
@@ -84,6 +83,7 @@ func StripHTML(s string) string {
 					ensureSpace()
 				} else {
 					b.WriteRune(r)
+					lastRune = r
 				}
 			}
 		}
@@ -273,6 +273,12 @@ func ExtractSection(htmlContent, heading string) string {
 	}
 }
 
+// maxSnippetHTML is the maximum number of bytes of HTML content to parse for
+// snippet extraction. Only the first portion of the document is needed since
+// snippets are short. This avoids decompressing and parsing multi-hundred-KB
+// articles in full.
+const maxSnippetHTML = 4096
+
 // ForEntry generates a snippet for the given entry. Returns "" if the entry
 // is not HTML, is a redirect, or if the content cannot be read.
 func ForEntry(entry oza.Entry, query string, maxLen int) string {
@@ -282,9 +288,14 @@ func ForEntry(entry oza.Entry, query string, maxLen int) string {
 	if entry.MIMEIndex() != oza.MIMEIndexHTML {
 		return ""
 	}
-	content, err := entry.ReadContent()
+	content, err := entry.ReadContentSlice()
 	if err != nil {
 		return ""
+	}
+	// Truncate to avoid parsing the entire document — only the head is needed
+	// for snippet extraction.
+	if len(content) > maxSnippetHTML {
+		content = content[:maxSnippetHTML]
 	}
 	plain := StripHTML(string(content))
 	return Extract(plain, query, maxLen)

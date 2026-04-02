@@ -39,74 +39,7 @@ not its successor in spirit.
 
 ### Performance
 
-#### 1.3 readBlob always copies — no zero-copy path
-
-`oza/chunk.go:144-160` — `readBlob` unconditionally allocates and copies from the
-decompressed chunk on every call. For the HTTP server, this means every request
-allocates a blob-sized buffer that is immediately GC'd. For 50–200 KB articles under
-load, this produces significant GC pressure.
-
-**Fix:** Add an internal `readBlobSlice` that returns a sub-slice of cached chunk data
-(zero-copy). Use in the HTTP handler where content is written immediately. Keep the
-copying `ReadContent()` for the public API where callers expect to own the buffer.
-Alternatively, add a `WriteTo(w io.Writer)` method on `Entry`.
-
-#### 1.4 Roaring bitmaps deserialized on every search query
-
-`oza/search.go:224-252` — `lookup` deserializes a roaring bitmap from wire format for
-every trigram on every query. For a 3-word query, that's 30+ bitmap deserializations
-with heap allocation and copying per query.
-
-**Fix:** Add an LRU cache of deserialized `*roaring.Bitmap` keyed by trigram. Since
-posting lists are immutable, cached bitmaps are safe to reuse. Even 256–512 entries
-would cover the most common trigrams.
-
-#### 1.5 Browse page does O(N) title scan per request
-
-`cmd/ozaserve/handlers.go:298-331` — `handleBrowse` iterates every entry via
-`EntriesByTitle()` to find entries matching a letter. For Wikipedia (6M+ entries),
-this is a full scan on every browse page request.
-
-**Fix:** Pre-build a letter-to-offset-range map at load time (letter counts are already
-computed in `computeLetterCounts`). Use `BrowseTitles(offset, limit)` with the
-pre-computed offset. Turns O(N) into O(page_size).
-
-#### 1.6 O(N²) StripHTML in snippet extraction
-
-`cmd/internal/snippet/snippet.go:43-49` — `ensureSpace` calls `b.String()` which
-copies the entire builder content to check the last rune. Called hundreds of times per
-article, this is O(N²) overall. Additionally, `ForEntry` at `:278-291` decompresses
-and HTML-parses the full content for each of the 20 search results.
-
-**Fix:** Track the last rune with a `lastRune rune` variable (O(1) per call). Truncate
-content before HTML parsing — only the first ~1000 bytes are needed for a snippet.
-
-#### 1.7 HTML bar injection allocates full-body lowercase copy
-
-`cmd/ozaserve/handlers.go:452-483` — Both `injectHeaderBar` and `injectFooterBar` call
-`bytes.ToLower(body)`, allocating a full copy of the HTML body (×2 calls) just to
-search for `<body` and `</body` tags.
-
-**Fix:** Search for both `<body` and `<BODY` (and `<Body`) directly with `bytes.Index`,
-avoiding the full-body allocation. Combine both functions into a single pass.
-
-#### 1.8 zim2oza buffers all content in memory for large conversions
-
-`cmd/zim2oza/convert.go:348-448` — The converter reads all ZIM content entries into a
-`buffered` slice, re-sorts by chunk key, then feeds the writer. For full Wikipedia
-(6M+ entries, many GBs), this requires all decompressed content in RAM simultaneously.
-
-**Fix:** Two-pass approach: (1) write entries to a temp file indexed by (chunkKey, path),
-(2) read back in chunk-key order. Or feed entries in cluster order and let the writer
-handle grouping. The MIME-locality sort could be done at the chunk level instead.
-
-#### 1.9 Double content copy during dictionary training buffer
-
-`ozawrite/pipeline.go:13-37` — `bufferForTraining` makes two copies of content: one
-for the dictionary sample and one for the pending entry. For 2000+ entries in the
-training phase, this doubles memory usage.
-
-**Fix:** Share a single copy between the sample and pending entry. Both are read-only.
+*All P1 performance items have been resolved. See §Completed at the bottom of this file.*
 
 ### Code Quality
 
@@ -177,34 +110,6 @@ and the compression path. Fuzz the writer's output by feeding it to the parser.
 
 ## P2 — Improve
 
-### ~~2.1 MD5 used for ETag generation~~ — Resolved
-
-*Replaced with SHA-256 truncated to 16 bytes. See §Completed.*
-
-### 2.2 Insertion sort in searchTwoTier
-
-`oza/archive.go:761-769` — Hand-rolled insertion sort. Fine for small result sets but
-non-idiomatic.
-
-**Fix:** Use `slices.SortFunc` (Go 1.21+). Optimized for small N as well.
-
-### 2.3 compressZstd creates a new encoder per call
-
-`ozawrite/compress.go:32-58` — The standalone `compressZstd` creates a new
-`zstd.NewWriter` on every call. Each encoder allocates several MB. The `encoderCache`
-exists but is only used for chunk compression.
-
-**Fix:** Use `sync.Pool` or the existing `encoderCache` for section compression.
-
-### 2.4 No streaming content API
-
-`Entry.ReadContent()` returns `[]byte` — the entire decompressed blob. For large
-entries (50 MB video), this is wasteful. An `io.Reader` or `WriteTo(w io.Writer)` API
-would allow streaming without full materialization.
-
-**Considerations:** Chunks are decompressed whole, so the benefit is mainly avoiding
-the copy from cache to a new allocation.
-
 ### 2.5 FrontArticles scan cost
 
 `FrontArticles()` iterates all entries checking `is_front_article` — O(N). For
@@ -227,51 +132,11 @@ silently overwrites the first.
 
 **Fix:** Return error on duplicate keys (strict mode) or at least log a warning.
 
-### 2.8 Metadata format validation
-
-Required keys (`date`, `language`) are checked for presence but not format. `date`
-should be ISO 8601, `language` should be BCP-47.
-
-**Fix:** Add optional strict validation. Writer enforces format; reader tolerates
-sloppiness but exposes `ValidateMetadata()`.
-
 ### 2.9 Benchmark regression tracking
 
 Benchmarks exist but results aren't tracked across commits.
 
 **Fix:** Consider `benchstat` in CI or a lightweight tracking solution.
-
-### ~~2.10 ozainfo uses raw os.Args instead of cobra~~ — Resolved
-
-*Migrated to cobra. See §Completed.*
-
-### 2.11 Duplicate isCJKRune and signatureRecordSize
-
-`oza/search.go:74` and `ozawrite/search.go:54` share identical `isCJKRune`.
-`oza/signature.go:9` and `ozawrite/signature.go:16` share `signatureRecordSize`.
-
-**Fix:** Export from `oza` and reference from `ozawrite`, or accept the small
-duplication.
-
-### ~~2.12 Constant doc comments~~ — Resolved
-
-*Added godoc comments to all constants. See §Completed.*
-
-### ~~2.13 CONTRIBUTING.md code layout incomplete~~ — Resolved
-
-*Listed all docs files. See §Completed.*
-
-### ~~2.14 EMBEDDINGS.md relative links broken from docs/~~ — Resolved
-
-*Fixed relative links to use `../` prefix. See §Completed.*
-
-### ~~2.15 LLM.md missing status banner~~ — Resolved
-
-*Added prominent design-document status banner. See §Completed.*
-
-### ~~2.16 Missing ozakeygen from README CLI section~~ — Resolved
-
-*Added ozakeygen and ozamcp sections to README. See §Completed.*
 
 ### 2.17 Structured access logging
 
@@ -365,10 +230,11 @@ Implement the optional CHROME section:
 
 Currently `categoryChrome` exists in the converter but entries are skipped.
 
-#### 3.5 Image format conversion (PNG → WebP)
+#### 3.5b SVG minification
 
-Lossless PNG → WebP yields 25–35% savings. Blocked on CGo decision (`libwebp`). Could
-be exposed as `--recompress-images` / `--lossy-images` flags on `zim2oza`.
+GIF→WebP and PNG→WebP transcoding are implemented (see §Completed 3.5/3.16), but SVG
+images are served as-is. Minifying SVG (stripping comments, metadata, editor cruft,
+collapsing whitespace) could yield meaningful savings for icon-heavy archives.
 
 #### 3.6 Incremental / append mode
 
@@ -428,11 +294,6 @@ checkpointing or resume capability.
 **Design question:** Conversions run on build servers, not user laptops. A robust
 retry (rerun the command) may be sufficient.
 
-#### 3.16 Image optimization limited to JPEG
-
-Only JPEG re-encoding is implemented. No PNG optimization, SVG minification, or WebP
-conversion. See §3.5 for the CGo-blocked PNG → WebP path.
-
 ---
 
 ## Completed
@@ -481,6 +342,50 @@ Added `ReadHeaderTimeout: 10 * time.Second` to the HTTP server in
 Added `maxReadContentSize` check before `ReadContent()` in the MCP resource template
 handler in `cmd/internal/mcptools/mcptools.go`. Prevents excessive memory use from
 large entries during HTML-to-markdown conversion.
+
+### 1.3 readBlob always copies — no zero-copy path ~~P1 Performance~~
+
+Added `readBlobSlice` (zero-copy sub-slice of cached chunk data) in `oza/chunk.go`.
+Added `Entry.WriteTo(w io.Writer)` and `Entry.ReadContentSlice()` on the public API.
+`ReadContent()` still copies for callers that expect to own the buffer. Snippet
+extraction now uses the zero-copy path.
+
+### 1.4 Roaring bitmaps deserialized on every search query ~~P1 Performance~~
+
+Added a 512-entry LRU cache of deserialized `*roaring.Bitmap` keyed by trigram in
+`oza/search.go`. Since posting lists are immutable, cached bitmaps are safe to reuse
+across queries. Eliminates repeated heap allocation for frequently queried trigrams.
+
+### 1.5 Browse page does O(N) title scan per request ~~P1 Performance~~
+
+Pre-built a `letterOffsets` map (letter → title-index offset + count) at load time in
+`computeLetterIndex`. `handleBrowse` now uses `BrowseTitles(offset, limit)` with the
+pre-computed range — O(page_size) instead of O(N).
+
+### 1.6 O(N²) StripHTML in snippet extraction ~~P1 Performance~~
+
+Replaced `b.String()` call in `ensureSpace` with a `lastRune` variable — O(1) per
+call instead of O(N). `ForEntry` now truncates HTML to 4 KB before parsing, and uses
+the zero-copy `ReadContentSlice()` path.
+
+### 1.7 HTML bar injection allocates full-body lowercase copy ~~P1 Performance~~
+
+Replaced `injectHeaderBar`/`injectFooterBar` (two `bytes.ToLower(body)` calls) with a
+single `injectBars` function that uses `indexCaseInsensitive` — a byte-by-byte scan
+that lowercases only during comparison, eliminating two full-body allocations.
+
+### 1.8 zim2oza buffers all content in memory for large conversions ~~P1 Performance~~
+
+Replaced in-memory `buffered` slice with a two-pass temp-file approach: phase 2a writes
+content to a temp file and keeps only metadata + offsets in RAM; phase 2c reads content
+back one entry at a time via `ReadAt` with a reusable buffer. Memory usage is now
+proportional to metadata size, not total content size.
+
+### 1.9 Double content copy during dictionary training buffer ~~P1 Performance~~
+
+`bufferForTraining` now makes a single copy of content shared between the dictionary
+sample and the pending entry (both read-only), halving memory usage during the training
+phase.
 
 ### 1.10 collectOZAPaths + makeSlug duplicated between CLIs ~~P1 Code Quality~~
 
@@ -536,9 +441,39 @@ Reworded §11 from "The specification includes a reference test.oza file" to
 
 Replaced MD5 with SHA-256 truncated to 16 bytes in `cmd/ozaserve/main.go` `makeETag`.
 
+### 2.2 Insertion sort in searchTwoTier ~~P2~~
+
+Replaced hand-rolled insertion sort in `searchTwoTier` with `slices.SortFunc`
+(Go 1.21+). More idiomatic and equally performant for small N.
+
+### 2.3 compressZstd creates a new encoder per call ~~P2~~
+
+Replaced per-call `zstd.NewWriter` in `compressZstd` with a package-level
+`sectionEncoderCache` that reuses encoders. Eliminates multi-MB allocation per
+section compression call.
+
+### 2.4 No streaming content API ~~P2~~
+
+Added `Entry.WriteTo(w io.Writer)` (zero-copy via `readBlobSlice`) and
+`Entry.ReadContentSlice()` in `oza/entry.go`. Resolved as part of P1 item 1.3.
+
+### 2.8 Metadata format validation ~~P2~~
+
+Added `ValidateMetadataStrict` in `oza/metadata.go` that checks value formats beyond
+presence: `date` must be ISO 8601, `language` must be BCP-47, string keys must be
+non-empty valid UTF-8, `favicon_entry`/`main_entry` must be decimal uint32. Returns
+all issues as `[]ValidationError`. Writer enforces strict validation by default via
+`StrictMetadata` option (default true); reader stays tolerant.
+
 ### 2.10 ozainfo uses raw os.Args instead of cobra ~~P2~~
 
 Migrated `cmd/ozainfo/main.go` to cobra, consistent with all other CLI tools.
+
+### 2.11 Duplicate isCJKRune and signatureRecordSize ~~P2~~
+
+Exported `IsCJKRune` from `oza/search.go` and `SignatureRecordSize` from
+`oza/signature.go`. Removed duplicates from `ozawrite/search.go` and
+`ozawrite/signature.go`; both now reference the `oza` package.
 
 ### 2.12 Constant doc comments ~~P2~~
 
@@ -562,3 +497,15 @@ described below (0x0100–0x0106) are not yet implemented."
 ### 2.16 Missing ozakeygen from README CLI section ~~P2~~
 
 Added `ozamcp` and `ozakeygen` sections to the README CLI Tools area.
+
+### 3.5 Image format conversion (PNG → WebP) ~~P3~~
+
+Implemented GIF→WebP (via `gif2webp`) and lossless PNG→WebP (via `cwebp`) in
+`ozawrite/transcode.go`. No CGo — uses external CLI tools discovered at startup.
+Integrated into `zim2oza` with `--transcode` flag (auto/off/require). Skips
+transcoding if output is larger than input.
+
+### 3.16 Image optimization limited to JPEG ~~P3~~
+
+GIF→WebP and PNG→WebP transcoding added alongside existing JPEG optimization.
+SVG minification remains future work.

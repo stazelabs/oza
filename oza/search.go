@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/RoaringBitmap/roaring/v2"
@@ -39,6 +40,20 @@ type TrigramIndex struct {
 	flags    uint32
 	count    uint32
 	docCount uint32
+
+	// bitmapCache is an LRU cache of deserialized posting-list bitmaps keyed
+	// by trigram. Since posting lists are immutable, cached bitmaps are safe to
+	// reuse across queries. The cache avoids repeated heap allocation and
+	// deserialization for frequently queried trigrams.
+	bitmapMu    sync.Mutex
+	bitmapCache map[[3]byte]*bitmapCacheEntry
+	bitmapLRU   []*bitmapCacheEntry
+	bitmapMax   int // max entries in cache
+}
+
+type bitmapCacheEntry struct {
+	tri [3]byte
+	bm  *roaring.Bitmap
 }
 
 // ParseTrigramIndex parses a SEARCH_TITLE or SEARCH_BODY section (wire format v1).
@@ -59,19 +74,22 @@ func ParseTrigramIndex(data []byte) (*TrigramIndex, error) {
 	if len(data) < need {
 		return nil, fmt.Errorf("oza: trigram index truncated: need %d bytes for %d trigrams, got %d", need, count, len(data))
 	}
+	const defaultBitmapCacheSize = 512
 	return &TrigramIndex{
-		data:     data,
-		flags:    flags,
-		count:    count,
-		docCount: docCount,
+		data:        data,
+		flags:       flags,
+		count:       count,
+		docCount:    docCount,
+		bitmapCache: make(map[[3]byte]*bitmapCacheEntry, defaultBitmapCacheSize),
+		bitmapMax:   defaultBitmapCacheSize,
 	}, nil
 }
 
 // DocCount returns the number of distinct entry IDs indexed.
 func (idx *TrigramIndex) DocCount() uint32 { return idx.docCount }
 
-// isCJKRune reports whether r is in a CJK Unicode block.
-func isCJKRune(r rune) bool {
+// IsCJKRune reports whether r is in a CJK Unicode block.
+func IsCJKRune(r rune) bool {
 	return (r >= 0x3000 && r <= 0x9FFF) ||
 		(r >= 0xAC00 && r <= 0xD7AF) ||
 		(r >= 0xF900 && r <= 0xFAFF)
@@ -101,7 +119,7 @@ func cjkQueryGrams(text []byte) [][3]byte {
 	for i < len(text) {
 		r, size := utf8.DecodeRune(text[i:])
 
-		if r != utf8.RuneError && isCJKRune(r) {
+		if r != utf8.RuneError && IsCJKRune(r) {
 			// Flush preceding non-CJK run as byte trigrams.
 			if nonCJKStart < i {
 				run := text[nonCJKStart:i]
@@ -219,9 +237,28 @@ func (idx *TrigramIndex) Search(query string, limit int) (ids []uint32) {
 	return result.ToArray()
 }
 
-// lookup binary-searches for tri in the trigram table and decodes its posting
-// bitmap. Returns nil if the trigram is not present.
+// lookup binary-searches for tri in the trigram table and returns its posting
+// bitmap. Deserialized bitmaps are cached in an LRU to avoid repeated heap
+// allocation for frequently queried trigrams. Returns nil if not present.
 func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
+	// Check bitmap cache first.
+	idx.bitmapMu.Lock()
+	if entry, ok := idx.bitmapCache[tri]; ok {
+		// Move to front (most recently used).
+		for i, e := range idx.bitmapLRU {
+			if e == entry {
+				copy(idx.bitmapLRU[1:i+1], idx.bitmapLRU[:i])
+				idx.bitmapLRU[0] = entry
+				break
+			}
+		}
+		bm := entry.bm
+		idx.bitmapMu.Unlock()
+		return bm
+	}
+	idx.bitmapMu.Unlock()
+
+	// Binary search the trigram table.
 	n := int(idx.count)
 	const tableOff = 16  // header size
 	const entrySize = 12 // 3 trigram + 1 reserved + 4 offset + 4 length
@@ -248,5 +285,19 @@ func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
 	if _, err := bm.ReadFrom(bytes.NewReader(idx.data[postingOff:end])); err != nil {
 		return nil
 	}
+
+	// Store in cache.
+	idx.bitmapMu.Lock()
+	ce := &bitmapCacheEntry{tri: tri, bm: bm}
+	if len(idx.bitmapLRU) >= idx.bitmapMax {
+		// Evict the least recently used entry.
+		evict := idx.bitmapLRU[len(idx.bitmapLRU)-1]
+		delete(idx.bitmapCache, evict.tri)
+		idx.bitmapLRU = idx.bitmapLRU[:len(idx.bitmapLRU)-1]
+	}
+	idx.bitmapLRU = append([]*bitmapCacheEntry{ce}, idx.bitmapLRU...)
+	idx.bitmapCache[tri] = ce
+	idx.bitmapMu.Unlock()
+
 	return bm
 }

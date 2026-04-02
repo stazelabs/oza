@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/stazelabs/oza/cmd/internal/snippet"
 	"github.com/stazelabs/oza/oza"
@@ -296,52 +294,33 @@ func (lib *library) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if letter != "" {
-		// Collect all entries matching the selected letter via a full title-order scan.
-		var entries []searchResult
-		if letter == "#" {
-			for e := range ae.archive.EntriesByTitle() {
-				t := e.Title()
-				if t == "" {
-					continue
-				}
-				ru, _ := utf8.DecodeRuneInString(t)
-				if !unicode.IsLetter(ru) {
-					entries = append(entries, searchResult{
-						Path:  entryHref(slug, e.Path()),
-						Title: t,
-					})
-				}
-			}
-		} else {
-			upper := strings.ToUpper(letter)
-			lower := strings.ToLower(letter)
-			for e := range ae.archive.EntriesByTitle() {
-				t := e.Title()
-				if len(t) == 0 {
-					continue
-				}
-				first := string(t[0])
-				if first == upper || first == lower {
-					entries = append(entries, searchResult{
-						Path:  entryHref(slug, e.Path()),
-						Title: t,
-					})
-				}
-			}
+		// Use the pre-computed letter-to-offset map to serve only the
+		// requested page via BrowseTitles — O(page_size) instead of O(N).
+		key := strings.ToUpper(letter)
+		lr, ok := ae.letterOffsets[key]
+		if !ok {
+			lr = letterRange{}
 		}
 
-		letterCount := len(entries)
+		letterCount := lr.count
 		data.LetterCount = letterCount
 
-		// Paginate.
 		if letterCount > 0 && offset < letterCount {
-			end := offset + limit
-			if end > letterCount {
-				end = letterCount
+			pageLimit := limit
+			if offset+pageLimit > letterCount {
+				pageLimit = letterCount - offset
 			}
-			data.Entries = entries[offset:end]
+			page := ae.archive.BrowseTitles(lr.offset+offset, pageLimit)
+			entries := make([]searchResult, 0, len(page))
+			for _, e := range page {
+				entries = append(entries, searchResult{
+					Path:  entryHref(slug, e.Path()),
+					Title: e.Title(),
+				})
+			}
+			data.Entries = entries
 
-			pageEnd := end
+			pageEnd := offset + len(entries)
 			data.ShowPager = true
 			data.PageStart = offset + 1
 			data.PageEnd = pageEnd
@@ -439,47 +418,70 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	// For HTML content, set CSP sandbox and inject the sticky navigation bar and footer bar.
 	if entry.MIMEIndex() == oza.MIMEIndexHTML {
 		w.Header().Set("Content-Security-Policy", "sandbox")
-		bar := headerBarHTML(slug, ae.title, ae.letterCounts)
-		content = injectHeaderBar(content, []byte(bar))
-		content = injectFooterBar(content, []byte(footerBarHTML(!lib.noInfo)))
+		header := headerBarHTML(slug, ae.title, ae.letterCounts)
+		content = injectBars(content, []byte(header), []byte(footerBarHTML(!lib.noInfo)))
 	}
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
 	w.Write(content)
 }
 
-// injectHeaderBar inserts bar after the opening <body...> tag.
-// Falls back to prepending if no <body> tag is found.
-func injectHeaderBar(body, bar []byte) []byte {
-	lower := bytes.ToLower(body)
-	idx := bytes.Index(lower, []byte("<body"))
-	if idx == -1 {
-		return append(bar, body...)
+// indexCaseInsensitive finds the first occurrence of needle (assumed lowercase
+// ASCII) in haystack, matching case-insensitively. Returns -1 if not found.
+func indexCaseInsensitive(haystack, needle []byte) int {
+	nLen := len(needle)
+	for i := 0; i <= len(haystack)-nLen; i++ {
+		match := true
+		for j := 0; j < nLen; j++ {
+			c := haystack[i+j]
+			if c >= 'A' && c <= 'Z' {
+				c += 32
+			}
+			if c != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
 	}
-	closeIdx := bytes.IndexByte(body[idx:], '>')
-	if closeIdx == -1 {
-		return append(bar, body...)
-	}
-	insertAt := idx + closeIdx + 1
-	result := make([]byte, 0, len(body)+len(bar))
-	result = append(result, body[:insertAt]...)
-	result = append(result, bar...)
-	result = append(result, body[insertAt:]...)
-	return result
+	return -1
 }
 
-// injectFooterBar inserts bar before the closing </body> tag.
-// Falls back to appending if no </body> tag is found.
-func injectFooterBar(body, bar []byte) []byte {
-	lower := bytes.ToLower(body)
-	idx := bytes.Index(lower, []byte("</body"))
-	if idx == -1 {
-		return append(body, bar...)
+// injectBars inserts headerBar after the opening <body...> tag and footerBar
+// before the closing </body> tag in a single pass, avoiding full-body lowercase
+// copies. Falls back to prepending/appending if the tags are not found.
+func injectBars(body, headerBar, footerBar []byte) []byte {
+	// Find <body
+	bodyOpenIdx := indexCaseInsensitive(body, []byte("<body"))
+	var insertAfterBody int
+	if bodyOpenIdx == -1 {
+		insertAfterBody = 0
+	} else {
+		closeIdx := bytes.IndexByte(body[bodyOpenIdx:], '>')
+		if closeIdx == -1 {
+			insertAfterBody = 0
+		} else {
+			insertAfterBody = bodyOpenIdx + closeIdx + 1
+		}
 	}
-	result := make([]byte, 0, len(body)+len(bar))
-	result = append(result, body[:idx]...)
-	result = append(result, bar...)
-	result = append(result, body[idx:]...)
+
+	// Find </body — search only after the header insertion point.
+	bodyCloseIdx := indexCaseInsensitive(body[insertAfterBody:], []byte("</body"))
+	var insertBeforeClose int
+	if bodyCloseIdx == -1 {
+		insertBeforeClose = len(body)
+	} else {
+		insertBeforeClose = insertAfterBody + bodyCloseIdx
+	}
+
+	result := make([]byte, 0, len(body)+len(headerBar)+len(footerBar))
+	result = append(result, body[:insertAfterBody]...)
+	result = append(result, headerBar...)
+	result = append(result, body[insertAfterBody:insertBeforeClose]...)
+	result = append(result, footerBar...)
+	result = append(result, body[insertBeforeClose:]...)
 	return result
 }
 

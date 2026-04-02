@@ -27,34 +27,23 @@ func mapEncoderLevel(level int) zstd.EncoderLevel {
 	}
 }
 
+// sectionEncoderCache is a package-level encoder cache used by compressZstd
+// for section compression (metadata, indexes, etc.). Chunk compression uses
+// per-worker caches instead.
+var sectionEncoderCache = newEncoderCache()
+
 // compressZstd compresses data at the given level. If dict is non-nil the
 // encoder uses it (CompZstdDict); otherwise plain zstd (CompZstd) is used.
+// Reuses encoders from sectionEncoderCache to avoid allocating several MB per call.
 func compressZstd(data []byte, level int, dict []byte) ([]byte, error) {
-	opts := []zstd.EOption{
-		zstd.WithEncoderLevel(mapEncoderLevel(level)),
-		zstd.WithEncoderConcurrency(1),
-		zstd.WithWindowSize(8 << 20),
-		zstd.WithAllLitEntropyCompression(true),
-	}
+	var dictID uint32
 	if len(dict) > 0 {
-		opts = append(opts, zstd.WithEncoderDict(dict))
+		// Use a synthetic dictID to differentiate cached encoders by dict content.
+		// Section compression always uses dictID=0 (no dict) in practice, but this
+		// keeps the function general.
+		dictID = 1
 	}
-
-	var buf bytes.Buffer
-	buf.Grow(len(data) / 2)
-
-	enc, err := zstd.NewWriter(&buf, opts...)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := enc.Write(data); err != nil {
-		enc.Close()
-		return nil, err
-	}
-	if err := enc.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return sectionEncoderCache.compress(data, level, dict, dictID)
 }
 
 // encoderCacheKey identifies a unique encoder configuration.

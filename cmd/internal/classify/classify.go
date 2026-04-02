@@ -80,9 +80,16 @@ func ExtractFromOZA(s stats.ArchiveStats) Features {
 		f.VideoBytesRatio = -1
 	}
 
-	total := uint64(s.EntryStats.ContentEntries) + uint64(s.EntryStats.Redirects)
+	// OZA stores redirects in a separate table; EntryStats.Redirects only
+	// counts EntryRedirect type records in the entry table (always 0 in
+	// current format). Use Header.RedirectCount which is authoritative.
+	redirects := uint64(s.Header.RedirectCount)
+	if redirects == 0 {
+		redirects = uint64(s.EntryStats.Redirects)
+	}
+	total := uint64(s.EntryStats.ContentEntries) + redirects
 	if total > 0 {
-		f.RedirectDensity = float64(s.EntryStats.Redirects) / float64(total)
+		f.RedirectDensity = float64(redirects) / float64(total)
 	}
 	if s.EntryStats.ContentEntries > 0 {
 		f.AvgEntryBytes = float64(totalBytes) / float64(s.EntryStats.ContentEntries)
@@ -240,18 +247,14 @@ func classifyProfile(f Features) (Profile, float64) {
 // classifyWithoutBytes uses only count-based and metadata features.
 // Confidence is capped at 0.6 since byte-level features are absent.
 func classifyWithoutBytes(f Features) (Profile, float64) {
-	const maxConf = 0.60
-
-	// Dictionary: high redirect density is a strong signal even without bytes.
-	if f.RedirectDensity > 0.35 {
-		if f.SourceHint == "wiktionary" || f.SourceHint == "wikiquote" {
-			return ProfileDictionary, maxConf
-		}
-		return ProfileDictionary, 0.50
-	}
-
-	// Source-hint-based classification.
+	// Source hints take priority -- they're more reliable than redirect
+	// density alone. Wikipedia articles routinely have 50-70% redirects
+	// which would otherwise look like dictionaries.
 	switch f.SourceHint {
+	case "wiktionary":
+		return ProfileDictionary, 0.60
+	case "wikiquote":
+		return ProfileDictionary, 0.55
 	case "gutenberg", "wikisource":
 		return ProfileBooks, 0.50
 	case "stackexchange":
@@ -264,6 +267,11 @@ func classifyWithoutBytes(f Features) (Profile, float64) {
 		return ProfileMixedScrape, 0.50
 	case "wikipedia", "vikidia":
 		return ProfileEncyclopedia, 0.55
+	}
+
+	// No source hint: fall back to redirect density.
+	if f.RedirectDensity > 0.35 {
+		return ProfileDictionary, 0.45
 	}
 
 	// No strong signals.

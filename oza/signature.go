@@ -6,7 +6,9 @@ import (
 	"fmt"
 )
 
-const signatureRecordSize = 128 // 32 pubkey + 64 sig + 4 keyID + 28 reserved
+// SignatureRecordSize is the fixed size in bytes of one Ed25519 signature
+// record in the SIGNATURES trailer (32 pubkey + 64 sig + 4 keyID + 28 reserved).
+const SignatureRecordSize = 128
 
 // SignatureRecord holds one Ed25519 signature record from the SIGNATURES trailer.
 type SignatureRecord struct {
@@ -48,14 +50,14 @@ func (a *Archive) ReadSignatures() ([]SignatureRecord, error) {
 	}
 
 	// Read all records.
-	data := make([]byte, int(count)*signatureRecordSize)
+	data := make([]byte, int(count)*SignatureRecordSize)
 	if _, err := a.r.ReadAt(data, trailerOff+4); err != nil {
 		return nil, fmt.Errorf("oza: reading signature records: %w", err)
 	}
 
 	recs := make([]SignatureRecord, count)
 	for i := range recs {
-		off := i * signatureRecordSize
+		off := i * SignatureRecordSize
 		copy(recs[i].PublicKey[:], data[off:off+32])
 		copy(recs[i].Signature[:], data[off+32:off+96])
 		recs[i].KeyID = binary.LittleEndian.Uint32(data[off+96 : off+100])

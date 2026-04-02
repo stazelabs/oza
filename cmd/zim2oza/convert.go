@@ -339,7 +339,9 @@ func (c *Converter) write(plan *scanPlan) error {
 	// Set metadata.
 	c.writeMetadata(w, plan)
 
-	// Phase 2a: Read all content in cluster order (fast sequential ZIM access).
+	// Phase 2a: Read all content in cluster order (fast sequential ZIM access)
+	// and write it to a temp file. Only metadata + file offsets are kept in memory,
+	// avoiding the need to hold all decompressed content in RAM simultaneously.
 	total := len(plan.content)
 	type bufferedEntry struct {
 		ozaPath        string
@@ -347,9 +349,18 @@ func (c *Converter) write(plan *scanPlan) error {
 		mimeType       string
 		isFrontArticle bool
 		zimIndex       uint32
-		content        []byte
+		contentOff     int64 // offset in temp file
+		contentLen     int   // size in temp file
 	}
 	buffered := make([]bufferedEntry, 0, total)
+
+	contentTmp, err := os.CreateTemp("", "zim2oza-content-*")
+	if err != nil {
+		return fmt.Errorf("creating content temp file: %w", err)
+	}
+	defer os.Remove(contentTmp.Name())
+	defer contentTmp.Close()
+	var tmpOff int64
 
 	readStart := time.Now()
 	for i, ce := range plan.content {
@@ -365,14 +376,20 @@ func (c *Converter) write(plan *scanPlan) error {
 		}
 		c.stats.BytesRead += int64(len(content))
 
+		// Write content to temp file instead of holding in memory.
+		if _, err := contentTmp.Write(content); err != nil {
+			return fmt.Errorf("writing to content temp file: %w", err)
+		}
 		buffered = append(buffered, bufferedEntry{
 			ozaPath:        ce.ozaPath,
 			title:          ce.title,
 			mimeType:       ce.mimeType,
 			isFrontArticle: ce.isFrontArticle,
 			zimIndex:       ce.zimEntry.Index(),
-			content:        content,
+			contentOff:     tmpOff,
+			contentLen:     len(content),
 		})
+		tmpOff += int64(len(content))
 
 		if c.opts.Verbose && (i+1)%10000 == 0 {
 			elapsed := time.Since(readStart)
@@ -392,8 +409,8 @@ func (c *Converter) write(plan *scanPlan) error {
 	// Phase 2b: Re-sort by (chunkKey, path) to restore MIME locality for
 	// better compression, while keeping the fast cluster-order reads above.
 	sort.Slice(buffered, func(i, j int) bool {
-		ki := ozawrite.ChunkKey(buffered[i].mimeType, len(buffered[i].content))
-		kj := ozawrite.ChunkKey(buffered[j].mimeType, len(buffered[j].content))
+		ki := ozawrite.ChunkKey(buffered[i].mimeType, buffered[i].contentLen)
+		kj := ozawrite.ChunkKey(buffered[j].mimeType, buffered[j].contentLen)
 		if ki != kj {
 			return ki < kj
 		}
@@ -406,7 +423,8 @@ func (c *Converter) write(plan *scanPlan) error {
 		plan.zimIndexToOzaID[be.zimIndex] = uint32(i)
 	}
 
-	// Phase 2c: Add entries to the writer.
+	// Phase 2c: Add entries to the writer, reading content back from the temp file
+	// one entry at a time to keep memory usage proportional to chunk size, not archive size.
 	loopStart := time.Now()
 	addTotal := len(buffered)
 	var entryCount atomic.Int64
@@ -442,17 +460,24 @@ func (c *Converter) write(plan *scanPlan) error {
 	}
 
 	for i, be := range buffered {
-		if _, err := w.AddEntry(be.ozaPath, be.title, be.mimeType, be.content, be.isFrontArticle); err != nil {
+		content := make([]byte, be.contentLen)
+		if _, err := contentTmp.ReadAt(content, be.contentOff); err != nil {
+			return fmt.Errorf("reading entry %s from temp file: %w", be.ozaPath, err)
+		}
+		if _, err := w.AddEntry(be.ozaPath, be.title, be.mimeType, content, be.isFrontArticle); err != nil {
 			return fmt.Errorf("adding entry %s: %w", be.ozaPath, err)
 		}
 		entryCount.Store(int64(i + 1))
 	}
-	// Release buffered content to free memory before Close().
 	buffered = nil
 
 	if c.opts.Verbose && addTotal > 0 {
 		fmt.Fprintf(os.Stderr, "\x1b[2K\rAdding entries: %d/%d done\n", addTotal, addTotal)
 	}
+
+	// Clean up temp file early.
+	contentTmp.Close()
+	os.Remove(contentTmp.Name())
 
 	// Add redirects. Resolve chains so each redirect points to a content entry.
 	zimIdxToRedirect := make(map[uint32]*redirectEntry, len(plan.redirects))

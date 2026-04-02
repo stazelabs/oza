@@ -141,6 +141,7 @@ func (a *Archive) readChunk(chunkID uint32) (*decompressedChunk, error) {
 }
 
 // readBlob extracts a blob from the given chunk at the given byte offset and size.
+// The returned slice is a newly allocated copy that the caller owns.
 func (a *Archive) readBlob(chunkID, blobOffset, blobSize uint32) ([]byte, error) {
 	if a.maxBlobSize > 0 && int64(blobSize) > a.maxBlobSize {
 		return nil, fmt.Errorf("oza: blob size %d exceeds limit %d: %w", blobSize, a.maxBlobSize, ErrBlobTooLarge)
@@ -157,4 +158,24 @@ func (a *Archive) readBlob(chunkID, blobOffset, blobSize uint32) ([]byte, error)
 	out := make([]byte, blobSize)
 	copy(out, ch.data[start:end])
 	return out, nil
+}
+
+// readBlobSlice returns a sub-slice of cached chunk data (zero-copy).
+// The returned slice is only valid while the chunk remains in cache. Callers
+// must not modify the returned data or retain it beyond immediate use (e.g.,
+// writing to an io.Writer).
+func (a *Archive) readBlobSlice(chunkID, blobOffset, blobSize uint32) ([]byte, error) {
+	if a.maxBlobSize > 0 && int64(blobSize) > a.maxBlobSize {
+		return nil, fmt.Errorf("oza: blob size %d exceeds limit %d: %w", blobSize, a.maxBlobSize, ErrBlobTooLarge)
+	}
+	ch, err := a.readChunk(chunkID)
+	if err != nil {
+		return nil, err
+	}
+	start := int(blobOffset)
+	end := start + int(blobSize)
+	if end > len(ch.data) {
+		return nil, fmt.Errorf("oza: blob [%d:%d] exceeds chunk size %d", start, end, len(ch.data))
+	}
+	return ch.data[start:end], nil
 }

@@ -57,6 +57,7 @@ type WriterOptions struct {
 	CompressWorkers  int             // parallel compression workers; 0 = min(NumCPU, 4)
 	SearchPruneFreq  float64         // prune trigrams appearing in >= this fraction of docs; default 0.5, 0 disables
 	TranscodeTools   *TranscodeTools // nil = no transcoding; use DiscoverTranscodeTools() to populate
+	StrictMetadata   bool            // enforce format validation on metadata values (date, language, etc.); default true
 	Progress         ProgressFunc    // optional; called during Close to report progress
 	SigningKeys      []SigningKey    // optional; if set, a SIGNATURES trailer is appended after the file checksum
 }
@@ -79,6 +80,7 @@ func DefaultOptions() WriterOptions {
 		MinifyJS:         true,
 		MinifySVG:        true,
 		OptimizeImages:   true,
+		StrictMetadata:   true,
 		SearchPruneFreq:  0.5,
 	}
 }
@@ -195,6 +197,7 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 		opts.TrainDict || opts.BuildSearch || opts.BuildTitleSearch ||
 		opts.BuildBodySearch || opts.MinifyHTML || opts.MinifyCSS ||
 		opts.MinifyJS || opts.MinifySVG || opts.OptimizeImages ||
+		opts.StrictMetadata ||
 		opts.Progress != nil || opts.SigningKeys != nil
 	if hasAnyConfig {
 		d.TrainDict = opts.TrainDict
@@ -206,6 +209,7 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 		d.MinifyJS = opts.MinifyJS
 		d.MinifySVG = opts.MinifySVG
 		d.OptimizeImages = opts.OptimizeImages
+		d.StrictMetadata = opts.StrictMetadata
 		d.SearchPruneFreq = opts.SearchPruneFreq
 	}
 	// BuildSearch is a convenience that sets both.
@@ -470,6 +474,12 @@ func (w *Writer) Close() error {
 	// 4. Validate metadata.
 	if err := oza.ValidateMetadata(w.meta); err != nil {
 		return fmt.Errorf("ozawrite: %w", err)
+	}
+	if w.opts.StrictMetadata {
+		if errs := oza.ValidateMetadataStrict(w.meta); len(errs) > 0 {
+			// Report the first issue; all issues are available via ValidateMetadataStrict.
+			return fmt.Errorf("ozawrite: strict metadata validation: %w", errs[0])
+		}
 	}
 
 	// 5. Build MIME table.

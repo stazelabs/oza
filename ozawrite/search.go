@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/RoaringBitmap/roaring/v2"
+
+	"github.com/stazelabs/oza/oza"
 )
 
 // TrigramBuilder accumulates trigrams from content entries and serializes them
@@ -46,15 +48,6 @@ type trigramBuilder struct {
 	lower         []byte               // reused lowercase buffer
 	hasCJK        bool                 // true if any CJK characters have been indexed
 	totalPostings int                  // count of uint32 entries across all posting lists
-}
-
-// isCJKRune reports whether r is in a CJK Unicode block used for Chinese,
-// Japanese, or Korean text, including CJK symbols, unified ideographs, Hangul
-// syllables, and CJK compatibility ideographs.
-func isCJKRune(r rune) bool {
-	return (r >= 0x3000 && r <= 0x9FFF) || // CJK Symbols … CJK Unified Ideographs
-		(r >= 0xAC00 && r <= 0xD7AF) || // Hangul Syllables
-		(r >= 0xF900 && r <= 0xFAFF) // CJK Compatibility Ideographs
 }
 
 func newTrigramBuilder() *trigramBuilder {
@@ -117,7 +110,7 @@ func (b *trigramBuilder) emitGrams(entryID uint32, text []byte) {
 	for i < len(text) {
 		r, size := utf8.DecodeRune(text[i:])
 
-		if r != utf8.RuneError && isCJKRune(r) {
+		if r != utf8.RuneError && oza.IsCJKRune(r) {
 			// Flush any preceding non-CJK run as byte trigrams.
 			if nonCJKStart < i {
 				run := text[nonCJKStart:i]

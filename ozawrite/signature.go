@@ -4,6 +4,8 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/stazelabs/oza/oza"
 )
 
 // SigningKey pairs an Ed25519 private key with a caller-defined numeric key ID.
@@ -12,8 +14,6 @@ type SigningKey struct {
 	Key   ed25519.PrivateKey
 	KeyID uint32
 }
-
-const signatureRecordSize = 128 // 32 pubkey + 64 sig + 4 keyID + 28 reserved
 
 // buildSignatureTrailer signs fileHash with each key and returns the raw trailer
 // bytes to be appended after the 32-byte file checksum.
@@ -31,7 +31,7 @@ func buildSignatureTrailer(fileHash [32]byte, keys []SigningKey) ([]byte, error)
 		return nil, fmt.Errorf("ozawrite: buildSignatureTrailer called with no keys")
 	}
 
-	out := make([]byte, 4+len(keys)*signatureRecordSize)
+	out := make([]byte, 4+len(keys)*oza.SignatureRecordSize)
 	binary.LittleEndian.PutUint32(out[0:4], uint32(len(keys)))
 
 	for i, sk := range keys {
@@ -40,8 +40,8 @@ func buildSignatureTrailer(fileHash [32]byte, keys []SigningKey) ([]byte, error)
 		}
 		sig := ed25519.Sign(sk.Key, fileHash[:])
 
-		off := 4 + i*signatureRecordSize
-		rec := out[off : off+signatureRecordSize]
+		off := 4 + i*oza.SignatureRecordSize
+		rec := out[off : off+oza.SignatureRecordSize]
 
 		pubKey := sk.Key.Public().(ed25519.PublicKey)
 		copy(rec[0:32], pubKey)

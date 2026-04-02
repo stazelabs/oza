@@ -242,3 +242,31 @@ func (e Entry) ContentReader() (io.Reader, error) {
 	}
 	return bytes.NewReader(data), nil
 }
+
+// WriteTo writes the entry's content directly to w, resolving redirects
+// automatically. It uses the zero-copy path, avoiding an allocation for the
+// blob data. The returned int64 is the number of bytes written.
+func (e Entry) WriteTo(w io.Writer) (int64, error) {
+	content, err := e.Resolve()
+	if err != nil {
+		return 0, err
+	}
+	data, err := e.archive.readBlobSlice(content.record.ChunkID, content.record.BlobOffset, content.record.BlobSize)
+	if err != nil {
+		return 0, err
+	}
+	n, err := w.Write(data)
+	return int64(n), err
+}
+
+// ReadContentSlice returns a zero-copy sub-slice of cached chunk data for this
+// entry's content, resolving redirects automatically. The returned slice must
+// not be modified and is only valid while the underlying chunk remains in cache.
+// Use ReadContent instead if the data will be retained or mutated.
+func (e Entry) ReadContentSlice() ([]byte, error) {
+	content, err := e.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	return e.archive.readBlobSlice(content.record.ChunkID, content.record.BlobOffset, content.record.BlobSize)
+}
