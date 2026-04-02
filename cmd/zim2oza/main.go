@@ -17,8 +17,20 @@ func main() {
 	root := &cobra.Command{
 		Use:   "zim2oza <input.zim> <output.oza>",
 		Short: "Convert a ZIM archive to OZA format",
-		Args:  cobra.ExactArgs(2),
-		RunE:  run,
+		Long: `王座 zim2oza — convert ZIM archives to OZA format.
+
+Reads a ZIM file and writes an equivalent OZA archive with Zstd compression,
+optional dictionary training, trigram search indices, content minification,
+and image transcoding. Use --auto to auto-detect the content profile and
+apply recommended parameters, or --dry-run to preview without writing.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.ExactArgs(2)(cmd, args)
+		},
+		RunE: run,
 	}
 
 	root.Flags().Int("zstd-level", 6, "Zstd compression level (1=fastest, 6=default, 19=best)")

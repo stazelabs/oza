@@ -18,7 +18,17 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozasearch <archive.oza> <query>",
 		Short: "Search an OZA archive using the trigram index",
-		Args:  cobra.ExactArgs(2),
+		Long: `王座 ozasearch — full-text search against an OZA archive's trigram index.
+
+Returns matching entries ranked by relevance. Use -t for title-only
+search or -j for JSON output.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.ExactArgs(2)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(args[0], args[1], limit, jsonOut, titleOnly)
 		},

@@ -23,7 +23,18 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozainfo <archive.oza>",
 		Short: "Dump metadata and section table of an OZA archive",
-		Args:  cobra.ExactArgs(1),
+		Long: `王座 ozainfo — display archive metadata, section table, and statistics.
+
+Shows header info, metadata key-value pairs, section sizes and compression
+ratios, entry counts, chunk stats, and search index status. Use --json
+for machine-readable output or --classify for content profile analysis.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(args[0])
 		},

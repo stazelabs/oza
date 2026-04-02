@@ -18,6 +18,10 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozakeygen",
 		Short: "Generate an Ed25519 keypair for OZA archive signing",
+		Long: `王座 ozakeygen — generate an Ed25519 keypair for signing OZA archives.
+
+Outputs a PEM-encoded private key to stdout (or --out file) and prints
+the hex-encoded public key to stderr for use with ozaverify --pubkey.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(outPath)
 		},

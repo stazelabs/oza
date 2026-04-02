@@ -15,8 +15,18 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozacat <archive.oza> [path]",
 		Short: "Extract or list entries from an OZA archive",
-		Args:  cobra.RangeArgs(1, 2),
-		RunE:  run,
+		Long: `王座 ozacat — extract content or inspect entries in an OZA archive.
+
+With a path argument, extracts the entry's content to stdout (or -o file).
+Use -l to list all entries, -m for metadata, or -t for entry info.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.RangeArgs(1, 2)(cmd, args)
+		},
+		RunE: run,
 	}
 
 	root.Flags().BoolP("list", "l", false, "List all entries (path, type, MIME, size)")

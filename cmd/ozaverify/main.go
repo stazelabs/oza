@@ -15,8 +15,19 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozaverify <archive.oza>",
 		Short: "Verify integrity of an OZA archive",
-		Args:  cobra.ExactArgs(1),
-		RunE:  run,
+		Long: `王座 ozaverify — multi-tier integrity verification for OZA archives.
+
+Always checks the file-level checksum. Use --sections for per-section
+SHA-256, --chunks for per-entry content hashes, --all for everything,
+or --signatures to verify Ed25519 signatures.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
+		RunE: run,
 	}
 
 	root.Flags().Bool("sections", false, "Also verify per-section SHA-256 checksums")

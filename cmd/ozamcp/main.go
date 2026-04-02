@@ -34,7 +34,8 @@ Archives may be specified as positional arguments, via --dir, or both.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			d, _ := cmd.Flags().GetStringArray("dir")
 			if len(args) == 0 && len(d) == 0 {
-				return errors.New("at least one OZA file or --dir required")
+				cmd.Help()
+				os.Exit(0)
 			}
 			return nil
 		},

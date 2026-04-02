@@ -22,7 +22,18 @@ func main() {
 	root := &cobra.Command{
 		Use:   "ozacmp <source.zim> <converted.oza>",
 		Short: "Compare a ZIM file and its OZA conversion side-by-side",
-		Args:  cobra.ExactArgs(2),
+		Long: `王座 ozacmp — side-by-side comparison of a ZIM file and its OZA conversion.
+
+Reports file sizes, compression ratios, entry counts, MIME census,
+section breakdown, size budget, chunk statistics, search index presence,
+and metadata parity between the two formats.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cmd.Help()
+				os.Exit(0)
+			}
+			return cobra.ExactArgs(2)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(args[0], args[1])
 		},

@@ -46,7 +46,8 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			d, _ := cmd.Flags().GetStringArray("dir")
 			if len(args) == 0 && len(d) == 0 {
-				return errors.New("at least one OZA file or --dir required")
+				cmd.Help()
+				os.Exit(0)
 			}
 			return nil
 		},
@@ -74,6 +75,14 @@ type library struct {
 	startTime time.Time
 }
 
+// letterRange stores the offset and count of title-index entries whose title
+// starts with a given letter (or "#" for non-letter). Pre-computed at load time
+// so that browse requests are O(page_size) instead of O(N).
+type letterRange struct {
+	offset int
+	count  int
+}
+
 type archiveEntry struct {
 	archive         *oza.Archive
 	slug            string
@@ -82,8 +91,9 @@ type archiveEntry struct {
 	description     string
 	date            string
 	uuidHex         string
-	letterCounts    map[byte]int // A–Z -> count of entries whose title starts with that letter
-	frontArticleIDs []uint32     // IDs of front-article entries, for random navigation
+	letterCounts    map[byte]int            // A–Z -> count of entries whose title starts with that letter
+	letterOffsets   map[string]letterRange   // letter (uppercase or "#") -> title-index offset range
+	frontArticleIDs []uint32                // IDs of front-article entries, for random navigation
 	fileSize        int64
 	loadDuration    time.Duration
 }
@@ -218,6 +228,7 @@ func loadLibrary(paths []string, hardFailCount int, cacheSize int) (*library, er
 	type loadResult struct {
 		archive         *oza.Archive
 		letterCounts    map[byte]int
+		letterOffsets   map[string]letterRange
 		frontArticleIDs []uint32
 		fileSize        int64
 		loadDuration    time.Duration
@@ -237,7 +248,7 @@ func loadLibrary(paths []string, hardFailCount int, cacheSize int) (*library, er
 				results[i] = loadResult{err: err}
 				return
 			}
-			lc := computeLetterCounts(a)
+			lc, lo := computeLetterIndex(a)
 			fa := collectFrontArticleIDs(a)
 			dur := time.Since(t0)
 			var fsz int64
@@ -245,7 +256,7 @@ func loadLibrary(paths []string, hardFailCount int, cacheSize int) (*library, er
 				fsz = fi.Size()
 			}
 			log.Printf("ready:   %s — %d entries (%.1fs)", filepath.Base(path), a.EntryCount(), dur.Seconds())
-			results[i] = loadResult{archive: a, letterCounts: lc, frontArticleIDs: fa, fileSize: fsz, loadDuration: dur}
+			results[i] = loadResult{archive: a, letterCounts: lc, letterOffsets: lo, frontArticleIDs: fa, fileSize: fsz, loadDuration: dur}
 		}(i, path)
 	}
 	wg.Wait()
@@ -290,6 +301,7 @@ func loadLibrary(paths []string, hardFailCount int, cacheSize int) (*library, er
 			date:            date,
 			uuidHex:         hex.EncodeToString(uuid[:]),
 			letterCounts:    res.letterCounts,
+			letterOffsets:   res.letterOffsets,
 			frontArticleIDs: res.frontArticleIDs,
 			fileSize:        res.fileSize,
 			loadDuration:    res.loadDuration,
@@ -307,12 +319,16 @@ func loadLibrary(paths []string, hardFailCount int, cacheSize int) (*library, er
 	return lib, nil
 }
 
-// computeLetterCounts scans the title index once at load time to build an A–Z
-// count map used by the navigation bar and browse page.
+// computeLetterIndex scans the title index once at load time to build both
+// an A–Z count map (for the navigation bar) and a letter-to-offset-range map
+// (for O(page_size) browse requests).
 // Uses ForEachTitleKey (O(N)) rather than EntriesByTitle (O(N×restartInterval/2)).
-func computeLetterCounts(a *oza.Archive) map[byte]int {
+func computeLetterIndex(a *oza.Archive) (map[byte]int, map[string]letterRange) {
 	counts := make(map[byte]int, 26)
+	offsets := make(map[string]letterRange, 28)
+	idx := 0
 	a.ForEachTitleKey(func(t string) {
+		defer func() { idx++ }()
 		if len(t) == 0 {
 			return
 		}
@@ -320,11 +336,23 @@ func computeLetterCounts(a *oza.Archive) map[byte]int {
 		if c >= 'a' && c <= 'z' {
 			c -= 32
 		}
+
+		var key string
 		if c >= 'A' && c <= 'Z' {
 			counts[c]++
+			key = string(c)
+		} else {
+			key = "#"
+		}
+
+		if lr, ok := offsets[key]; ok {
+			lr.count++
+			offsets[key] = lr
+		} else {
+			offsets[key] = letterRange{offset: idx, count: 1}
 		}
 	})
-	return counts
+	return counts, offsets
 }
 
 // collectFrontArticleIDs gathers IDs of all front-article entries at load time
