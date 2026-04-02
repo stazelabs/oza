@@ -38,6 +38,9 @@ a:hover { text-decoration: underline; }
 .arrow { font-size: 0.75em; margin-left: 4px; }
 a.ilink { color: #aaa; text-decoration: none; }
 a.ilink:hover { color: #0366d6; text-decoration: none; }
+.group-header td { background: #f6f8fa; font-weight: 600; border-bottom: none; }
+.group-item td { padding-left: 28px; border-bottom: 1px solid #eee; }
+.group-item td:first-child { font-weight: normal; }
 </style></head><body>
 <h1><span style="color:#C9A84C">&#x738B;&#x5EA7;</span> OZA Library</h1>
 <div class="search-wrap">
@@ -63,6 +66,30 @@ a.ilink:hover { color: #0366d6; text-decoration: none; }
 </tr></thead>
 <tbody>
 {{range .Archives}}
+{{if .IsGroupHeader}}
+<tr class="group-header">
+<td data-val="{{.Title}}">
+  <a href="/{{.Slug}}/">{{.Title}}</a> <span class="sub">({{.GroupSize}} books)</span>
+  {{if .Description}}<div class="sub">{{.Description}}</div>{{end}}
+  <div class="sub actions"><a href="/{{.Slug}}/-/browse">Browse</a> · <a href="/{{.Slug}}/-/search">Search</a> · <a href="/{{.Slug}}/-/random">Random</a></div>
+</td>
+<td data-val="{{.Filename}}">{{.Filename}}</td>
+<td data-val="{{.DateVal}}" class="date">{{if .DateVal}}{{.DateVal}}{{else}}&#x2014;{{end}}</td>
+<td data-val="{{.EntryCount}}" class="num">{{commaInt .EntryCount}}</td>
+{{if $.ShowInfo}}<td><a href="/{{.Slug}}/-/info" class="ilink" title="Archive info">ⓘ</a></td>{{end}}
+</tr>
+{{else if .IsGroupItem}}
+<tr class="group-item">
+<td data-val="{{.Title}}">
+  <a href="{{.EntryPath}}">{{.Title}}</a>
+  {{if .Creator}}<div class="sub">{{.Creator}}</div>{{end}}
+</td>
+<td></td>
+<td></td>
+<td></td>
+{{if $.ShowInfo}}<td></td>{{end}}
+</tr>
+{{else}}
 <tr>
 <td data-val="{{.Title}}">
   <a href="/{{.Slug}}/">{{.Title}}</a>
@@ -74,6 +101,7 @@ a.ilink:hover { color: #0366d6; text-decoration: none; }
 <td data-val="{{.EntryCount}}" class="num">{{commaInt .EntryCount}}</td>
 {{if $.ShowInfo}}<td><a href="/{{.Slug}}/-/info" class="ilink" title="Archive info">ⓘ</a></td>{{end}}
 </tr>
+{{end}}
 {{end}}
 </tbody></table>
 <script>
@@ -88,14 +116,29 @@ a.ilink:hover { color: #0366d6; text-decoration: none; }
       arrow.textContent = i === c ? (a ? ' \u25b2' : ' \u25bc') : '';
       th.classList.toggle('sorted', i === c);
     });
+    // Build sortable units: standalone rows sort individually;
+    // group-header + its group-items sort as one block keyed by the header.
     var rows = Array.from(tbody.rows);
-    rows.sort(function(ra, rb) {
-      var av = ra.cells[c].dataset.val;
-      var bv = rb.cells[c].dataset.val;
+    var units = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].classList.contains('group-item')) continue; // consumed by header
+      var unit = [rows[i]];
+      // Collect any group-items that follow a group-header.
+      if (rows[i].classList.contains('group-header')) {
+        for (var j = i + 1; j < rows.length && rows[j].classList.contains('group-item'); j++) {
+          unit.push(rows[j]);
+        }
+        i = j - 1;
+      }
+      units.push(unit);
+    }
+    units.sort(function(ua, ub) {
+      var av = ua[0].cells[c].dataset.val || '';
+      var bv = ub[0].cells[c].dataset.val || '';
       var cmp = c === 3 ? +av - +bv : av.toLowerCase().localeCompare(bv.toLowerCase());
       return a ? cmp : -cmp;
     });
-    rows.forEach(function(r){ tbody.appendChild(r); });
+    units.forEach(function(u){ u.forEach(function(r){ tbody.appendChild(r); }); });
   }
   ths.forEach(function(th, i){
     th.addEventListener('click', function(){ sort(i, col === i ? !asc : true); });

@@ -2,14 +2,15 @@
 
 build:
 	@mkdir -p bin
-	cd cmd && go build -o ../bin/ozainfo    ./ozainfo/
-	cd cmd && go build -o ../bin/ozacat     ./ozacat/
-	cd cmd && go build -o ../bin/ozaserve   ./ozaserve/
-	cd cmd && go build -o ../bin/ozasearch  ./ozasearch/
-	cd cmd && go build -o ../bin/ozaverify  ./ozaverify/
-	cd cmd && go build -o ../bin/ozamcp     ./ozamcp/
-	cd cmd && go build -o ../bin/ozacmp     ./ozacmp/
-	cd cmd && go build -o ../bin/zim2oza    ./zim2oza/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozainfo    ./ozainfo/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozacat     ./ozacat/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozaserve   ./ozaserve/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozasearch  ./ozasearch/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozaverify  ./ozaverify/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozamcp     ./ozamcp/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozacmp     ./ozacmp/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/zim2oza    ./zim2oza/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/epub2oza   ./epub2oza/
 
 test:
 	go test ./... -count=1

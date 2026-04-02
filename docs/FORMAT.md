@@ -242,8 +242,26 @@ Per pair:
 **Required keys:** `title`, `language` (BCP-47), `creator`, `date` (ISO 8601), `source`.
 
 **Optional well-known keys:** `description`, `long_description`, `license` (SPDX),
-`favicon_entry` (uint32 entry ID), `main_entry` (uint32 entry ID), `article_count`,
-`scraper` (tool name + version).
+`favicon_entry` (uint32 entry ID), `main_entry` (entry path string), `article_count`,
+`scraper` (tool name + version), `catalog` (JSON array, see below).
+
+**Catalog metadata.** Archives that bundle multiple logical items (e.g. a book
+collection) may set `catalog` to a JSON array of item descriptors. Each element
+is an object with the following fields:
+
+| Field      | Type   | Description                                        |
+|------------|--------|----------------------------------------------------|
+| `slug`     | string | Namespace prefix for the item's entries             |
+| `title`    | string | Display title                                       |
+| `creator`  | string | Author / creator                                    |
+| `language` | string | BCP-47 language code                                |
+| `entry`    | string | Path to the item's index page within the archive    |
+| `entries`  | int    | Number of entries belonging to this item             |
+
+Viewers (e.g. `ozaserve`) use the catalog to surface individual items on the
+library page instead of showing a single opaque archive row. The convention is
+converter-agnostic: any tool that bundles multiple items into one archive can
+write a `catalog` key.
 
 ### 3.5 MIME Table
 

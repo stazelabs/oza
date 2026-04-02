@@ -416,10 +416,17 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", etag)
 
 	// For HTML content, set CSP sandbox and inject the sticky navigation bar and footer bar.
-	if entry.MIMEIndex() == oza.MIMEIndexHTML {
+	// Match both text/html (standard index 0) and application/xhtml+xml (EPUB chapters).
+	isHTML := entry.MIMEIndex() == oza.MIMEIndexHTML || mime == "application/xhtml+xml"
+	if isHTML {
 		w.Header().Set("Content-Security-Policy", "sandbox")
 		header := headerBarHTML(slug, ae.title, ae.letterCounts)
 		content = injectBars(content, []byte(header), []byte(footerBarHTML(!lib.noInfo)))
+		// Serve XHTML as text/html so the injected navigation bar (which uses
+		// HTML5 void elements like <input>) doesn't cause XML parse errors.
+		if mime == "application/xhtml+xml" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		}
 	}
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))

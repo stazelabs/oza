@@ -220,6 +220,21 @@ go run ./cmd/zim2oza --dry-run wikipedia.zim
 go run ./cmd/zim2oza --compress-workers 4 wikipedia.zim wikipedia.oza
 ```
 
+### epub2oza
+
+Convert EPUB books to OZA format:
+
+```bash
+# Single book
+go run ./cmd/epub2oza book.epub book.oza
+
+# Collection: bundle all EPUBs in a directory into one searchable archive
+go run ./cmd/epub2oza --collection --title "My Library" ./epubs/ library.oza
+
+# With verbose statistics and minification
+go run ./cmd/epub2oza --verbose --minify book.epub book.oza
+```
+
 ## API Overview
 
 ### Archive (Reader)

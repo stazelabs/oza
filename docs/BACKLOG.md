@@ -176,6 +176,18 @@ minification fallback, chunk splitting) are not covered.
 
 Missing `BenchmarkBuildIndex` covering V1 path/title index construction.
 
+### 2.24 ozainfo CONTENT section compression reporting misleading
+
+`ozainfo` reports the CONTENT section as `none` compression with equal compressed
+and uncompressed sizes. This is technically correct (the section stores
+pre-compressed chunks as opaque blobs and is not double-compressed), but
+misleading — the chunks inside *are* Zstd-compressed. The overall Size Summary
+shows the true ratio, but the per-section table gives the wrong impression.
+
+**Fix:** Report per-chunk compression stats in the section table, or annotate
+the CONTENT section row with the aggregate chunk compression ratio (e.g.
+`zstd (chunks)` instead of `none`).
+
 ---
 
 ## P3 — Future
@@ -253,9 +265,13 @@ PLAIN_TEXT and optionally KNOWLEDGE_GRAPH sections.
 
 #### 3.9 Additional converter sources
 
-Only ZIM → OZA exists. Future sources: EPUB → OZA, static site → OZA, PDF collection
-→ OZA, Markdown corpus → OZA. A generic ingest pipeline with pluggable source readers
-would reduce per-source effort.
+**EPUB → OZA implemented** (`epub2oza`). Supports single-book and collection mode
+(`--collection`). Collection archives store a `catalog` metadata key (JSON) so
+`ozaserve` surfaces individual books on the library page. See FORMAT.md §3.4.
+
+Remaining future sources: static site → OZA, PDF collection → OZA, Markdown
+corpus → OZA. A generic ingest pipeline with pluggable source readers would
+reduce per-source effort.
 
 ### Compression
 

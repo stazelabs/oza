@@ -51,6 +51,9 @@ linters:
       - text: "Error return value of `fmt\\.Fprint"
         linters: [errcheck]
         path: zim2oza/stats\.go
+      - text: "Error return value of `fmt\\.Fprint"
+        linters: [errcheck]
+        path: epub2oza/stats\.go
       # stats.PrintJSON return value — display-only, not actionable.
       - text: "Error return value of `.*PrintJSON` is not checked"
         linters: [errcheck]
