@@ -203,6 +203,20 @@ go run ./cmd/ozakeygen -o mykey
 # Creates mykey.pub and mykey.key
 ```
 
+### ozacmp
+
+Compare a ZIM file and its OZA conversion side-by-side:
+
+```bash
+go run ./cmd/ozacmp source.zim converted.oza
+
+# Markdown table output
+go run ./cmd/ozacmp --format md source.zim converted.oza
+
+# Deep per-entry comparison
+go run ./cmd/ozacmp --deep source.zim converted.oza
+```
+
 ### zim2oza
 
 Convert ZIM files to OZA format:

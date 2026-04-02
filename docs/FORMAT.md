@@ -214,6 +214,7 @@ Each section descriptor is **80 bytes**:
 | 0x0005 | TITLE_INDEX | Title lookup index |
 | 0x0006 | CONTENT | Content chunks |
 | 0x0007 | REDIRECT_TABLE | Redirect mappings |
+| 0x0008 | — | Reserved (not used in v1) |
 | 0x0009 | CHROME | UI/navigation assets |
 | 0x000A | SIGNATURES | Cryptographic signatures |
 | 0x000B | ZSTD_DICT | Shared Zstd dictionaries |

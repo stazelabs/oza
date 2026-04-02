@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/stazelabs/oza/oza"
 )
 
 // CollectOZAPaths scans dirs for .oza files. Recursive mode uses
@@ -57,6 +59,18 @@ func CollectOZAPaths(dirs []string, recursive bool) []string {
 	}
 	sort.Strings(paths)
 	return paths
+}
+
+// CollectFrontArticleIDs returns the entry IDs of all front-article entries
+// in the archive. Used by ozaserve (random navigation) and ozamcp.
+func CollectFrontArticleIDs(a *oza.Archive) []uint32 {
+	var ids []uint32
+	a.ForEachEntryRecord(func(id uint32, rec oza.EntryRecord) {
+		if rec.IsFrontArticle() {
+			ids = append(ids, id)
+		}
+	})
+	return ids
 }
 
 // MakeSlug derives a URL-friendly slug from an OZA filename.

@@ -57,6 +57,12 @@ not its successor in spirit.
 
 ## P2 — Improve
 
+### 2.29 mimeIndex is O(N) linear scan
+
+`oza/archive.go:432-438`: `Archive.mimeIndex()` linearly scans the MIME table
+on every call. Typically <20 entries so negligible, but a `map[string]uint16`
+built at load time would be O(1) and trivial.
+
 ### 2.5 FrontArticles scan cost
 
 `FrontArticles()` iterates all entries checking `is_front_article` — O(N). For
@@ -215,6 +221,24 @@ checkpointing or resume capability.
 
 **Design question:** Conversions run on build servers, not user laptops. A robust
 retry (rerun the command) may be sufficient.
+
+---
+
+## Shelved
+
+These items were investigated and deliberately set aside due to structural limitations or unfavorable cost/benefit tradeoffs. Revisit only if the underlying constraint changes.
+
+### S.1 More aggressive search pruning for qa-forum
+
+Lower `SearchPruneFreq` to 0.25 for `ProfileQAForum`.
+
+**Shelved:** se_codegolf's 13.5% SEARCH_BODY overhead is actually below the corpus median (~19.5%). Benchmark data (25 files) shows 15–30% is the natural cost of trigram search on text-heavy content. Lowering the prune threshold would hurt normal Q&A forums (e.g., cooking.stackexchange) where common trigrams are legitimate search targets. se_codegolf is an unusually odd dataset (source code generates uniformly distributed trigrams); optimizing for it would over-prune everywhere else.
+
+### S.2 Search index size budget
+
+After building the trigram index, if the serialized body index exceeds N% of total content size, iteratively increase prune frequency and re-serialize until it fits.
+
+**Shelved:** Benchmark data (25 files) shows SEARCH_BODY median is ~19.5% of OZA output (range 0.2–33.3%). A 10% budget would trigger on 17/25 archives; even 20% triggers on 10/25. This is not an outlier problem — it is the structural cost of trigram posting lists with roaring bitmaps on compressed text. Any reasonable budget threshold either degrades search quality across the board or is too loose to be worth the complexity. The right approach if search index size ever becomes critical is a more compact index format (FST, minimal perfect hashing), not pruning useful trigrams.
 
 ---
 
@@ -432,6 +456,85 @@ transcoding if output is larger than input.
 GIF→WebP and PNG→WebP transcoding added alongside existing JPEG optimization.
 SVG minification remains future work.
 
+### 3.17 SVG carve-out from image MIME group ~~P3~~
+
+Routed `image/svg+xml` to a `"svg"` MIME group instead of `"image"` in
+`ozawrite/chunk.go` `mimeGroup()`. SVG chunks now get zstd compression +
+dictionary training instead of `CompNone`. Result: wp_en_chemistry_maxi went
+from +7.2% regression to -7.3% improvement (-68 MB).
+
+### 3.18 Raise zstd level for text-heavy profiles ~~P3~~
+
+Set `ZstdLevel: 11` for `ProfileQAForum` and `ProfileDocs` in
+`cmd/internal/classify/profiles.go`. klauspost maps this to
+`SpeedBestCompression`. Result: se_codegolf went from +2.4% regression to
+-0.9% improvement (-12.3 MB).
+
+### 3.19 Parallel image transcoding worker pool ~~P3~~
+
+Pre-transcodes images in a goroutine worker pool (up to 8 workers) in
+`cmd/zim2oza/convert.go` `addEntriesParallel()`, with a reorder buffer to
+maintain sequential `AddEntry` calls. Result: xkcd transform phase 153.7s →
+2.2s (69x faster). Total wall time: 157s → 28s (5.6x).
+
+### 3.20 Pipe-based transcoding (eliminate temp files) ~~P3~~
+
+`cwebp` uses stdin/stdout pipes (`runToolPipe`). `gif2webp` uses a temp file
+for input and stdout for output (`runToolFile`). Eliminates most temp-file I/O
+overhead during transcoding.
+
+### 3.21 Skip transcoding for tiny images ~~P3~~
+
+Early return in `ozawrite/transcode.go` `Transcode()` for PNGs < 2 KB and
+GIFs < 1 KB (constants `minPNGTranscodeSize`, `minGIFTranscodeSize`). Avoids
+tool-launch overhead for images too small to benefit.
+
+### 3.22 Try-compress image chunks with zstd ~~P3~~
+
+Image chunks are trial-compressed at `SpeedFastest` (level 1) in
+`ozawrite/compress.go` `compressionWorker()`; the compressed version is kept
+only if smaller than raw. Chunks of many small JPEG/WebP images share header
+structure and compress ~5–9%. On a 2-book EPUB collection the image content
+section shrank from 589 KiB to 536 KiB (9%), flipping the overall archive
+from 1.06× to 0.98×.
+
+### 3.23 JPEG→WebP lossy transcoding ~~P3~~
+
+Opt-in via `--transcode-lossy-jpeg` in `ozawrite/transcode.go`. Uses
+`cwebp -q 80 -m 4` via stdin/stdout pipe; keeps original if WebP output is
+larger. Minimum size threshold: 1 KB. Photo-heavy encyclopedias with large
+JPEGs benefit significantly (~25–35% savings per image). Requires
+`brew install webp` / `apt install webp`.
+
+### 3.24 Brotli as alternative compression codec ~~P3~~
+
+`CompBrotli = 3` added to `oza/constants.go`. For non-dict text chunks, the
+compression worker in `ozawrite/compress.go` trial-compresses with both zstd
+and Brotli, keeping whichever is smaller. Brotli quality is mapped from the
+zstd level. Reader decompression uses `github.com/andybalholm/brotli`
+(pure Go). FORMAT.md updated: compression field values are now
+`0=none, 1=zstd, 2=zstd+dict, 3=brotli`. On the 2-book EPUB test corpus:
+635 KiB → 625 KiB (1.6% improvement).
+
+### 3.25 AVIF image transcoding ~~P3~~
+
+Opt-in via `--transcode-avif` in `ozawrite/transcode.go`. Discovered at
+startup alongside gif2webp/cwebp. Uses `avifenc` with temp-file input and
+stdout capture. PNG: `avifenc -s 6 --lossless`. JPEG: `avifenc -s 6 -q 70`.
+Falls back to WebP if AVIF output is larger or avifenc is unavailable. Slower
+than WebP (~3–10×) but leverages the existing parallel worker pool. AVIF
+achieves 20–50% smaller files than WebP on photographic content. Requires
+`brew install libavif` / `apt install libavif-bin`.
+
+### 3.26 xxhash for dedup and content hashing ~~P3~~
+
+Replaced `sha256.Sum256` with `xxhash.Sum64` (`github.com/cespare/xxhash/v2`)
+for dedup map lookups and the 8-byte content hash stored in entry records in
+`ozawrite/dedup.go`, `ozawrite/writer.go`, and `oza/checksum.go`. File-level
+and section-level integrity checks remain SHA-256. xxhash is 5–10× faster than
+SHA-256; the on-disk content hash was already truncated to 8 bytes (uint64) so
+this is a pure implementation improvement with no format change.
+
 ### 1.16 No tests for ozaserve HTTP handlers ~~P1 Testing~~
 
 Added `httptest`-based tests in `cmd/ozaserve/handlers_test.go` using a small
@@ -552,3 +655,142 @@ the `gh-pages` branch, and builds a trend chart. On PRs it compares against the
 stored baseline and posts a comment if any benchmark regresses beyond 200%.
 `make bench` updated to use `-count=5` so local runs produce `benchstat`-compatible
 output.
+
+### 0.7 Integer overflow in posting list bounds on 32-bit ~~P0~~
+
+Changed `end := int(postingOff) + int(postingLen)` to `uint64` arithmetic in
+`oza/search.go` `lookup()`. The bounds check now uses `uint64` comparison,
+preventing overflow on 32-bit platforms where two large `uint32` values could
+wrap a signed `int` negative and bypass the guard.
+
+### 0.8 Integer overflow in signature record allocation on 32-bit ~~P0~~
+
+Added overflow guard in `oza/signature.go` `ReadSignatures()` before the
+`make([]byte, int(count)*SignatureRecordSize)` allocation. If
+`uint64(count) * uint64(SignatureRecordSize)` exceeds `math.MaxInt`, the
+function returns an error instead of panicking or allocating a wrong-sized buffer.
+
+### 0.9 Discarded error in trainAndFlushPending ~~P0~~
+
+`ozawrite/pipeline.go` `trainAndFlushPending()` now checks the error from
+`w.addToChunk()` during the pending-entry flush loop. On first error, stores it
+as `w.pipelineErr` (matching the parallel pipeline pattern) and breaks out of
+the loop. The error surfaces via `flushChunk` on subsequent `AddEntry` calls
+or during `Close`.
+
+### 1.26 fileReader.ReadAt missing negative offset check ~~P1 Security~~
+
+Added `off < 0` guard to `oza/io.go` `fileReader.ReadAt`, matching the existing
+check in `mmapReader.ReadAt`. Both I/O backends now consistently return
+`io.EOF` for negative offsets.
+
+### 1.27 Panics in sync.Pool decoders ~~P1 Security~~
+
+Replaced `panic()` calls in `sync.Pool.New` callbacks in `oza/compress.go` with
+error returns. Pool entries are now `any` (either `*zstd.Decoder` or `error`).
+`decodeZstd` and `decodeZstdDict` type-switch on the pool result and propagate
+errors to callers instead of crashing the host process.
+
+### 1.28 ozaserve /_info exposes runtime internals ~~P1 Security~~
+
+Added `--info-token` flag to `cmd/ozaserve`. When set, the `/_info`,
+`/{archive}/-/info`, and `/{archive}/-/info.json` endpoints require the token
+via `?token=` query parameter or `Authorization: Bearer` header. Returns 403
+Forbidden on mismatch. When unset, endpoints remain open (backward compatible).
+
+### 1.29 O(N) LRU scan in bitmap cache ~~P1 Performance~~
+
+Replaced the `[]*bitmapCacheEntry` slice in `oza/search.go` with a
+`container/list.List` + `map[[3]byte]*list.Element`. Cache hit promotion is now
+O(1) via `list.MoveToFront`; eviction is O(1) via `list.Back` + `list.Remove`.
+Previously O(N) per lookup with a 512-entry cache.
+
+### 1.30 Unused `contentCount` field in Writer ~~P1 Code Quality~~
+
+Removed the `contentCount` field and its three increment sites from
+`ozawrite/writer.go`. The field was incremented but never read.
+
+### 1.31 Encoder leak in validateDict on zero samples ~~P1 Code Quality~~
+
+Moved `enc.Close()` to a `defer` immediately after creation in
+`ozawrite/compress.go` `validateDict()`. Replaced the in-loop `enc.Close()`
+with `enc.Flush()` and `enc.Reset()`. The encoder is now always closed,
+including when the sample list is empty.
+
+### 1.32 No tests for CLI tools beyond ozaserve ~~P1 Testing~~
+
+Added smoke tests for five CLI tools using a shared `cmd/internal/testutil`
+package that builds a small in-memory OZA archive:
+- `cmd/ozainfo/main_test.go` — default output, `--json`, missing file
+- `cmd/ozacat/main_test.go` — `-l` list, `-m` meta, extract, missing file
+- `cmd/ozasearch/main_test.go` — default, `--json`, `--title-only`, no-index, missing file
+- `cmd/ozaverify/main_test.go` — default, `--sections`, `--all`, missing file
+- `cmd/ozakeygen/main_test.go` — file output, stdout output
+
+### 1.33 Search query edge cases untested ~~P1 Testing~~
+
+Added `oza/search_cjk_test.go` with three test functions:
+- `TestCJKQueryGrams` — table-driven: empty, short ASCII, single/multi CJK,
+  mixed CJK+Latin, Korean (Hangul), invalid UTF-8
+- `TestCJKQueryGramsDedup` — verifies repeated characters don't produce
+  duplicate grams
+- `TestCJKQueryGramsNoPanicOnAllInputs` — edge-case fuzz: empty, truncated
+  UTF-8, null bytes, mixed valid/invalid
+
+### 1.34 ozacmp missing from README CLI section ~~P1 Documentation~~
+
+Added `ozacmp` section to README.md under CLI Tools, with usage examples for
+default, `--format md`, and `--deep` modes.
+
+### 1.35 Design documents lack implementation status headers ~~P1 Documentation~~
+
+Strengthened the status banner in `docs/LLM.md` to explicitly state section
+types 0x0100–0x0106 "do not exist in code yet" and that the body "uses present
+tense as design intent." Added a new status banner to `docs/INCREMENTAL.md`
+marking it as a design document with implementation deferred.
+
+### 2.25 JSON encoding errors unchecked in ozaserve ~~P2~~
+
+All three `json.NewEncoder(w).Encode(results)` calls in
+`cmd/ozaserve/handlers.go` (`handleSearchAll`, `handleSearchJSON`,
+`handleSearchPage`) now check the error return and log failures via
+`log.Printf`.
+
+### 2.26 Search result limit not enforced across archives ~~P2~~
+
+Added an inner-loop `if len(results) >= limit { break }` in
+`handleSearchAll` so the per-result append loop also respects the global
+cap. Previously the outer loop checked after processing all results from
+an archive, which could overshoot by one archive's worth.
+
+### 2.27 ozaserve archive loading duplicated with ozamcp ~~P2~~
+
+Extracted `CollectFrontArticleIDs(a *oza.Archive) []uint32` into
+`cmd/internal/loadutil/`. Both `cmd/ozaserve` and `cmd/ozamcp` now delegate
+to the shared function instead of inlining identical `ForEachEntryRecord`
+loops.
+
+### 2.28 buildMIMEIndex uses append without pre-allocation ~~P2~~
+
+Rewrote `oza/archive.go` `buildMIMEIndex()` as a two-pass algorithm: pass 1
+counts entries per MIME index, pass 2 pre-allocates slices with exact
+capacity and fills them. Eliminates intermediate slice growth and the
+post-loop `slices.Clip` trim.
+
+### 2.30 Writer accepts unbounded entry content ~~P2~~
+
+Added `if len(content) > math.MaxUint32` guard at the top of
+`ozawrite/writer.go` `AddEntry()`. Returns a descriptive error instead of
+silently truncating `blobSize` to `uint32`.
+
+### 2.31 CompressWorkers unbounded ~~P2~~
+
+Added `const maxCompressWorkers = 32` in `ozawrite/writer.go` `NewWriter()`.
+Values above the cap are silently clamped. Prevents callers from spawning
+excessive goroutines and zstd encoders.
+
+### 2.32 FORMAT.md section type 0x0008 gap undocumented ~~P2~~
+
+Added `| 0x0008 | — | Reserved (not used in v1) |` row to the section type
+table in `docs/FORMAT.md`. Added a comment `// 0x0008 is reserved and
+intentionally unused.` above `SectionChrome` in `oza/constants.go`.

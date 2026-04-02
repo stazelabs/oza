@@ -1,8 +1,9 @@
 # 王座 OZA -- AI Ecosystem Native
 
-> **Status: Design document.** The AI-specific section types described below
-> (0x0100–0x0106) are **not yet implemented**. This document describes the
-> planned design. Only the core format and MCP server (`ozamcp`) exist today.
+> **Status: Design document — not yet implemented.** The AI-specific section
+> types described below (0x0100–0x0106) do not exist in code yet. This document
+> describes the planned design. Only the core format, trigram search, and MCP
+> server (`ozamcp`) exist today. The body uses present tense as design intent.
 
 > *OZA is the world's first AI ecosystem native content distribution format.*
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"sort"
@@ -156,8 +157,6 @@ type Writer struct {
 	titleTB *trigramBuilder
 	bodyTB  *trigramBuilder
 
-	// Progress tracking for AddEntry.
-	contentCount int // number of content entries added so far
 }
 
 // pendingEntry holds an entry's content while we buffer for dictionary training.
@@ -223,6 +222,10 @@ func NewWriter(wr io.ReadWriteSeeker, opts WriterOptions) *Writer {
 	d.TranscodeTools = opts.TranscodeTools
 	if opts.CompressWorkers != 0 {
 		d.CompressWorkers = opts.CompressWorkers
+	}
+	const maxCompressWorkers = 32
+	if d.CompressWorkers > maxCompressWorkers {
+		d.CompressWorkers = maxCompressWorkers
 	}
 	if d.CompressWorkers <= 0 {
 		// Default to min(NumCPU, 4). Each zstd encoder with 8 MB window
@@ -306,6 +309,9 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 	if len(w.entries) >= oza.MaxContentEntries {
 		return 0, fmt.Errorf("ozawrite: content entry limit reached (%d)", oza.MaxContentEntries)
 	}
+	if len(content) > math.MaxUint32 {
+		return 0, fmt.Errorf("ozawrite: content size %d exceeds maximum entry size (%d)", len(content), math.MaxUint32)
+	}
 	id := uint32(len(w.entries))
 
 	// 1. Transform content in-place (minify, image optimise, transcode).
@@ -358,7 +364,6 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 		e.blobSize = ref.blobSize
 		e.deduped = true
 		w.timings.Dedup += time.Since(tDedup2)
-		w.contentCount++
 		return id, nil
 	}
 	w.timings.Dedup += time.Since(tDedup2)
@@ -368,7 +373,6 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 		tChunk := time.Now()
 		w.bufferForTraining(e, content)
 		w.timings.ChunkBuild += time.Since(tChunk)
-		w.contentCount++
 		return id, nil
 	}
 
@@ -379,7 +383,6 @@ func (w *Writer) AddEntry(path, title, mimeType string, content []byte, isFrontA
 	}
 	w.timings.ChunkBuild += time.Since(tChunk)
 
-	w.contentCount++
 	return id, nil
 }
 

@@ -106,7 +106,10 @@ func (w *Writer) trainAndFlushPending() {
 	// Flush all pending entries.
 	for _, pe := range w.pendingEntries {
 		// Already dedup-checked during AddEntry; add directly to chunk.
-		_ = w.addToChunk(pe.entry, pe.content)
+		if err := w.addToChunk(pe.entry, pe.content); err != nil {
+			w.pipelineErr = err
+			break
+		}
 	}
 	w.pendingEntries = nil
 }

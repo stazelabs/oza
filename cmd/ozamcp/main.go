@@ -118,12 +118,7 @@ func loadArchives(paths []string, hardFailCount int, cacheSize int) ([]mcptools.
 		desc, _ := a.Metadata("description")
 		uuid := a.UUID()
 
-		var faIDs []uint32
-		a.ForEachEntryRecord(func(id uint32, rec oza.EntryRecord) {
-			if rec.IsFrontArticle() {
-				faIDs = append(faIDs, id)
-			}
-		})
+		faIDs := loadutil.CollectFrontArticleIDs(a)
 
 		archives = append(archives, mcptools.ArchiveInfo{
 			Archive:         a,

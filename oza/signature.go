@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // SignatureRecordSize is the fixed size in bytes of one Ed25519 signature
@@ -47,6 +48,11 @@ func (a *Archive) ReadSignatures() ([]SignatureRecord, error) {
 
 	if count == 0 {
 		return nil, nil
+	}
+
+	// Guard against integer overflow on 32-bit platforms.
+	if uint64(count) > uint64(math.MaxInt)/uint64(SignatureRecordSize) {
+		return nil, fmt.Errorf("oza: signature count %d exceeds platform limit", count)
 	}
 
 	// Read all records.

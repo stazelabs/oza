@@ -1,5 +1,9 @@
 # Incremental / Append Mode for OZA
 
+> **Status: Design document — not yet implemented.** The `ozaupdate` tool and
+> Writer APIs described below (`AddFromArchive`, `CopyChunk`) do not exist yet.
+> Implementation is deferred until after v0.1.0 stabilisation.
+
 ## Context
 
 The Writer currently must produce a complete archive in one shot. For large corpus updates (e.g., Wikipedia monthly dumps where 95% of articles are unchanged), this means hours of reprocessing and recompressing content that hasn't changed. The goal is to eliminate that waste.

@@ -190,12 +190,13 @@ func validateDict(dict []byte, samples [][]byte) error {
 	if err != nil {
 		return err
 	}
+	defer enc.Close()
+
 	dec, err := zstd.NewReader(nil,
 		zstd.WithDecoderConcurrency(1),
 		zstd.WithDecoderDicts(dict),
 	)
 	if err != nil {
-		enc.Close()
 		return err
 	}
 	defer dec.Close()
@@ -211,7 +212,7 @@ func validateDict(dict []byte, samples [][]byte) error {
 		if _, err := enc.Write(samples[i]); err != nil {
 			return err
 		}
-		if err := enc.Close(); err != nil {
+		if err := enc.Flush(); err != nil {
 			return err
 		}
 		got, err := dec.DecodeAll(buf.Bytes(), nil)

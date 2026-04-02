@@ -22,7 +22,7 @@ var defaultDecoderPool = &sync.Pool{
 			zstd.WithDecoderMaxMemory(defaultMaxDecoderMemory),
 		)
 		if err != nil {
-			panic("oza: zstd.NewReader: " + err.Error())
+			return fmt.Errorf("oza: zstd.NewReader: %w", err)
 		}
 		return d
 	},
@@ -65,7 +65,11 @@ func decompressBytes(data []byte, compression uint8, dictID uint32, dicts map[ui
 }
 
 func decodeZstd(data []byte) ([]byte, error) {
-	d := defaultDecoderPool.Get().(*zstd.Decoder)
+	v := defaultDecoderPool.Get()
+	if err, ok := v.(error); ok {
+		return nil, err
+	}
+	d := v.(*zstd.Decoder)
 	out, err := d.DecodeAll(data, nil)
 	defaultDecoderPool.Put(d)
 	if err != nil {
@@ -88,7 +92,7 @@ func decodeZstdDict(data []byte, dictID uint32, raw []byte) ([]byte, error) {
 					zstd.WithDecoderDicts(capturedRaw),
 				)
 				if err != nil {
-					panic(fmt.Sprintf("oza: zstd dict decoder %d: %v", capturedID, err))
+					return fmt.Errorf("oza: zstd dict decoder %d: %w", capturedID, err)
 				}
 				return d
 			},
@@ -97,7 +101,11 @@ func decodeZstdDict(data []byte, dictID uint32, raw []byte) ([]byte, error) {
 	}
 	dictPoolsMu.Unlock()
 
-	d := pool.Get().(*zstd.Decoder)
+	v := pool.Get()
+	if err, ok := v.(error); ok {
+		return nil, err
+	}
+	d := v.(*zstd.Decoder)
 	out, err := d.DecodeAll(data, nil)
 	pool.Put(d)
 	if err != nil {

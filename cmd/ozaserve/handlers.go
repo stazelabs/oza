@@ -101,6 +101,9 @@ func (lib *library) handleSearchAll(w http.ResponseWriter, r *http.Request) {
 				res.Snippet = snippet.ForEntry(sr.Entry, q, snippetLen)
 			}
 			results = append(results, res)
+			if len(results) >= limit {
+				break
+			}
 		}
 		if len(results) >= limit {
 			break
@@ -111,7 +114,9 @@ func (lib *library) handleSearchAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("json encode: %v", err)
+	}
 }
 
 // handleSearchJSON serves GET /{archive}/_search?q=... — per-archive JSON search API.
@@ -153,7 +158,9 @@ func (lib *library) handleSearchJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("json encode: %v", err)
+	}
 }
 
 // handleSearchPage serves GET /{archive}/-/search?q=...&limit=25[&format=json]
@@ -198,7 +205,9 @@ func (lib *library) handleSearchPage(w http.ResponseWriter, r *http.Request) {
 			results = []searchResult{}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(results)
+		if err := json.NewEncoder(w).Encode(results); err != nil {
+			log.Printf("json encode: %v", err)
+		}
 		return
 	}
 

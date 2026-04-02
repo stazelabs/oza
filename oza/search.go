@@ -2,6 +2,7 @@ package oza
 
 import (
 	"bytes"
+	"container/list"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -46,8 +47,8 @@ type TrigramIndex struct {
 	// reuse across queries. The cache avoids repeated heap allocation and
 	// deserialization for frequently queried trigrams.
 	bitmapMu    sync.Mutex
-	bitmapCache map[[3]byte]*bitmapCacheEntry
-	bitmapLRU   []*bitmapCacheEntry
+	bitmapCache map[[3]byte]*list.Element
+	bitmapLRU   list.List
 	bitmapMax   int // max entries in cache
 }
 
@@ -80,7 +81,7 @@ func ParseTrigramIndex(data []byte) (*TrigramIndex, error) {
 		flags:       flags,
 		count:       count,
 		docCount:    docCount,
-		bitmapCache: make(map[[3]byte]*bitmapCacheEntry, defaultBitmapCacheSize),
+		bitmapCache: make(map[[3]byte]*list.Element, defaultBitmapCacheSize),
 		bitmapMax:   defaultBitmapCacheSize,
 	}, nil
 }
@@ -243,16 +244,9 @@ func (idx *TrigramIndex) Search(query string, limit int) (ids []uint32) {
 func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
 	// Check bitmap cache first.
 	idx.bitmapMu.Lock()
-	if entry, ok := idx.bitmapCache[tri]; ok {
-		// Move to front (most recently used).
-		for i, e := range idx.bitmapLRU {
-			if e == entry {
-				copy(idx.bitmapLRU[1:i+1], idx.bitmapLRU[:i])
-				idx.bitmapLRU[0] = entry
-				break
-			}
-		}
-		bm := entry.bm
+	if elem, ok := idx.bitmapCache[tri]; ok {
+		idx.bitmapLRU.MoveToFront(elem)
+		bm := elem.Value.(*bitmapCacheEntry).bm
 		idx.bitmapMu.Unlock()
 		return bm
 	}
@@ -277,8 +271,8 @@ func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
 
 	postingOff := binary.LittleEndian.Uint32(idx.data[off+4 : off+8])
 	postingLen := binary.LittleEndian.Uint32(idx.data[off+8 : off+12])
-	end := int(postingOff) + int(postingLen)
-	if end > len(idx.data) {
+	end := uint64(postingOff) + uint64(postingLen)
+	if end > uint64(len(idx.data)) {
 		return nil
 	}
 	bm := roaring.New()
@@ -289,14 +283,13 @@ func (idx *TrigramIndex) lookup(tri [3]byte) *roaring.Bitmap {
 	// Store in cache.
 	idx.bitmapMu.Lock()
 	ce := &bitmapCacheEntry{tri: tri, bm: bm}
-	if len(idx.bitmapLRU) >= idx.bitmapMax {
+	if idx.bitmapLRU.Len() >= idx.bitmapMax {
 		// Evict the least recently used entry.
-		evict := idx.bitmapLRU[len(idx.bitmapLRU)-1]
-		delete(idx.bitmapCache, evict.tri)
-		idx.bitmapLRU = idx.bitmapLRU[:len(idx.bitmapLRU)-1]
+		back := idx.bitmapLRU.Back()
+		delete(idx.bitmapCache, back.Value.(*bitmapCacheEntry).tri)
+		idx.bitmapLRU.Remove(back)
 	}
-	idx.bitmapLRU = append([]*bitmapCacheEntry{ce}, idx.bitmapLRU...)
-	idx.bitmapCache[tri] = ce
+	idx.bitmapCache[tri] = idx.bitmapLRU.PushFront(ce)
 	idx.bitmapMu.Unlock()
 
 	return bm

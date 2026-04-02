@@ -408,10 +408,32 @@ func (a *Archive) buildReverseMaps() error {
 }
 
 // buildMIMEIndex populates mimeToEntries from the loaded entry records.
-// Skips malformed records silently, matching ForEachEntryRecord behaviour.
+// Uses a two-pass approach: first pass counts entries per MIME index to
+// pre-allocate slices, second pass fills them. Skips malformed records
+// silently, matching ForEachEntryRecord behaviour.
 func (a *Archive) buildMIMEIndex() {
-	a.mimeToEntries = make(map[uint16][]uint32, len(a.mimeTypes))
-	for i := uint32(0); i < uint32(len(a.entryOffsets)); i++ {
+	n := uint32(len(a.entryOffsets))
+
+	// Pass 1: count entries per MIME index.
+	counts := make(map[uint16]int, len(a.mimeTypes))
+	for i := uint32(0); i < n; i++ {
+		off := a.entryOffsets[i]
+		if uint64(off) >= uint64(len(a.entryRecords)) {
+			continue
+		}
+		rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
+		if err != nil {
+			continue
+		}
+		counts[rec.MIMEIndex]++
+	}
+
+	// Pass 2: pre-allocate and fill.
+	a.mimeToEntries = make(map[uint16][]uint32, len(counts))
+	for mime, c := range counts {
+		a.mimeToEntries[mime] = make([]uint32, 0, c)
+	}
+	for i := uint32(0); i < n; i++ {
 		off := a.entryOffsets[i]
 		if uint64(off) >= uint64(len(a.entryRecords)) {
 			continue
@@ -421,10 +443,6 @@ func (a *Archive) buildMIMEIndex() {
 			continue
 		}
 		a.mimeToEntries[rec.MIMEIndex] = append(a.mimeToEntries[rec.MIMEIndex], i)
-	}
-	// Release excess slice capacity.
-	for k, ids := range a.mimeToEntries {
-		a.mimeToEntries[k] = slices.Clip(ids)
 	}
 }
 

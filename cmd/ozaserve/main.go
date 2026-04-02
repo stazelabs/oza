@@ -32,6 +32,7 @@ func main() {
 	var dirs []string
 	var recursive bool
 	var noInfo bool
+	var infoToken string
 	var mcpEnabled bool
 	var logRequests bool
 
@@ -54,7 +55,7 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serve(args, dirs, recursive, addr, cacheSize, noInfo, mcpEnabled, logRequests)
+			return serve(args, dirs, recursive, addr, cacheSize, noInfo, infoToken, mcpEnabled, logRequests)
 		},
 	}
 
@@ -63,6 +64,7 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 	cmd.Flags().StringArrayVarP(&dirs, "dir", "d", nil, "directory of OZA files to serve (repeatable)")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "scan --dir directories recursively")
 	cmd.Flags().BoolVar(&noInfo, "no-info", false, "disable info pages")
+	cmd.Flags().StringVar(&infoToken, "info-token", "", "require this token to access /_info endpoints (query param or Bearer header)")
 	cmd.Flags().BoolVar(&mcpEnabled, "mcp", false, "enable MCP server on stdio (runs HTTP + MCP simultaneously)")
 	cmd.Flags().BoolVar(&logRequests, "log-requests", false, "emit structured JSON access logs for every request")
 
@@ -75,6 +77,7 @@ type library struct {
 	archives  map[string]*archiveEntry
 	slugs     []string // sorted by title (ascending)
 	noInfo    bool
+	infoToken string // if set, /_info endpoints require this token
 	startTime time.Time
 }
 
@@ -101,7 +104,7 @@ type archiveEntry struct {
 	loadDuration    time.Duration
 }
 
-func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize int, noInfo bool, mcpEnabled bool, logRequests bool) error {
+func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize int, noInfo bool, infoToken string, mcpEnabled bool, logRequests bool) error {
 	initTemplates()
 	startTime := time.Now()
 	dirPaths := collectOZAPaths(dirs, recursive)
@@ -111,6 +114,7 @@ func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize
 		return err
 	}
 	lib.noInfo = noInfo
+	lib.infoToken = infoToken
 	lib.startTime = startTime
 	defer func() {
 		for _, e := range lib.archives {
@@ -130,9 +134,9 @@ func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize
 	mux.HandleFunc("/{archive}/-/random", lib.handleRandom)
 	mux.HandleFunc("/{archive}/-/browse", lib.handleBrowse)
 	if !noInfo {
-		mux.HandleFunc("/_info", lib.handleGlobalInfo)
-		mux.HandleFunc("/{archive}/-/info", lib.handleInfo)
-		mux.HandleFunc("/{archive}/-/info.json", lib.handleInfoJSON)
+		mux.HandleFunc("/_info", lib.guardInfo(lib.handleGlobalInfo))
+		mux.HandleFunc("/{archive}/-/info", lib.guardInfo(lib.handleInfo))
+		mux.HandleFunc("/{archive}/-/info.json", lib.guardInfo(lib.handleInfoJSON))
 	}
 	mux.HandleFunc("/{archive}/{path...}", lib.handleContent)
 
@@ -221,6 +225,29 @@ func serveHTTP(srv *http.Server, addr string) error {
 		return err
 	}
 	return <-done
+}
+
+// guardInfo wraps an HTTP handler with token authentication when --info-token
+// is set. The token can be provided as a ?token= query parameter or an
+// Authorization: Bearer header. When no token is configured, the handler is
+// returned unwrapped.
+func (lib *library) guardInfo(next http.HandlerFunc) http.HandlerFunc {
+	if lib.infoToken == "" {
+		return next
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		tok := r.URL.Query().Get("token")
+		if tok == "" {
+			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+				tok = h[len("Bearer "):]
+			}
+		}
+		if tok != lib.infoToken {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // collectOZAPaths delegates to the shared loadutil package.
@@ -367,13 +394,7 @@ func computeLetterIndex(a *oza.Archive) (map[byte]int, map[string]letterRange) {
 // for O(1) random article selection at request time.
 // Uses ForEachEntryRecord to skip the idToPath/idToTitle lookups.
 func collectFrontArticleIDs(a *oza.Archive) []uint32 {
-	var ids []uint32
-	a.ForEachEntryRecord(func(id uint32, rec oza.EntryRecord) {
-		if rec.IsFrontArticle() {
-			ids = append(ids, id)
-		}
-	})
-	return ids
+	return loadutil.CollectFrontArticleIDs(a)
 }
 
 // makeSlug delegates to the shared loadutil package.

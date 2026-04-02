@@ -49,7 +49,7 @@ type fileReader struct {
 }
 
 func (r *fileReader) ReadAt(p []byte, off int64) (int, error) {
-	if off >= r.size {
+	if off < 0 || off >= r.size {
 		return 0, io.EOF
 	}
 	n, err := r.f.ReadAt(p, off)

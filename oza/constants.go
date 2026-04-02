@@ -80,6 +80,7 @@ const (
 	SectionContent SectionType = 0x0006
 	// SectionRedirectTab is the compact redirect record table.
 	SectionRedirectTab SectionType = 0x0007
+	// 0x0008 is reserved and intentionally unused.
 	// SectionChrome is the optional UI/navigation assets section.
 	SectionChrome SectionType = 0x0009
 	// SectionSignatures is the optional Ed25519 signature section.
