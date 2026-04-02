@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -32,6 +33,7 @@ func main() {
 	var recursive bool
 	var noInfo bool
 	var mcpEnabled bool
+	var logRequests bool
 
 	cmd := &cobra.Command{
 		Use:   "ozaserve [file.oza ...] [--dir <dir>]",
@@ -52,7 +54,7 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serve(args, dirs, recursive, addr, cacheSize, noInfo, mcpEnabled)
+			return serve(args, dirs, recursive, addr, cacheSize, noInfo, mcpEnabled, logRequests)
 		},
 	}
 
@@ -62,6 +64,7 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "scan --dir directories recursively")
 	cmd.Flags().BoolVar(&noInfo, "no-info", false, "disable info pages")
 	cmd.Flags().BoolVar(&mcpEnabled, "mcp", false, "enable MCP server on stdio (runs HTTP + MCP simultaneously)")
+	cmd.Flags().BoolVar(&logRequests, "log-requests", false, "emit structured JSON access logs for every request")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -98,7 +101,7 @@ type archiveEntry struct {
 	loadDuration    time.Duration
 }
 
-func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize int, noInfo bool, mcpEnabled bool) error {
+func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize int, noInfo bool, mcpEnabled bool, logRequests bool) error {
 	initTemplates()
 	startTime := time.Now()
 	dirPaths := collectOZAPaths(dirs, recursive)
@@ -133,9 +136,14 @@ func serve(paths []string, dirs []string, recursive bool, addr string, cacheSize
 	}
 	mux.HandleFunc("/{archive}/{path...}", lib.handleContent)
 
+	var accessLogger *slog.Logger
+	if logRequests {
+		accessLogger = slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	}
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           securityHeaders(methodCheck(mux)),
+		Handler:           accessLog(accessLogger, securityHeaders(methodCheck(mux))),
 		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      60 * time.Second,

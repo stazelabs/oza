@@ -208,6 +208,62 @@ func TestValidateMetadataStrictMultipleErrors(t *testing.T) {
 	}
 }
 
+func TestParseMetadataDuplicateKey(t *testing.T) {
+	// Hand-craft binary metadata with a duplicate key.
+	// Format: uint32 count, then per pair: uint16 key_len + key + uint32 val_len + value.
+	var buf []byte
+	buf = appendUint32(buf, 2) // 2 pairs
+
+	// Pair 1: "title" = "first"
+	buf = appendUint16(buf, 5)
+	buf = append(buf, "title"...)
+	buf = appendUint32(buf, 5)
+	buf = append(buf, "first"...)
+
+	// Pair 2: "title" = "second" (duplicate key)
+	buf = appendUint16(buf, 5)
+	buf = append(buf, "title"...)
+	buf = appendUint32(buf, 6)
+	buf = append(buf, "second"...)
+
+	_, err := ParseMetadata(buf)
+	if !errors.Is(err, ErrDuplicateMetadataKey) {
+		t.Errorf("expected ErrDuplicateMetadataKey, got %v", err)
+	}
+}
+
+func TestParseMetadataUniqueKeys(t *testing.T) {
+	// Two distinct keys should parse fine.
+	var buf []byte
+	buf = appendUint32(buf, 2)
+
+	buf = appendUint16(buf, 1)
+	buf = append(buf, "a"...)
+	buf = appendUint32(buf, 1)
+	buf = append(buf, "1"...)
+
+	buf = appendUint16(buf, 1)
+	buf = append(buf, "b"...)
+	buf = appendUint32(buf, 1)
+	buf = append(buf, "2"...)
+
+	m, err := ParseMetadata(buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(m["a"]) != "1" || string(m["b"]) != "2" {
+		t.Errorf("got %v, want a=1 b=2", m)
+	}
+}
+
+func appendUint16(buf []byte, v uint16) []byte {
+	return append(buf, byte(v), byte(v>>8))
+}
+
+func appendUint32(buf []byte, v uint32) []byte {
+	return append(buf, byte(v), byte(v>>8), byte(v>>16), byte(v>>24))
+}
+
 func TestValidationErrorString(t *testing.T) {
 	e := ValidationError{Key: "date", Message: "not ISO 8601"}
 	want := `oza: metadata "date": not ISO 8601`

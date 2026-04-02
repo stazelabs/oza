@@ -19,4 +19,5 @@ var (
 	ErrMetadataValueTooLarge = errors.New("oza: metadata value exceeds size limit")
 	ErrChunkTableUnsorted    = errors.New("oza: chunk table IDs are not monotonically increasing")
 	ErrInvalidMetadataValue  = errors.New("oza: invalid metadata value")
+	ErrDuplicateMetadataKey  = errors.New("oza: duplicate metadata key")
 )

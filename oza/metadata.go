@@ -52,6 +52,9 @@ func ParseMetadata(data []byte) (map[string][]byte, error) {
 		copy(val, data[off:off+vlen])
 		off += vlen
 
+		if _, exists := m[key]; exists {
+			return nil, fmt.Errorf("%w: %q", ErrDuplicateMetadataKey, key)
+		}
 		m[key] = val
 	}
 

@@ -201,3 +201,101 @@ func BenchmarkSearch(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkEntriesByMIME(b *testing.B) {
+	a := openFixture(b, standardFixture, oza.WithMmap(false))
+	b.ResetTimer()
+	for b.Loop() {
+		for range a.EntriesByMIME("text/html") {
+		}
+	}
+}
+
+func BenchmarkEntryCountByMIME(b *testing.B) {
+	a := openFixture(b, standardFixture, oza.WithMmap(false))
+	b.ResetTimer()
+	for b.Loop() {
+		a.EntryCountByMIME("text/html")
+	}
+}
+
+// --- concurrent access benchmarks ---
+
+func BenchmarkReadContentParallel(b *testing.B) {
+	a := openFixture(b, standardFixture, oza.WithMmap(false))
+	entries := make([]oza.Entry, 10)
+	for i := range entries {
+		e, err := a.EntryByID(uint32(i))
+		if err != nil {
+			b.Fatal(err)
+		}
+		entries[i] = e
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if _, err := entries[i%len(entries)].ReadContent(); err != nil {
+				b.Fatal(err)
+			}
+			i++
+		}
+	})
+}
+
+func BenchmarkEntryByPathParallel(b *testing.B) {
+	a := openFixture(b, standardFixture, oza.WithMmap(false))
+	paths := make([]string, 20)
+	for i := range paths {
+		paths[i] = benchGeneratePath(i)
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if _, err := a.EntryByPath(paths[i%len(paths)]); err != nil {
+				b.Fatal(err)
+			}
+			i++
+		}
+	})
+}
+
+func BenchmarkCacheThrashing(b *testing.B) {
+	// Small cache (4 slots) with diverse access to force evictions.
+	a := openFixture(b, standardFixture, oza.WithMmap(false), oza.WithCacheSize(4))
+	entries := make([]oza.Entry, 50)
+	for i := range entries {
+		e, err := a.EntryByID(uint32(i))
+		if err != nil {
+			b.Fatal(err)
+		}
+		entries[i] = e
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if _, err := entries[i%len(entries)].ReadContent(); err != nil {
+				b.Fatal(err)
+			}
+			i++
+		}
+	})
+}
+
+func BenchmarkSearchParallel(b *testing.B) {
+	a := openFixture(b, searchFixture, oza.WithMmap(false))
+	queries := []string{"quantum", "relativity", "article", "science", "complexity"}
+	opts := oza.SearchOptions{Limit: 10}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if _, err := a.Search(queries[i%len(queries)], opts); err != nil {
+				b.Fatal(err)
+			}
+			i++
+		}
+	})
+}

@@ -47,60 +47,7 @@ not its successor in spirit.
 
 ### Testing
 
-#### 1.16 No tests for ozaserve HTTP handlers
-
-`cmd/ozaserve/` has 8 source files with zero test coverage. All HTTP handlers (content
-serving, search, browse, info, error pages) are untested. This is the most user-facing
-surface area.
-
-**Fix:** Add `httptest`-based tests using a small in-memory archive. Test:
-- Content serving (HTML, CSS, images, redirects)
-- Search (valid query, empty query, no-index archive)
-- Browse (pagination, letter filtering)
-- Error pages (404, invalid paths)
-- Security headers (CSP, X-Frame-Options)
-
-#### 1.17 No tests for ozaserve URL utilities
-
-`cmd/ozaserve/urlutil.go` handles URL path parsing/normalization with no tests.
-URL handling edge cases (path traversal, double-encoding, trailing slashes) are a
-common source of bugs and security issues.
-
-**Fix:** Add targeted unit tests including path traversal attempts (`../`),
-percent-encoded paths, and empty/root paths.
-
-#### 1.18 CI coverage report only covers root module
-
-`.github/workflows/ci.yml` coverage job only runs `go test -coverprofile` from the
-repo root, missing all `cmd/` module tests. Codecov coverage is incomplete.
-
-**Fix:** Add a second step: `cd cmd && go test -coverprofile=../coverage-cmd.out ./...`
-and upload both files.
-
-#### 1.19 zim2oza tests depend on external fixture, likely skipped in CI
-
-All 4 tests in `cmd/zim2oza/convert_test.go` call `zimAvailable(t)` which skips if
-`testdata/small.zim` doesn't exist. CI has no step to download this fixture, so these
-tests are likely always skipped.
-
-**Fix:** Add `make testdata` as a CI step, or embed a minimal ZIM fixture in the repo.
-
-#### 1.20 No concurrent access benchmarks
-
-`oza/bench_test.go` — all benchmarks are single-goroutine. No benchmarks for concurrent
-access (the primary HTTP server use case). Lock contention in the chunk cache and cache
-thrashing under diverse access patterns are not measured.
-
-**Fix:** Add `BenchmarkReadContentParallel` using `b.RunParallel`. Add a cache-thrashing
-benchmark. Add concurrent search benchmark.
-
-#### 1.21 No fuzz targets in ozawrite
-
-All 7 fuzz targets are in `oza/` (reader). The writer has zero fuzz targets despite
-complex serialization (trigram builder, index builder, string table, compression).
-
-**Fix:** Add fuzz targets for `trigramBuilder.Build()`, string table serialization,
-and the compression path. Fuzz the writer's output by feeding it to the parser.
+*All P1 testing items have been resolved. See §Completed at the bottom of this file.*
 
 ### Documentation
 
@@ -125,12 +72,9 @@ Trigram search has no ranking beyond title-match > body-match > entry-ID order.
 **Near-term:** BM25-lite scoring using content size (already in entry records) and
 trigram hit count. No new data needed.
 
-### 2.7 Metadata duplicate keys
+### ~~2.7 Metadata duplicate keys~~ — Resolved
 
-`oza/metadata.go` `ParseMetadata()` — if a key appears twice, the second value
-silently overwrites the first.
-
-**Fix:** Return error on duplicate keys (strict mode) or at least log a warning.
+*Moved to §Completed.*
 
 ### 2.9 Benchmark regression tracking
 
@@ -165,12 +109,9 @@ API to enumerate entries by MIME type. Currently requires a full entry scan.
 SHA-256 content hashes are stored per entry but not leveraged at read time. Exposing
 this enables duplicate detection, storage analysis, and cross-archive dedup.
 
-### 2.22 No tests for ozawrite pipeline internals
+### ~~2.22 No tests for ozawrite pipeline internals~~ — Resolved
 
-`ozawrite/pipeline.go`, `assembly.go`, `dedup.go`, `minify.go`, `compress.go`,
-`checksum.go`, `optimize_image.go` — no direct unit tests. Exercised indirectly through
-integration tests but edge cases (dictionary training failure, JPEG metadata stripping,
-minification fallback, chunk splitting) are not covered.
+*Moved to §Completed.*
 
 ### 2.23 No writer-side index benchmarks
 
@@ -525,3 +466,81 @@ transcoding if output is larger than input.
 
 GIF→WebP and PNG→WebP transcoding added alongside existing JPEG optimization.
 SVG minification remains future work.
+
+### 1.16 No tests for ozaserve HTTP handlers ~~P1 Testing~~
+
+Added `httptest`-based tests in `cmd/ozaserve/handlers_test.go` using a small
+in-memory archive. Tests cover: content serving (HTML, CSS, images, redirects),
+search (valid query, empty query, no-index archive, JSON format), browse
+(pagination, letter filtering), random article, info pages (per-archive, JSON,
+global), error pages (404, unknown archive), security headers (CSP, X-Frame-Options,
+X-Content-Type-Options, Referrer-Policy), method check (405), ETag/conditional
+requests, and favicon serving.
+
+### 1.17 No tests for ozaserve URL utilities ~~P1 Testing~~
+
+Added `cmd/ozaserve/urlutil_test.go` with targeted unit tests for `entryURL` and
+`entryHref` including: path traversal attempts (`../`), percent-encoded paths,
+query string and fragment characters (`?`, `#`), empty paths, Unicode paths,
+and double-encoding verification.
+
+### 1.18 CI coverage report only covers root module ~~P1 Testing~~
+
+Added a second coverage step in `.github/workflows/ci.yml`:
+`cd cmd && go test -coverprofile=../coverage-cmd.out -covermode=atomic ./...`
+and updated the Codecov upload to include both `coverage.out` and `coverage-cmd.out`.
+
+### 1.19 zim2oza tests depend on external fixture, likely skipped in CI ~~P1 Testing~~
+
+Added `make testdata` step to the CI test job (Linux only) so that
+`testdata/small.zim` and other Tier 1 fixtures are downloaded before tests run.
+The `zimAvailable(t)` skip guard remains as a fallback for local development
+without fixtures.
+
+### 1.20 No concurrent access benchmarks ~~P1 Testing~~
+
+Added four parallel benchmarks in `oza/bench_test.go`:
+- `BenchmarkReadContentParallel` — concurrent content reads via `b.RunParallel`
+- `BenchmarkEntryByPathParallel` — concurrent path lookups
+- `BenchmarkCacheThrashing` — small cache (4 slots) with 50 diverse entries
+- `BenchmarkSearchParallel` — concurrent search with varied queries
+
+### 1.21 No fuzz targets in ozawrite ~~P1 Testing~~
+
+Added three fuzz targets in `ozawrite/fuzz_test.go`:
+- `FuzzTrigramBuilder` — fuzzes trigram index builder, feeds output to reader parser
+- `FuzzStringTableSerialize` — fuzzes string table serialization round-trip
+- `FuzzWriterRoundTrip` — fuzzes full write→open→read cycle with arbitrary content
+
+Updated `Makefile` `fuzz` target to include the three new ozawrite fuzz targets.
+
+### 2.22 No tests for ozawrite pipeline internals ~~P2~~
+
+Added `ozawrite/pipeline_test.go` with direct unit tests for pipeline internals:
+- **dedup.go**: `dedupMap` Check/Register/CheckHash, miss on empty map, hit after register
+- **chunk.go**: `chunkBuilder` addBlob offsets, `uncompressedBytes` concatenation, empty chunk,
+  `mimeGroup` classification (HTML/CSS/JS/SVG/image/other, MIME param stripping),
+  `ChunkKey` small-entry threshold and image exemption, `marshalChunkDesc` round-trip
+- **optimize_image.go**: `stripJPEGMetadata` with valid JPEG (APP0+COM stripped, DQT kept),
+  non-JPEG bail, empty input, stuffed byte bail, truncated data bail, RST marker preservation,
+  invalid segment length bail; `shouldKeepJPEGMarker` for all APP/COM/SOF/DHT/DQT markers;
+  `isImageMIME` for jpeg/jpg/png/html
+- **minify.go**: `minifyContent` with nil/empty content
+- **compress.go**: `mapEncoderLevel` range boundaries, `mapBrotliQuality` mapping,
+  `compressZstd` and `compressBrotli` round-trips, `encoderCache` reuse,
+  `trainDictionary` with empty and too-small samples, `compressRawSection` tiny fallback
+  and compressible section
+- **assembly.go**: `buildMIMETable` mandatory index 0/1/2 + dedup, `buildRedirectSection`
+  empty and with entries
+- **pipeline.go** integration: chunk splitting (tiny ChunkTargetSize forcing multiple chunks),
+  dedup (identical content under different paths), minification fallback (malformed HTML),
+  dictionary training (low DictSamples threshold), image chunk handling (mixed MIME types)
+
+### 2.7 Metadata duplicate keys ~~P2~~
+
+`ParseMetadata()` now returns `ErrDuplicateMetadataKey` (wrapping the key name) when
+a key appears more than once in the binary metadata section. Added sentinel error
+`ErrDuplicateMetadataKey` in `oza/errors.go`. The writer (`SetMetadata`) uses a Go map
+so duplicates are structurally impossible on the write path; this protects against
+hand-crafted or corrupted archives on the read path. Tests added for both duplicate
+and unique key parsing.

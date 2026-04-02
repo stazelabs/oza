@@ -28,13 +28,11 @@ Set `ZstdLevel: 11` for `ProfileQAForum` and `ProfileDocs` in `cmd/internal/clas
 
 **Result:** se_codegolf went from +2.4% regression to -0.9% improvement (-12.3 MB).
 
-### 3. More aggressive search pruning for qa-forum
+### 3. More aggressive search pruning for qa-forum -- SHELVED
 
-Lower `SearchPruneFreq` to 0.25 for qa-forum in `cmd/internal/classify/profiles.go` (prune trigrams appearing in >25% of docs instead of >50%). se_codegolf's SEARCH_BODY is 54 MB (13.5% of file).
+~~Lower `SearchPruneFreq` to 0.25 for qa-forum.~~
 
-Code content generates many unique trigrams that still survive 50% pruning. More aggressive pruning directly shrinks the dominant overhead section.
-
-**Impact:** MEDIUM-HIGH size | **Effort:** Low
+**Shelved:** se_codegolf's 13.5% SEARCH_BODY overhead is actually below the corpus median (~19.5%). Benchmark data (25 files) shows 15-30% is the natural cost of trigram search on text-heavy content. Lowering prune threshold would hurt normal Q&A forums (e.g., cooking.stackexchange) where common trigrams are legitimate search targets. se_codegolf is a uniquely odd dataset (source code generates uniformly distributed trigrams); optimizing for it would over-prune everywhere else.
 
 ---
 
@@ -70,13 +68,11 @@ and compress ~5-9% at SpeedFastest. On a 2-book EPUB collection the image
 content section shrank from 589 KiB to 536 KiB (9%), flipping the overall
 archive from 1.06x (larger than input) to 0.98x (smaller).
 
-### 8. Search index size budget
+### 8. Search index size budget -- SHELVED
 
-After building the trigram index in `ozawrite/search.go` `Build()`, if the serialized body index exceeds N% of total content size (e.g., 10%), iteratively increase prune frequency and re-serialize until it fits. The in-memory maps make re-pruning cheap.
+~~After building the trigram index, if serialized body index exceeds N% of total content size, iteratively increase prune frequency and re-serialize until it fits.~~
 
-Generalizes fix #3 to all profiles. Prevents search index from ever dominating file size.
-
-**Impact:** MEDIUM | **Effort:** Medium
+**Shelved:** Benchmark data (25 files) shows SEARCH_BODY median is ~19.5% of OZA output (range 0.2–33.3%). A 10% budget would trigger on 17/25 archives; even 20% triggers on 10/25. This is not an outlier problem — it's the structural cost of trigram posting lists with roaring bitmaps on compressed text. Any reasonable budget threshold either degrades search quality across the board or is too loose to be worth the complexity. If search index size becomes a priority, the right approach is a more compact index format (FST, minimal perfect hashing), not pruning useful trigrams.
 
 ---
 

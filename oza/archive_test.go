@@ -504,6 +504,94 @@ func TestIteratorsErr(t *testing.T) {
 	}
 }
 
+// --- TestEntriesByMIME ---
+
+func TestEntriesByMIME(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		w.AddEntry("index.html", "Index", "text/html", []byte("<html>index</html>"), true)
+		w.AddEntry("about.html", "About", "text/html", []byte("<html>about</html>"), true)
+		w.AddEntry("style.css", "Style", "text/css", []byte("body{}"), false)
+		w.AddEntry("app.js", "App", "application/javascript", []byte("var x=1;"), false)
+		w.AddEntry("data.json", "Data", "application/json", []byte(`{"a":1}`), false)
+	})
+	defer cleanup()
+
+	// EntryCountByMIME returns correct counts.
+	if got := a.EntryCountByMIME("text/html"); got != 2 {
+		t.Errorf("EntryCountByMIME(text/html) = %d, want 2", got)
+	}
+	if got := a.EntryCountByMIME("text/css"); got != 1 {
+		t.Errorf("EntryCountByMIME(text/css) = %d, want 1", got)
+	}
+	if got := a.EntryCountByMIME("application/javascript"); got != 1 {
+		t.Errorf("EntryCountByMIME(application/javascript) = %d, want 1", got)
+	}
+	if got := a.EntryCountByMIME("application/json"); got != 1 {
+		t.Errorf("EntryCountByMIME(application/json) = %d, want 1", got)
+	}
+
+	// Unknown MIME type returns 0.
+	if got := a.EntryCountByMIME("image/png"); got != 0 {
+		t.Errorf("EntryCountByMIME(image/png) = %d, want 0", got)
+	}
+
+	// MIMEEntryCount by raw index.
+	if got := a.MIMEEntryCount(oza.MIMEIndexHTML); got != 2 {
+		t.Errorf("MIMEEntryCount(HTML) = %d, want 2", got)
+	}
+	if got := a.MIMEEntryCount(oza.MIMEIndexCSS); got != 1 {
+		t.Errorf("MIMEEntryCount(CSS) = %d, want 1", got)
+	}
+
+	// EntriesByMIME yields correct entries in ID order.
+	var htmlPaths []string
+	for e := range a.EntriesByMIME("text/html") {
+		htmlPaths = append(htmlPaths, e.Path())
+	}
+	if len(htmlPaths) != 2 || htmlPaths[0] != "index.html" || htmlPaths[1] != "about.html" {
+		t.Errorf("EntriesByMIME(text/html) paths = %v, want [index.html about.html]", htmlPaths)
+	}
+
+	// EntriesByMIME for unknown type yields nothing.
+	count := 0
+	for range a.EntriesByMIME("image/png") {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("EntriesByMIME(image/png) count = %d, want 0", count)
+	}
+}
+
+func TestEntriesByMIMEErr(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		w.AddEntry("index.html", "Index", "text/html", []byte("<html>hi</html>"), true)
+		w.AddEntry("style.css", "Style", "text/css", []byte("body{}"), false)
+	})
+	defer cleanup()
+
+	count := 0
+	for e, err := range a.EntriesByMIMEErr("text/html") {
+		if err != nil {
+			t.Fatalf("EntriesByMIMEErr: unexpected error: %v", err)
+		}
+		if e.MIMEType() != "text/html" {
+			t.Errorf("EntriesByMIMEErr yielded entry with MIME %q, want text/html", e.MIMEType())
+		}
+		count++
+	}
+	if count != 1 {
+		t.Errorf("EntriesByMIMEErr(text/html) count = %d, want 1", count)
+	}
+
+	// Unknown type yields nothing, no error.
+	for _, err := range a.EntriesByMIMEErr("image/webp") {
+		if err != nil {
+			t.Fatalf("EntriesByMIMEErr(unknown): unexpected error: %v", err)
+		}
+		t.Fatal("EntriesByMIMEErr(unknown): should not yield any entries")
+	}
+}
+
 // --- TestSearch ---
 
 func TestSearch(t *testing.T) {

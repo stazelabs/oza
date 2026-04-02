@@ -39,6 +39,9 @@ fuzz:
 	go test -fuzz=FuzzParseTrigramIndex  -fuzztime=30s ./oza/
 	go test -fuzz=FuzzDecodePostingList  -fuzztime=30s ./oza/
 	go test -fuzz=FuzzParseIndex         -fuzztime=30s ./oza/
+	go test -fuzz=FuzzTrigramBuilder      -fuzztime=30s ./ozawrite/
+	go test -fuzz=FuzzStringTableSerialize -fuzztime=30s ./ozawrite/
+	go test -fuzz=FuzzWriterRoundTrip     -fuzztime=30s ./ozawrite/
 
 lint:
 	golangci-lint run ./...

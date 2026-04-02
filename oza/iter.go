@@ -267,3 +267,65 @@ func (a *Archive) FrontArticlesErr() iter.Seq2[Entry, error] {
 		}
 	}
 }
+
+// EntriesByMIME returns an iterator over content entries with the given MIME type.
+// Uses the pre-built MIME index for O(K) iteration where K is the number of
+// matching entries. Returns an empty iterator if the MIME type is not in the table.
+// Iteration stops silently on error. Use [Archive.EntriesByMIMEErr] if error
+// propagation is needed.
+func (a *Archive) EntriesByMIME(mimeType string) iter.Seq[Entry] {
+	idx, ok := a.mimeIndex(mimeType)
+	if !ok {
+		return func(func(Entry) bool) {}
+	}
+	ids := a.mimeToEntries[idx]
+	return func(yield func(Entry) bool) {
+		for _, id := range ids {
+			e, err := a.EntryByID(id)
+			if err != nil {
+				return
+			}
+			if !yield(e) {
+				return
+			}
+		}
+	}
+}
+
+// EntriesByMIMEErr returns an iterator over content entries with the given MIME type.
+// Unlike [Archive.EntriesByMIME], errors are propagated to the caller.
+func (a *Archive) EntriesByMIMEErr(mimeType string) iter.Seq2[Entry, error] {
+	idx, ok := a.mimeIndex(mimeType)
+	if !ok {
+		return func(func(Entry, error) bool) {}
+	}
+	ids := a.mimeToEntries[idx]
+	return func(yield func(Entry, error) bool) {
+		for _, id := range ids {
+			e, err := a.EntryByID(id)
+			if err != nil {
+				yield(Entry{}, err)
+				return
+			}
+			if !yield(e, nil) {
+				return
+			}
+		}
+	}
+}
+
+// EntryCountByMIME returns the number of content entries with the given MIME type.
+// Returns 0 for unknown MIME types. O(1).
+func (a *Archive) EntryCountByMIME(mimeType string) int {
+	idx, ok := a.mimeIndex(mimeType)
+	if !ok {
+		return 0
+	}
+	return len(a.mimeToEntries[idx])
+}
+
+// MIMEEntryCount returns the number of content entries with the given MIME table
+// index. Returns 0 if the index has no entries. O(1).
+func (a *Archive) MIMEEntryCount(idx uint16) int {
+	return len(a.mimeToEntries[idx])
+}

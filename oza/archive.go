@@ -38,6 +38,10 @@ type Archive struct {
 	idToPath  map[uint32]string
 	idToTitle map[uint32]string
 
+	// mimeToEntries maps MIME table index -> sorted content entry IDs.
+	// Built at load time for O(K) enumeration by MIME type.
+	mimeToEntries map[uint16][]uint32
+
 	dicts map[uint32][]byte // dictID -> raw dict bytes
 
 	chunkDescs   []chunkDesc // chunk table from CONTENT section
@@ -214,6 +218,9 @@ func (a *Archive) load(verify bool) error {
 	if err := a.buildReverseMaps(); err != nil {
 		return err
 	}
+
+	// 5. Build MIME-to-entry-ID index for O(K) enumeration by MIME type.
+	a.buildMIMEIndex()
 
 	if verify {
 		results, err := a.VerifyAll()
@@ -398,6 +405,37 @@ func (a *Archive) buildReverseMaps() error {
 		}
 	}
 	return nil
+}
+
+// buildMIMEIndex populates mimeToEntries from the loaded entry records.
+// Skips malformed records silently, matching ForEachEntryRecord behaviour.
+func (a *Archive) buildMIMEIndex() {
+	a.mimeToEntries = make(map[uint16][]uint32, len(a.mimeTypes))
+	for i := uint32(0); i < uint32(len(a.entryOffsets)); i++ {
+		off := a.entryOffsets[i]
+		if uint64(off) >= uint64(len(a.entryRecords)) {
+			continue
+		}
+		rec, _, err := ParseVarEntryRecord(a.entryRecords[off:])
+		if err != nil {
+			continue
+		}
+		a.mimeToEntries[rec.MIMEIndex] = append(a.mimeToEntries[rec.MIMEIndex], i)
+	}
+	// Release excess slice capacity.
+	for k, ids := range a.mimeToEntries {
+		a.mimeToEntries[k] = slices.Clip(ids)
+	}
+}
+
+// mimeIndex resolves a MIME type string to its index in the MIME table.
+func (a *Archive) mimeIndex(mimeType string) (uint16, bool) {
+	for i, m := range a.mimeTypes {
+		if m == mimeType {
+			return uint16(i), true
+		}
+	}
+	return 0, false
 }
 
 // parseMetadata wraps ParseMetadata and enforces the per-value size limit.
