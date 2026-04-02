@@ -56,12 +56,12 @@ testdata: testdata/.stamp-tier1
 
 testdata/.stamp-tier1:
 	@mkdir -p testdata
-	bash testdata/fetch.sh
+	bash scripts/fetch-testdata.sh
 	@touch $@
 
 testdata-bench: testdata
 	@mkdir -p testdata/bench
-	bash testdata/fetch-bench.sh
+	bash scripts/fetch-bench.sh
 
 bench-convert: build testdata
 	@echo "Converting small.zim to OZA..."

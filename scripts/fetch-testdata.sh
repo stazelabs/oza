@@ -6,7 +6,9 @@
 # See docs/TESTING_PLAN.md §1.2 for what each file tests.
 set -euo pipefail
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+DIR="$REPO/testdata"
+mkdir -p "$DIR"
 KIWIX="https://download.kiwix.org/zim"
 ZIM_SUITE="https://github.com/openzim/zim-testing-suite/raw/main/data"
 FAILED=0

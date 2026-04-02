@@ -4,12 +4,13 @@
 #
 # By default downloads a curated subset (~3 GB). Pass --all for the full
 # suite (~15 GB). Pass individual names to cherry-pick:
-#   bash testdata/fetch-bench.sh wp_simple_mini.zim wp_ja_top_mini.zim se_codegolf.zim
+#   bash scripts/fetch-bench.sh wp_simple_mini.zim wp_ja_top_mini.zim se_codegolf.zim
 #
 # See docs/TESTING_PLAN.md §1.3 for what each file tests.
 set -euo pipefail
 
-DIR="$(cd "$(dirname "$0")" && pwd)/bench"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+DIR="$REPO/testdata/bench"
 mkdir -p "$DIR"
 KIWIX="https://download.kiwix.org/zim"
 FAILED=0

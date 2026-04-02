@@ -160,13 +160,13 @@ Implemented in the Makefile and two fetch scripts:
 |---------|-------------|
 | `make testdata` | Downloads Tier 1 fixtures (~150 MB). Idempotent, skips existing files. |
 | `make testdata-bench` | Downloads curated Tier 2 subset (~3 GB) to `testdata/bench/`. |
-| `bash testdata/fetch-bench.sh --all` | Downloads the full Tier 2 suite (~15 GB). |
-| `bash testdata/fetch-bench.sh --list` | Shows available Tier 2 files and download status. |
-| `bash testdata/fetch-bench.sh wp_ja_top_mini.zim xkcd.zim` | Cherry-pick specific files. |
+| `bash scripts/fetch-bench.sh --all` | Downloads the full Tier 2 suite (~15 GB). |
+| `bash scripts/fetch-bench.sh --list` | Shows available Tier 2 files and download status. |
+| `bash scripts/fetch-bench.sh wp_ja_top_mini.zim xkcd.zim` | Cherry-pick specific files. |
 
 **Files:**
-- [testdata/fetch.sh](testdata/fetch.sh) — Tier 1 download script (16 files, CI)
-- [testdata/fetch-bench.sh](testdata/fetch-bench.sh) — Tier 2 download script (45 files, benchmarks)
+- [scripts/fetch-testdata.sh](../scripts/fetch-testdata.sh) — Tier 1 download script (16 files, CI)
+- [scripts/fetch-bench.sh](../scripts/fetch-bench.sh) — Tier 2 download script (45 files, benchmarks)
 
 To update URLs when new Kiwix dumps are published, edit the date suffixes in the fetch scripts.
 fetch wiktionary_he.zim       "$KIWIX/wiktionary/wiktionary_he_all_nopic_2026-01.zim"

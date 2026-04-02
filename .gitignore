@@ -15,12 +15,8 @@ coverage.out
 /zim2oza
 *.test
 
-# Test data (large files)
-testdata/*.zim
-testdata/*.oza
-testdata/bench/*.zim
-testdata/bench/*.oza
-testdata/.stamp-*
+# Test data (all generated/downloaded — scripts live in scripts/)
+testdata/
 
 # OS files
 .DS_Store
