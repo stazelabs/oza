@@ -159,14 +159,16 @@ are:
 | html | `text/html` |
 | css | `text/css` |
 | js | `application/javascript`, `text/javascript` |
-| image | `image/*` |
+| svg | `image/svg+xml` |
+| image | all other `image/*` |
 | other | everything else |
 
 MIME parameters (e.g., `; charset=utf-8`) are stripped before classification.
 
-**Image chunks are stored uncompressed** (CompNone) because image formats
-already use internal compression. All other groups use Zstd, optionally with a
-trained dictionary.
+**Image chunks are stored uncompressed** (CompNone) because raster image formats
+already use internal compression. **SVG chunks are compressed with Zstd** because
+SVG is XML text and compresses very well (typically 60-80% reduction). All other
+groups also use Zstd, optionally with a trained dictionary.
 
 ## Content transforms
 
@@ -217,8 +219,8 @@ AddEntry. Training triggers when:
 - 2000 HTML samples are collected, OR
 - 4000 total entries are buffered (whichever comes first)
 
-Dictionaries are trained per MIME group (html, css, js, other). Image content
-is excluded from sampling.
+Dictionaries are trained per MIME group (html, css, js, svg, other). Raster
+image content is excluded from sampling.
 
 **Dictionary IDs**: html=1, css=2, js=3, other=4.
 

@@ -1,12 +1,21 @@
 package ozawrite
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"sync"
 	"time"
+)
+
+// Minimum input sizes for transcoding. Images below these thresholds are
+// skipped because the WebP container overhead often produces larger output,
+// and the external tool invocation cost isn't worthwhile.
+const (
+	minPNGTranscodeSize = 2048 // 2 KB
+	minGIFTranscodeSize = 1024 // 1 KB
 )
 
 // TranscodeTools holds paths to external image transcoding tools.
@@ -78,13 +87,14 @@ const transcodeTimeout = 30 * time.Second
 func (t *TranscodeTools) Transcode(mimeType string, data []byte) ([]byte, string) {
 	switch mimeType {
 	case "image/gif":
-		if t.GIF2WebP == "" {
+		if t.GIF2WebP == "" || len(data) < minGIFTranscodeSize {
 			t.mu.Lock()
 			t.stats.GIFSkipped++
 			t.mu.Unlock()
 			return data, mimeType
 		}
-		out, err := t.runTool(t.GIF2WebP, []string{"-q", "75", "-m", "4"}, data)
+		// gif2webp requires a file for input; use temp file for input, pipe for output.
+		out, err := t.runToolFile(t.GIF2WebP, []string{"-q", "75", "-m", "4"}, data)
 		t.mu.Lock()
 		if err != nil || len(out) >= len(data) {
 			t.stats.GIFSkipped++
@@ -97,13 +107,14 @@ func (t *TranscodeTools) Transcode(mimeType string, data []byte) ([]byte, string
 		return out, "image/webp"
 
 	case "image/png":
-		if t.CWebP == "" {
+		if t.CWebP == "" || len(data) < minPNGTranscodeSize {
 			t.mu.Lock()
 			t.stats.PNGSkipped++
 			t.mu.Unlock()
 			return data, mimeType
 		}
-		out, err := t.runTool(t.CWebP, []string{"-lossless"}, data)
+		// cwebp supports stdin/stdout: cwebp [flags] -o - -- -
+		out, err := t.runToolPipe(t.CWebP, []string{"-lossless"}, data)
 		t.mu.Lock()
 		if err != nil || len(out) >= len(data) {
 			t.stats.PNGSkipped++
@@ -119,23 +130,30 @@ func (t *TranscodeTools) Transcode(mimeType string, data []byte) ([]byte, string
 	return data, mimeType
 }
 
-// runTool executes an external tool with input from a temp file and reads the
-// output from another temp file. Both tools use the pattern: tool [flags] input -o output.
-func (t *TranscodeTools) runTool(toolPath string, flags []string, data []byte) ([]byte, error) {
+// runToolPipe executes an external tool using stdin/stdout pipes.
+// Args pattern: tool [flags] -o - -- -   (read stdin, write stdout).
+func (t *TranscodeTools) runToolPipe(toolPath string, flags []string, data []byte) ([]byte, error) {
+	args := append(flags, "-o", "-", "--", "-")
+	ctx, cancel := context.WithTimeout(context.Background(), transcodeTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, toolPath, args...) //nolint:gosec // toolPath is from exec.LookPath, not user input
+	cmd.Stdin = bytes.NewReader(data)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", toolPath, err)
+	}
+	return out, nil
+}
+
+// runToolFile executes an external tool with input from a temp file and captures
+// stdout. Args pattern: tool [flags] input -o -   (read file, write stdout).
+func (t *TranscodeTools) runToolFile(toolPath string, flags []string, data []byte) ([]byte, error) {
 	inFile, err := os.CreateTemp("", "oza-transcode-in-*")
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = os.Remove(inFile.Name()) }()
-
-	outFile, err := os.CreateTemp("", "oza-transcode-out-*.webp")
-	if err != nil {
-		inFile.Close()
-		return nil, err
-	}
-	outName := outFile.Name()
-	outFile.Close()
-	defer func() { _ = os.Remove(outName) }()
 
 	if _, err := inFile.Write(data); err != nil {
 		inFile.Close()
@@ -143,14 +161,14 @@ func (t *TranscodeTools) runTool(toolPath string, flags []string, data []byte) (
 	}
 	inFile.Close()
 
-	args := append(flags, inFile.Name(), "-o", outName)
+	args := append(flags, inFile.Name(), "-o", "-")
 	ctx, cancel := context.WithTimeout(context.Background(), transcodeTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, toolPath, args...) //nolint:gosec // toolPath is from exec.LookPath, not user input
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("%s: %w: %s", toolPath, err, out)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", toolPath, err)
 	}
-
-	return os.ReadFile(outName)
+	return out, nil
 }

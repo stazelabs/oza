@@ -59,14 +59,14 @@ var recommendations = map[Profile]Recs{
 		Notes: "larger chunks for big entries; fewer dict samples (dissimilar content); higher prune (long documents)",
 	},
 	ProfileQAForum: {
-		ChunkSize: 4 << 20, ZstdLevel: 6, DictSamples: 3000,
+		ChunkSize: 4 << 20, ZstdLevel: 11, DictSamples: 3000,
 		Minify: true, OptimizeImages: true, SearchPruneFreq: 0.4,
-		Notes: "more dict samples for repetitive Q&A templates",
+		Notes: "high zstd level to match LZMA on repetitive Q&A; more dict samples for templates",
 	},
 	ProfileDocs: {
-		ChunkSize: 2 << 20, ZstdLevel: 6, DictSamples: 3000,
+		ChunkSize: 2 << 20, ZstdLevel: 11, DictSamples: 3000,
 		Minify: true, OptimizeImages: false, SearchPruneFreq: 0.5,
-		Notes: "smaller chunks for small-medium entries; more dict samples for similar structure",
+		Notes: "high zstd level for repetitive docs; smaller chunks; more dict samples for similar structure",
 	},
 	ProfileMediaHeavy: {
 		ChunkSize: 8 << 20, ZstdLevel: 3, DictSamples: 500,

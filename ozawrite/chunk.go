@@ -38,7 +38,7 @@ func marshalChunkDesc(c chunkDesc) [oza.ChunkDescSize]byte {
 // chunkBuilder accumulates blobs that will be compressed together.
 type chunkBuilder struct {
 	id         uint32
-	mimeGroup  string // "html", "css", "js", "image", "other"
+	mimeGroup  string // "html", "css", "js", "svg", "image", "other"
 	blobs      [][]byte
 	uncompSize int
 }
@@ -92,6 +92,8 @@ func mimeGroup(mimeType string) string {
 		return "css"
 	case mimeType == "application/javascript", mimeType == "text/javascript":
 		return "js"
+	case mimeType == "image/svg+xml":
+		return "svg"
 	case strings.HasPrefix(mimeType, "image/"):
 		return "image"
 	default:

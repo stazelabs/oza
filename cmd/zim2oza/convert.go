@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -149,6 +151,16 @@ type redirectEntry struct {
 	title          string
 	zimSelfIdx     uint32 // ZIM index of this redirect entry itself
 	zimRedirectIdx uint32 // ZIM index of the redirect target
+}
+
+type bufferedEntry struct {
+	ozaPath        string
+	title          string
+	mimeType       string
+	isFrontArticle bool
+	zimIndex       uint32
+	contentOff     int64 // offset in temp file
+	contentLen     int   // size in temp file
 }
 
 // scan iterates all ZIM entries and classifies them.
@@ -343,15 +355,6 @@ func (c *Converter) write(plan *scanPlan) error {
 	// and write it to a temp file. Only metadata + file offsets are kept in memory,
 	// avoiding the need to hold all decompressed content in RAM simultaneously.
 	total := len(plan.content)
-	type bufferedEntry struct {
-		ozaPath        string
-		title          string
-		mimeType       string
-		isFrontArticle bool
-		zimIndex       uint32
-		contentOff     int64 // offset in temp file
-		contentLen     int   // size in temp file
-	}
 	buffered := make([]bufferedEntry, 0, total)
 
 	contentTmp, err := os.CreateTemp("", "zim2oza-content-*")
@@ -425,6 +428,10 @@ func (c *Converter) write(plan *scanPlan) error {
 
 	// Phase 2c: Add entries to the writer, reading content back from the temp file
 	// one entry at a time to keep memory usage proportional to chunk size, not archive size.
+	//
+	// When transcoding tools are available, images are pre-transcoded in a parallel
+	// worker pool before being fed to AddEntry. This moves the dominant bottleneck
+	// (fork/exec to cwebp/gif2webp) off the critical path.
 	loopStart := time.Now()
 	addTotal := len(buffered)
 	var entryCount atomic.Int64
@@ -459,15 +466,22 @@ func (c *Converter) write(plan *scanPlan) error {
 		}()
 	}
 
-	for i, be := range buffered {
-		content := make([]byte, be.contentLen)
-		if _, err := contentTmp.ReadAt(content, be.contentOff); err != nil {
-			return fmt.Errorf("reading entry %s from temp file: %w", be.ozaPath, err)
+	useParallelTranscode := c.opts.TranscodeTools != nil && c.opts.TranscodeTools.Available()
+	if useParallelTranscode {
+		if err := c.addEntriesParallel(w, buffered, contentTmp, &entryCount); err != nil {
+			return err
 		}
-		if _, err := w.AddEntry(be.ozaPath, be.title, be.mimeType, content, be.isFrontArticle); err != nil {
-			return fmt.Errorf("adding entry %s: %w", be.ozaPath, err)
+	} else {
+		for i, be := range buffered {
+			content := make([]byte, be.contentLen)
+			if _, err := contentTmp.ReadAt(content, be.contentOff); err != nil {
+				return fmt.Errorf("reading entry %s from temp file: %w", be.ozaPath, err)
+			}
+			if _, err := w.AddEntry(be.ozaPath, be.title, be.mimeType, content, be.isFrontArticle); err != nil {
+				return fmt.Errorf("adding entry %s: %w", be.ozaPath, err)
+			}
+			entryCount.Store(int64(i + 1))
 		}
-		entryCount.Store(int64(i + 1))
 	}
 	buffered = nil
 
@@ -540,6 +554,99 @@ func (c *Converter) write(plan *scanPlan) error {
 		c.stats.TranscodePNGSkipped = ts.PNGSkipped
 	}
 
+	return nil
+}
+
+// needsTranscode reports whether a MIME type will be processed by TranscodeTools.
+func needsTranscode(mimeType string) bool {
+	return mimeType == "image/png" || mimeType == "image/gif"
+}
+
+// preTranscoded holds a pre-transcoded entry ready for AddEntry.
+type preTranscoded struct {
+	idx     int
+	content []byte
+	mime    string
+	err     error
+}
+
+// addEntriesParallel adds entries to the writer with parallel image transcoding.
+// Images are pre-transcoded in a worker pool; results are reordered so AddEntry
+// calls remain sequential (the writer is not thread-safe).
+func (c *Converter) addEntriesParallel(w *ozawrite.Writer, buffered []bufferedEntry, contentTmp *os.File, entryCount *atomic.Int64) error {
+	numWorkers := runtime.NumCPU()
+	if numWorkers > 8 {
+		numWorkers = 8
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+
+	type workItem struct {
+		idx     int
+		content []byte
+		mime    string
+	}
+
+	workCh := make(chan workItem, numWorkers*2)
+	resultCh := make(chan preTranscoded, numWorkers*2)
+
+	// Workers: transcode images in parallel.
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for item := range workCh {
+				if needsTranscode(item.mime) {
+					item.content, item.mime = c.opts.TranscodeTools.Transcode(item.mime, item.content)
+				}
+				resultCh <- preTranscoded{idx: item.idx, content: item.content, mime: item.mime}
+			}
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	// Producer: read entries from temp file and send to workers.
+	var readErr error
+	go func() {
+		defer close(workCh)
+		for i, be := range buffered {
+			content := make([]byte, be.contentLen)
+			if _, err := contentTmp.ReadAt(content, be.contentOff); err != nil {
+				readErr = fmt.Errorf("reading entry %s from temp file: %w", be.ozaPath, err)
+				return
+			}
+			workCh <- workItem{idx: i, content: content, mime: be.mimeType}
+		}
+	}()
+
+	// Consumer: reorder results and call AddEntry sequentially.
+	pending := make(map[int]preTranscoded)
+	nextIdx := 0
+	for result := range resultCh {
+		pending[result.idx] = result
+		for {
+			r, ok := pending[nextIdx]
+			if !ok {
+				break
+			}
+			delete(pending, nextIdx)
+			be := buffered[nextIdx]
+			if _, err := w.AddEntry(be.ozaPath, be.title, r.mime, r.content, be.isFrontArticle); err != nil {
+				return fmt.Errorf("adding entry %s: %w", be.ozaPath, err)
+			}
+			entryCount.Store(int64(nextIdx + 1))
+			nextIdx++
+		}
+	}
+
+	if readErr != nil {
+		return readErr
+	}
 	return nil
 }
 
