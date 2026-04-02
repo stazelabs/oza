@@ -72,12 +72,6 @@ Trigram search has no ranking beyond title-match > body-match > entry-ID order.
 **Near-term:** BM25-lite scoring using content size (already in entry records) and
 trigram hit count. No new data needed.
 
-### 2.9 Benchmark regression tracking
-
-Benchmarks exist but results aren't tracked across commits.
-
-**Fix:** Consider `benchstat` in CI or a lightweight tracking solution.
-
 ### 2.19 Configurable browse exclusions
 
 Per-archive `browse_exclude` metadata key (glob patterns) for filtering non-article
@@ -544,3 +538,13 @@ Built a `mimeToEntries map[uint16][]uint32` index in `Archive` at load time via
 `EntriesByMIME(string) iter.Seq[Entry]`, `EntriesByMIMEErr(string) iter.Seq2[Entry,error]`,
 `EntryCountByMIME(string) int`, and `MIMEEntryCount(uint16) int`. Memory overhead
 is one `uint32` per content entry (~24 MB at Wikipedia scale).
+
+### 2.9 Benchmark regression tracking ~~P2~~
+
+Added a `bench` job to `.github/workflows/ci.yml` using
+`benchmark-action/github-action-benchmark@v1`. On every push to `main` the job
+runs `go test -bench=. -benchmem -count=5 ./oza/ ./ozawrite/`, stores results in
+the `gh-pages` branch, and builds a trend chart. On PRs it compares against the
+stored baseline and posts a comment if any benchmark regresses beyond 200%.
+`make bench` updated to use `-count=5` so local runs produce `benchstat`-compatible
+output.

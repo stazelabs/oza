@@ -28,7 +28,7 @@ cover-html: cover
 	go tool cover -html=coverage.out
 
 bench:
-	go test -bench=. -benchmem ./oza/ ./ozawrite/
+	go test -bench=. -benchmem -count=5 ./oza/ ./ozawrite/
 
 fuzz:
 	go test -fuzz=FuzzParseHeader        -fuzztime=30s ./oza/
