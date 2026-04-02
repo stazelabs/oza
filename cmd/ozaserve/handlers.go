@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+
 	"github.com/stazelabs/oza/cmd/internal/snippet"
 	"github.com/stazelabs/oza/oza"
 )
@@ -415,9 +418,25 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.Header().Set("ETag", etag)
 
+	// Render text/markdown entries as HTML so they get bar injection and CSP sandbox.
+	isMarkdown := mime == "text/markdown; charset=utf-8"
+	if isMarkdown {
+		var buf bytes.Buffer
+		md := goldmark.New(goldmark.WithExtensions(extension.Table))
+		if err := md.Convert(content, &buf); err != nil {
+			content = []byte("<pre>" + html.EscapeString(string(content)) + "</pre>")
+		} else {
+			content = buf.Bytes()
+		}
+		content = []byte("<!DOCTYPE html><html><body>" + string(content) + "</body></html>")
+		mime = "text/html; charset=utf-8"
+		w.Header().Set("Content-Type", mime)
+	}
+
 	// For HTML content, set CSP sandbox and inject the sticky navigation bar and footer bar.
-	// Match both text/html (standard index 0) and application/xhtml+xml (EPUB chapters).
-	isHTML := entry.MIMEIndex() == oza.MIMEIndexHTML || mime == "application/xhtml+xml"
+	// Match text/html (standard index 0), application/xhtml+xml (EPUB chapters), and
+	// rendered Markdown (converted to HTML above).
+	isHTML := entry.MIMEIndex() == oza.MIMEIndexHTML || mime == "application/xhtml+xml" || isMarkdown
 	if isHTML {
 		w.Header().Set("Content-Security-Policy", "sandbox")
 		header := headerBarHTML(slug, ae.title, ae.letterCounts)

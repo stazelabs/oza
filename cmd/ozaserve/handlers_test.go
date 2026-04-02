@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +55,10 @@ func buildTestOZA(t *testing.T, search bool) string {
 	}
 	if _, err := w.AddEntry("logo.png", "Logo", "image/png",
 		[]byte{0x89, 0x50, 0x4e, 0x47}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.AddEntry("guide.md", "Guide", "text/markdown",
+		[]byte("# Guide\n\nThis is a **markdown** guide.\n\n## Section\n\nWith a table:\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"), true); err != nil {
 		t.Fatal(err)
 	}
 	// Add a redirect entry.
@@ -187,6 +192,40 @@ func TestHandleContentImage(t *testing.T) {
 	}
 	if resp.Header.Get("Content-Type") != "image/png" {
 		t.Errorf("Content-Type = %q, want image/png", resp.Header.Get("Content-Type"))
+	}
+}
+
+func TestHandleContentMarkdown(t *testing.T) {
+	srv, _ := newTestServer(t, false)
+
+	resp, err := http.Get(srv.URL + "/test/guide.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	ct := resp.Header.Get("Content-Type")
+	if ct != "text/html; charset=utf-8" {
+		t.Errorf("Content-Type = %q, want text/html; charset=utf-8", ct)
+	}
+	if resp.Header.Get("Content-Security-Policy") != "sandbox" {
+		t.Errorf("CSP = %q, want sandbox", resp.Header.Get("Content-Security-Policy"))
+	}
+
+	body := make([]byte, 4096)
+	n, _ := resp.Body.Read(body)
+	bodyStr := string(body[:n])
+	if !strings.Contains(bodyStr, "<h1>") {
+		t.Error("rendered HTML missing <h1> heading")
+	}
+	if !strings.Contains(bodyStr, "<strong>") {
+		t.Error("rendered HTML missing <strong> bold text")
+	}
+	if !strings.Contains(bodyStr, "<table>") {
+		t.Error("rendered HTML missing <table> (goldmark extension)")
 	}
 }
 

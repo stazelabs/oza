@@ -78,11 +78,6 @@ Benchmarks exist but results aren't tracked across commits.
 
 **Fix:** Consider `benchstat` in CI or a lightweight tracking solution.
 
-### 2.18 Markdown content rendering
-
-`ozaserve` should render `text/markdown` entries through Goldmark before serving as
-HTML. Currently only `text/html` entries render correctly.
-
 ### 2.19 Configurable browse exclusions
 
 Per-archive `browse_exclude` metadata key (glob patterns) for filtering non-article
@@ -532,6 +527,14 @@ Added `cmd/ozaserve/accesslog.go` with a `responseRecorder` wrapper that capture
 status code and bytes written, and an `accessLog` middleware that emits structured
 per-request log lines via `slog`. Middleware is a no-op pass-through when the logger
 is nil, so it composes cleanly with the existing server setup.
+
+### 2.18 Markdown content rendering ~~P2~~
+
+`ozaserve` now renders `text/markdown` entries via Goldmark (with table extension)
+before serving. MIME type is rewritten to `text/html; charset=utf-8`, CSP sandbox
+is applied, and the navigation/footer bars are injected — identical treatment to
+native HTML entries. Falls back to `<pre>`-escaped plaintext if Goldmark fails.
+Test added in `handlers_test.go`.
 
 ### 2.20 Entry enumeration by MIME type ~~P2~~
 
