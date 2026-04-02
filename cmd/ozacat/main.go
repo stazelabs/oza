@@ -21,7 +21,7 @@ With a path argument, extracts the entry's content to stdout (or -o file).
 Use -l to list all entries, -m for metadata, or -t for entry info.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.Help()
+				_ = cmd.Help()
 				os.Exit(0)
 			}
 			return cobra.RangeArgs(1, 2)(cmd, args)

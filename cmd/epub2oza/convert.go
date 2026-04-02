@@ -189,6 +189,9 @@ func (c *Converter) Run() error {
 	c.stats.TimeCompress = wt.Compress
 	c.stats.TimeAssemble = wt.Assemble
 
+	// Transcode stats.
+	populateTranscodeStats(&c.stats, c.opts.TranscodeTools)
+
 	return nil
 }
 

@@ -361,7 +361,7 @@ func (c *Converter) write(plan *scanPlan) error {
 	if err != nil {
 		return fmt.Errorf("creating content temp file: %w", err)
 	}
-	defer os.Remove(contentTmp.Name())
+	defer func() { _ = os.Remove(contentTmp.Name()) }()
 	defer contentTmp.Close()
 	var tmpOff int64
 
@@ -491,7 +491,7 @@ func (c *Converter) write(plan *scanPlan) error {
 
 	// Clean up temp file early.
 	contentTmp.Close()
-	os.Remove(contentTmp.Name())
+	_ = os.Remove(contentTmp.Name())
 
 	// Add redirects. Resolve chains so each redirect points to a content entry.
 	zimIdxToRedirect := make(map[uint32]*redirectEntry, len(plan.redirects))

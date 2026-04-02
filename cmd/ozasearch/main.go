@@ -24,7 +24,7 @@ Returns matching entries ranked by relevance. Use -t for title-only
 search or -j for JSON output.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.Help()
+				_ = cmd.Help()
 				os.Exit(0)
 			}
 			return cobra.ExactArgs(2)(cmd, args)

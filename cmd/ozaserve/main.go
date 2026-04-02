@@ -46,7 +46,7 @@ OZA files may be specified as positional arguments, via --dir, or both.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			d, _ := cmd.Flags().GetStringArray("dir")
 			if len(args) == 0 && len(d) == 0 {
-				cmd.Help()
+				_ = cmd.Help()
 				os.Exit(0)
 			}
 			return nil
@@ -91,9 +91,9 @@ type archiveEntry struct {
 	description     string
 	date            string
 	uuidHex         string
-	letterCounts    map[byte]int            // A–Z -> count of entries whose title starts with that letter
-	letterOffsets   map[string]letterRange   // letter (uppercase or "#") -> title-index offset range
-	frontArticleIDs []uint32                // IDs of front-article entries, for random navigation
+	letterCounts    map[byte]int           // A–Z -> count of entries whose title starts with that letter
+	letterOffsets   map[string]letterRange // letter (uppercase or "#") -> title-index offset range
+	frontArticleIDs []uint32               // IDs of front-article entries, for random navigation
 	fileSize        int64
 	loadDuration    time.Duration
 }

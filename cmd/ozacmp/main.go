@@ -29,7 +29,7 @@ section breakdown, size budget, chunk statistics, search index presence,
 and metadata parity between the two formats.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.Help()
+				_ = cmd.Help()
 				os.Exit(0)
 			}
 			return cobra.ExactArgs(2)(cmd, args)

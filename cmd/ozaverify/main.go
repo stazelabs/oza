@@ -22,7 +22,7 @@ SHA-256, --chunks for per-entry content hashes, --all for everything,
 or --signatures to verify Ed25519 signatures.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				cmd.Help()
+				_ = cmd.Help()
 				os.Exit(0)
 			}
 			return cobra.ExactArgs(1)(cmd, args)

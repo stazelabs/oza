@@ -271,6 +271,8 @@ func runCollection(inputDir, ozaPath string, opts ConvertOptions, recursive bool
 	stats.TimeCompress = wt.Compress
 	stats.TimeAssemble = wt.Assemble
 
+	populateTranscodeStats(stats, opts.TranscodeTools)
+
 	return stats, nil
 }
 
