@@ -377,6 +377,7 @@ func computeLetterIndex(a *oza.Archive) (map[byte]int, map[string]letterRange) {
 			counts[c]++
 			key = string(c)
 		} else {
+			counts['#']++
 			key = "#"
 		}
 

@@ -383,8 +383,33 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := ae.archive.EntryByPath(contentPath)
 	if err != nil {
-		write404(w, r)
-		return
+		// Fallback: try common extensions (.md, .html) for extensionless paths,
+		// and try swapping .html↔.md for framework-style links.
+		var fallbacks []string
+		ext := ""
+		if dot := strings.LastIndexByte(contentPath, '.'); dot >= 0 && dot > strings.LastIndexByte(contentPath, '/') {
+			ext = contentPath[dot:]
+		}
+		switch ext {
+		case "":
+			fallbacks = []string{contentPath + ".md", contentPath + ".html"}
+		case ".html":
+			fallbacks = []string{strings.TrimSuffix(contentPath, ".html") + ".md"}
+		case ".md":
+			fallbacks = []string{strings.TrimSuffix(contentPath, ".md") + ".html"}
+		}
+		found := false
+		for _, fb := range fallbacks {
+			if e, err2 := ae.archive.EntryByPath(fb); err2 == nil {
+				entry = e
+				found = true
+				break
+			}
+		}
+		if !found {
+			write404(w, r)
+			return
+		}
 	}
 
 	// Follow archive-internal redirects as HTTP 302s.
@@ -430,14 +455,21 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	// Render text/markdown entries as HTML so they get bar injection and CSP sandbox.
 	isMarkdown := mime == "text/markdown; charset=utf-8"
 	if isMarkdown {
+		mdTitle, mdBody := parseFrontmatter(content)
+		mdBody = stripMDXExpressions(mdBody)
 		var buf bytes.Buffer
 		md := goldmark.New(goldmark.WithExtensions(extension.Table))
-		if err := md.Convert(content, &buf); err != nil {
-			content = []byte("<pre>" + html.EscapeString(string(content)) + "</pre>")
+		if err := md.Convert(mdBody, &buf); err != nil {
+			content = []byte("<pre>" + html.EscapeString(string(mdBody)) + "</pre>")
 		} else {
 			content = buf.Bytes()
 		}
-		content = []byte("<!DOCTYPE html><html><body>" + string(content) + "</body></html>")
+		titleTag := ""
+		if mdTitle != "" {
+			titleTag = "<title>" + html.EscapeString(mdTitle) + "</title>"
+		}
+		const mdStyle = `<style>body{padding:.75em 1em 1em}</style>`
+		content = []byte("<!DOCTYPE html><html><head>" + titleTag + mdStyle + "</head><body>" + string(content) + "</body></html>")
 		mime = "text/html; charset=utf-8"
 		w.Header().Set("Content-Type", mime)
 	}
@@ -447,7 +479,7 @@ func (lib *library) handleContent(w http.ResponseWriter, r *http.Request) {
 	// rendered Markdown (converted to HTML above).
 	isHTML := entry.MIMEIndex() == oza.MIMEIndexHTML || mime == "application/xhtml+xml" || isMarkdown
 	if isHTML {
-		w.Header().Set("Content-Security-Policy", "sandbox")
+		w.Header().Set("Content-Security-Policy", "sandbox allow-forms allow-scripts allow-same-origin")
 		header := headerBarHTML(slug, ae.title, ae.letterCounts)
 		content = injectBars(content, []byte(header), []byte(footerBarHTML(!lib.noInfo)))
 		// Serve XHTML as text/html so the injected navigation bar (which uses
@@ -538,6 +570,7 @@ body{padding-bottom:32px!important}
 }
 
 // headerBarHTML returns a self-contained sticky navigation bar for HTML content pages.
+
 func headerBarHTML(slug, title string, letterCounts map[byte]int) string {
 	es := html.EscapeString(slug)
 	et := html.EscapeString(title)
@@ -566,7 +599,8 @@ body{margin-top:32px!important}
 	b.WriteString(`<a href="/" style="color:#C9A84C;font-weight:600">&#x738B;&#x5EA7;</a>`)
 	b.WriteString(`<span class="oza-sep">|</span>`)
 	fmt.Fprintf(&b, `<a class="oza-title" href="/%s/">%s</a>`, es, et)
-	fmt.Fprintf(&b, `<form action="/%s/-/search" method="get"><input type="text" name="q" placeholder="Search&#x2026;"><button class="oza-btn" type="submit">Search</button></form>`, es)
+	fmt.Fprintf(&b, `<div style="position:relative"><form action="/%s/-/search" method="get" autocomplete="off"><input id="oza-q" type="text" name="q" placeholder="Search&#x2026;"></form><div id="oza-drop" style="display:none;position:absolute;top:100%%;left:0;min-width:240px;background:#fff;border:1px solid #d0d7de;border-radius:0 0 4px 4px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:300px;overflow-y:auto;z-index:1000000"></div></div>`, es)
+	fmt.Fprintf(&b, `<script>(function(){var sl=%q,inp=document.getElementById('oza-q'),drop=document.getElementById('oza-drop'),timer,rid=0,cur=-1;function clr(){while(drop.firstChild)drop.removeChild(drop.firstChild);}function hide(){drop.style.display='none';cur=-1;}function show(){drop.style.display='block';}function links(){return Array.from(drop.querySelectorAll('a'));}function moveCur(d){var ls=links(),n=cur+d;if(n<0){cur=-1;inp.focus();return;}if(n>=ls.length)n=ls.length-1;cur=n;ls[cur].focus();}inp.addEventListener('keydown',function(e){if(e.key==='ArrowDown'&&drop.style.display!=='none'){e.preventDefault();moveCur(1);}else if(e.key==='Escape'){hide();}});drop.addEventListener('keydown',function(e){if(e.key==='ArrowDown'){e.preventDefault();moveCur(1);}else if(e.key==='ArrowUp'){e.preventDefault();moveCur(-1);}else if(e.key==='Escape'){hide();inp.focus();}});inp.addEventListener('input',function(){clearTimeout(timer);var q=inp.value.trim();if(!q){clr();hide();return;}timer=setTimeout(function(){var id=++rid,url='/'+encodeURIComponent(sl)+'/_search?q='+encodeURIComponent(q);fetch(url).then(function(r){return r.json();}).then(function(data){if(id!==rid)return;clr();if(!data.length){var d=document.createElement('div');d.style.cssText='padding:6px 12px;color:#666;font-size:13px';d.textContent='No results';drop.appendChild(d);}else{data.forEach(function(r){var a=document.createElement('a');a.href=r.path;a.textContent=r.title;a.style.cssText='display:block;padding:6px 12px;color:#0366d6;text-decoration:none;border-bottom:1px solid #eee;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';drop.appendChild(a);});}cur=-1;show();}).catch(hide);},200);});document.addEventListener('mousedown',function(e){if(!drop.contains(e.target)&&e.target!==inp)hide();});inp.addEventListener('focus',function(){if(drop.firstChild)show();});})();</script>`, slug)
 	fmt.Fprintf(&b, `<a class="oza-btn" href="/%s/-/random">Random</a>`, es)
 	b.WriteString(`<span class="oza-sep">|</span><span class="oza-az">`)
 	for c := byte('A'); c <= 'Z'; c++ {
@@ -576,11 +610,77 @@ body{margin-top:32px!important}
 			fmt.Fprintf(&b, `<span>%c</span>`, c)
 		}
 	}
+	if letterCounts['#'] > 0 {
+		fmt.Fprintf(&b, `<a href="/%s/-/browse?letter=%%23">#</a>`, es)
+	}
 	b.WriteString(`</span></div>`)
 	return b.String()
 }
 
 // commaInt formats n with comma thousands separators.
+// parseFrontmatter extracts the title from a YAML frontmatter block
+// (---\n...\n---\n) at the start of Markdown content and returns the title
+// and the content with the frontmatter removed.
+func parseFrontmatter(content []byte) (title string, body []byte) {
+	if !bytes.HasPrefix(content, []byte("---\n")) {
+		return "", content
+	}
+	rest := content[4:]
+	end := bytes.Index(rest, []byte("\n---\n"))
+	if end < 0 {
+		return "", content
+	}
+	block := rest[:end]
+	body = rest[end+5:]
+	for _, line := range bytes.Split(block, []byte("\n")) {
+		if !bytes.HasPrefix(line, []byte("title:")) {
+			continue
+		}
+		val := bytes.TrimSpace(line[6:])
+		val = bytes.Trim(val, `"'`)
+		title = string(val)
+		break
+	}
+	return title, body
+}
+
+// stripMDXExpressions removes JSX/MDX-specific syntax that goldmark can't
+// render and would emit as raw text: {/* comments */} and inline {expr} blocks.
+// Code fences (``` blocks) are passed through untouched.
+func stripMDXExpressions(content []byte) []byte {
+	var out []byte
+	in := content
+	inFence := false
+	for len(in) > 0 {
+		// Track code fences so we don't mangle code examples.
+		if bytes.HasPrefix(in, []byte("```")) {
+			inFence = !inFence
+			end := bytes.IndexByte(in[3:], '\n')
+			if end < 0 {
+				out = append(out, in...)
+				break
+			}
+			out = append(out, in[:end+4]...)
+			in = in[end+4:]
+			continue
+		}
+		if inFence || in[0] != '{' {
+			out = append(out, in[0])
+			in = in[1:]
+			continue
+		}
+		// Find the matching closing brace (no nesting needed for MDX).
+		end := bytes.IndexByte(in, '}')
+		if end < 0 {
+			out = append(out, in...)
+			break
+		}
+		// Drop the entire {…} expression.
+		in = in[end+1:]
+	}
+	return out
+}
+
 func commaInt(n int) string {
 	s := strconv.Itoa(n)
 	out := make([]byte, 0, len(s)+len(s)/3)
