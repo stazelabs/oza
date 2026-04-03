@@ -64,6 +64,14 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
+  - id: ozacmp
+    dir: cmd
+    main: ./ozacmp/
+    binary: ozacmp
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
   - id: zim2oza
     dir: cmd
     main: ./zim2oza/
@@ -71,6 +79,18 @@ builds:
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.Version={{.Version}}
+
+  - id: epub2oza
+    dir: cmd
+    main: ./epub2oza/
+    binary: epub2oza
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.Version={{.Version}}
 
 archives:
   - formats: [tar.gz]
@@ -104,6 +124,34 @@ changelog:
       order: 1
     - title: "Other Changes"
       order: 999
+
+brews:
+  - name: oza
+    repository:
+      owner: stazelabs
+      name: homebrew-oza
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: stazelabs-bot
+      email: bot@stazelabs.com
+    directory: Formula
+    homepage: "https://github.com/stazelabs/oza"
+    description: "OZA format tools -- read, write, search, serve, and convert OZA archives"
+    license: "Apache-2.0"
+    install: |
+      bin.install "ozacat"
+      bin.install "ozainfo"
+      bin.install "ozasearch"
+      bin.install "ozaserve"
+      bin.install "ozaverify"
+      bin.install "ozamcp"
+      bin.install "ozakeygen"
+      bin.install "ozacmp"
+      bin.install "zim2oza"
+      bin.install "epub2oza"
+    test: |
+      system "#{bin}/ozacat", "--help"
+      system "#{bin}/ozainfo", "--help"
 
 release:
   github:
