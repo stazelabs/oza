@@ -1,4 +1,4 @@
-.PHONY: test test-race cover cover-html lint lint-fix bench fuzz vet build clean testdata testdata-bench snapshot
+.PHONY: test test-race cover cover-html lint lint-fix bench fuzz vet build clean testdata testdata-bench site-testdata site-benchdata snapshot
 
 build:
 	@mkdir -p bin
@@ -11,6 +11,7 @@ build:
 	cd cmd && CGO_ENABLED=0 go build -o ../bin/ozacmp     ./ozacmp/
 	cd cmd && CGO_ENABLED=0 go build -o ../bin/zim2oza    ./zim2oza/
 	cd cmd && CGO_ENABLED=0 go build -o ../bin/epub2oza   ./epub2oza/
+	cd cmd && CGO_ENABLED=0 go build -o ../bin/site2oza   ./site2oza/
 
 test:
 	go test ./... -count=1
@@ -65,6 +66,12 @@ testdata/.stamp-tier1:
 testdata-bench: testdata
 	@mkdir -p testdata/bench
 	bash scripts/fetch-bench.sh
+
+site-testdata:
+	bash scripts/fetch-site-testdata.sh
+
+site-benchdata: site-testdata
+	bash scripts/fetch-site-benchdata.sh
 
 bench-convert: build testdata
 	@echo "Converting small.zim to OZA..."
