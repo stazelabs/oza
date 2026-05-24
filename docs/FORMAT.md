@@ -2,7 +2,7 @@
 
 *This is the in-repo copy of the OZA format specification.*
 
-*Draft 0.1 -- 2026-03-06*
+*Draft 0.2 -- 2026-05-24*
 
 File extension: `.oza`
 
