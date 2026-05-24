@@ -43,7 +43,10 @@ OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](doc
 ## Install
 
 ```bash
-go get github.com/stazelabs/oza
+# Reader library
+go get github.com/stazelabs/oza/oza
+# Writer library
+go get github.com/stazelabs/oza/ozawrite
 ```
 
 ## Usage
@@ -109,6 +112,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
+    defer f.Close()
 
     w := ozawrite.NewWriter(f, ozawrite.WriterOptions{
         ZstdLevel:       6,  // 1=fastest, 6=default, 19=best
@@ -196,11 +200,21 @@ go run ./cmd/ozamcp archive.oza
 
 ### ozakeygen
 
-Generate Ed25519 signing key pairs for archive signatures:
+Generate an Ed25519 signing keypair. The private key is written as PEM to the
+`--out` target (or stdout if omitted); the public key is printed to **stdout**
+as hex (prefixed with `Public key (hex):`) for use with `ozaverify --pubkey`.
 
 ```bash
-go run ./cmd/ozakeygen -o mykey
-# Creates mykey.pub and mykey.key
+# Write private key PEM to signer.key; public key hex printed on stdout
+go run ./cmd/ozakeygen --out signer.key
+
+# Sign an archive at write time (Go):
+#   w := ozawrite.NewWriter(f, ozawrite.WriterOptions{
+#       SigningKeys: []ozawrite.SigningKey{{Key: priv, KeyID: 1}},
+#   })
+
+# Verify a signed archive
+go run ./cmd/ozaverify --signatures --pubkey <hex-from-ozakeygen> archive.oza
 ```
 
 ### ozacmp

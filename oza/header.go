@@ -36,7 +36,10 @@ func ParseHeader(data []byte) (Header, error) {
 	}
 
 	h.MajorVersion = binary.LittleEndian.Uint16(data[4:6])
-	if h.MajorVersion > MajorVersion {
+	// Reject anything that is not exactly the supported major version. Past
+	// (0) and future (>1) majors are both rejected; future minor versions of
+	// the same major are forward-compatible and accepted without validation.
+	if h.MajorVersion != MajorVersion {
 		return Header{}, ErrUnsupportedVersion
 	}
 

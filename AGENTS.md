@@ -18,16 +18,14 @@ oza/
 │   ├── archive.go           # Archive type -- Open, Close, entry lookup, chunk cache
 │   ├── header.go            # 128-byte header parse/serialize
 │   ├── section.go           # 80-byte section descriptors, SectionType enum
-│   ├── entry.go             # 40-byte fixed entry records, EntryType enum
+│   ├── entry.go             # Variable-length entry records (uvarint); 5-byte redirect records; EntryType enum
 │   ├── metadata.go          # Length-prefixed key-value pairs
 │   ├── mime.go              # MIME table (length-prefixed, index 0/1/2 convention)
 │   ├── chunk.go             # Content chunk reading + decompression + blob extraction
 │   ├── compress.go          # Zstd decompression with dictionary support
 │   ├── index.go             # Path/title index binary search
 │   ├── search.go            # Trigram index reader + query algorithm
-│   ├── redirect.go          # Redirect table + chain resolution
-│   ├── chrome.go            # Chrome section reader
-│   ├── signature.go         # Ed25519 signature verification
+│   ├── signature.go         # Ed25519 signature verification (trailer past file checksum)
 │   ├── checksum.go          # SHA-256 at file/section/chunk tiers
 │   ├── io.go                # reader interface (mmap + pread)
 │   ├── iter.go              # iter.Seq[Entry] iterators
@@ -67,7 +65,7 @@ The writer has heavier dependencies (Zstd encoding + dictionary training, ed2551
 
 ### OZA Format vs ZIM
 
-OZA entries are **fixed 40 bytes** with explicit `entry_type`, `blob_size`, and `content_hash`. No variable-length directory entries, no MIME sentinel overloading, no pointer indirection chains. Entry N is at `section_offset + N * 40` -- O(1) access.
+OZA content entries use **variable-length records** (uvarint-encoded mime_index, chunk_id, blob_offset, blob_size, plus a fixed 8-byte content_hash — ~15 bytes average) preceded by a uint32 offset table for O(1) random access by ID. Redirects live in a separate REDIRECT_TABLE section as **5-byte records** (1-byte flags + uint32 target_id). Tagged IDs use bit 31 to distinguish content entries from redirects, capping each namespace at 2³¹−1.
 
 Key format differences from ZIM:
 - No namespaces -- flat paths by convention (`Main_Page`, `_res/style.css`)
@@ -99,9 +97,9 @@ Same as gozim: internal `reader` interface with mmap (default on 64-bit) and pre
 
 ## OZA Format Quick Reference
 
-- **Header:** 128 bytes, little-endian. Magic `0x415A4F01`. Version 1.0.
+- **Header:** 128 bytes, little-endian. Magic `0x01415A4F` ("OZA\x01" on disk). Version 1.0.
 - **Section table:** 80-byte descriptors. Unknown types skippable via `offset + compressed_size`.
-- **Entry table:** Fixed 40-byte records. `entry_type` field (0=content, 1=redirect, 2=metadata_ref).
+- **Entry table:** Variable-length records (`type_and_flags` byte + uvarints for mime/chunk/blob fields + 8-byte content_hash) with a uint32 offset table for O(1) lookup. `entry_type` is 0=content or 2=metadata_ref. Redirects (value 1 is reserved for in-memory dispatch) live in the REDIRECT_TABLE section as 5-byte records.
 - **MIME table:** Length-prefixed strings. Index 0=text/html, 1=text/css, 2=application/javascript.
 - **Content:** Chunks with per-chunk compression. Zstd level 19 for text, uncompressed for images.
 - **Indexes:** Path and title indexes with offset tables for binary search.

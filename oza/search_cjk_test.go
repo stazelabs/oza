@@ -18,12 +18,12 @@ func TestCJKQueryGrams(t *testing.T) {
 
 		// CJK characters are 3 bytes each in UTF-8.
 		// Each produces a unigram; adjacent pairs produce bigrams.
-		{name: "single CJK", input: "日", want: 1},                   // unigram only
-		{name: "two CJK", input: "日本", want: 3},                     // 2 unigrams + 1 bigram
-		{name: "three CJK", input: "日本語", want: 5},                  // 3 unigrams + 2 bigrams
-		{name: "mixed CJK+Latin", input: "日本abc", want: 4},          // 2 unigrams + 1 bigram + 1 ASCII trigram
-		{name: "Latin+CJK", input: "abcde日本", want: 6},              // 3 ASCII trigrams + 2 unigrams + 1 bigram
-		{name: "CJK separated by Latin", input: "日abc本", want: 3},   // 2 unigrams + 1 ASCII trigram, no bigram (not adjacent)
+		{name: "single CJK", input: "日", want: 1},                 // unigram only
+		{name: "two CJK", input: "日本", want: 3},                   // 2 unigrams + 1 bigram
+		{name: "three CJK", input: "日本語", want: 5},                // 3 unigrams + 2 bigrams
+		{name: "mixed CJK+Latin", input: "日本abc", want: 4},        // 2 unigrams + 1 bigram + 1 ASCII trigram
+		{name: "Latin+CJK", input: "abcde日本", want: 6},            // 3 ASCII trigrams + 2 unigrams + 1 bigram
+		{name: "CJK separated by Latin", input: "日abc本", want: 3}, // 2 unigrams + 1 ASCII trigram, no bigram (not adjacent)
 
 		// Korean (Hangul) is also CJK range.
 		{name: "Korean", input: "한국어", want: 5}, // 3 unigrams + 2 bigrams
