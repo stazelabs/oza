@@ -167,17 +167,17 @@ func TestValidateMetadataStrictMissingKey(t *testing.T) {
 
 func TestValidateMetadataStrictBadFaviconEntry(t *testing.T) {
 	m := makeTestMetadata()
-	m["favicon_entry"] = []byte("not-a-number")
+	m["favicon_entry"] = []byte("")
 	if errs := ValidateMetadataStrict(m); !hasErrKey(errs, "favicon_entry") {
-		t.Fatal("expected error for bad favicon_entry")
+		t.Fatal("expected error for empty favicon_entry")
 	}
 }
 
 func TestValidateMetadataStrictValidFaviconEntry(t *testing.T) {
 	m := makeTestMetadata()
-	m["favicon_entry"] = []byte("42")
+	m["favicon_entry"] = []byte("favicon.png")
 	if errs := ValidateMetadataStrict(m); len(errs) != 0 {
-		t.Fatalf("expected no errors, got %v", errs)
+		t.Fatalf("expected no errors for path-string favicon_entry, got %v", errs)
 	}
 }
 

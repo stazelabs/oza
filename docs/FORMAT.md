@@ -360,7 +360,7 @@ Per pair:
 **Required keys:** `title`, `language` (BCP-47), `creator`, `date` (ISO 8601), `source`.
 
 **Optional well-known keys:** `description`, `long_description`, `license` (SPDX),
-`favicon_entry` (uint32 entry ID), `main_entry` (entry path string — any non-empty UTF-8; existence is checked by the reader via `EntryByPath`), `article_count`,
+`favicon_entry` (entry path string — same lookup mechanism as `main_entry`; existence is checked by the reader via `EntryByPath`), `main_entry` (entry path string — any non-empty UTF-8; existence is checked by the reader via `EntryByPath`), `article_count`,
 `scraper` (tool name + version), `catalog` (JSON array, see below).
 
 **Catalog metadata.** Archives that bundle multiple logical items (e.g. a book

@@ -401,7 +401,7 @@ Added `Entry.WriteTo(w io.Writer)` (zero-copy via `readBlobSlice`) and
 
 Added `ValidateMetadataStrict` in `oza/metadata.go` that checks value formats beyond
 presence: `date` must be ISO 8601, `language` must be BCP-47, string keys must be
-non-empty valid UTF-8, `favicon_entry`/`main_entry` must be decimal uint32. Returns
+non-empty valid UTF-8, `favicon_entry` and `main_entry` must be non-empty path strings. Returns
 all issues as `[]ValidationError`. Writer enforces strict validation by default via
 `StrictMetadata` option (default true); reader stays tolerant.
 
