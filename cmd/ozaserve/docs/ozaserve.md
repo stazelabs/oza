@@ -19,6 +19,8 @@ OZA files can be specified as positional arguments, via `--dir`, or both.
 | `--dir` | `-d` | | Directory of OZA files to serve (repeatable) |
 | `--recursive` | `-r` | `false` | Scan `--dir` directories recursively |
 | `--no-info` | | `false` | Disable all `/-/info` pages and hide the info icon in the library index |
+| `--info-token` | | | Require this bearer token on every `/_info` and `/-/info` request (`Authorization: Bearer <token>` or `?token=<token>`). When unset, info pages are publicly readable unless `--no-info` is set |
+| `--log-requests` | | `false` | Emit one structured JSON access-log line per HTTP request (method, path, status, duration, bytes) to stderr |
 | `--mcp` | | `false` | Enable MCP server on stdio (runs HTTP + MCP simultaneously) |
 
 ### Examples
