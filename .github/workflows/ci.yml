@@ -86,9 +86,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Use cmd/go.mod's higher Go version (1.25+) so the auto-toolchain
+      # dance triggered by the cmd module's go directive doesn't need to
+      # download a different toolchain mid-test. The downloaded toolchain's
+      # covdata tool was failing to resolve for cmd packages with no
+      # _test.go files (ozacmp, ozamcp).
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: cmd/go.mod
           cache: true
 
       - name: Generate library coverage report
