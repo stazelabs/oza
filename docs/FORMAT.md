@@ -8,6 +8,14 @@ File extension: `.oza`
 
 ---
 
+## Conformance
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be
+interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+---
+
 ## 1. Why Redesign ZIM?
 
 The ZIM format has served the offline content community since 2007. Billions of articles
@@ -175,7 +183,7 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 56 | 4 | `flags` | Bit flags (see below) |
 | 60 | 4 | `redirect_count` | Number of redirect entries |
 | 64 | 4 | `front_article_count` | Number of front-article entries (content + redirect) |
-| 68 | 60 | `reserved` | Must be zero |
+| 68 | 60 | `reserved` | MUST be zero |
 
 **Flags:**
 
@@ -184,7 +192,7 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 0 | `has_search` | Search section present |
 | 1 | `has_chrome` | Chrome section present |
 | 2 | `has_signatures` | Signature section present |
-| 3-31 | -- | Reserved (must be zero; readers ignore unknown flags) |
+| 3-31 | -- | Reserved (MUST be zero; readers ignore unknown flags) |
 
 ### 3.3 Section Table
 
@@ -198,9 +206,9 @@ Each section descriptor is **80 bytes**:
 | 16 | 8 | `compressed_size` | On-disk size |
 | 24 | 8 | `uncompressed_size` | Decompressed size |
 | 32 | 1 | `compression` | 0=none, 1=zstd, 2=zstd+dict, 3=brotli |
-| 33 | 3 | `reserved` | Must be zero |
+| 33 | 3 | `reserved` | MUST be zero |
 | 36 | 4 | `dict_id` | Dictionary ID (0 if none) |
-| 40 | 8 | `reserved2` | Must be zero |
+| 40 | 8 | `reserved2` | MUST be zero |
 | 48 | 32 | `sha256` | SHA-256 of compressed section bytes |
 
 **Section types:**
@@ -247,7 +255,7 @@ Per pair:
 `scraper` (tool name + version), `catalog` (JSON array, see below).
 
 **Catalog metadata.** Archives that bundle multiple logical items (e.g. a book
-collection) may set `catalog` to a JSON array of item descriptors. Each element
+collection) MAY set `catalog` to a JSON array of item descriptors. Each element
 is an object with the following fields:
 
 | Field      | Type   | Description                                        |
@@ -358,9 +366,9 @@ as a type tag, each namespace is capped at 2,147,483,647 entries (2³¹ − 1):
 | Redirect entries | 2,147,483,647 |
 
 This exceeds any foreseeable archive size (Wikipedia ~6 M articles as of 2026) and is
-not expected to be a practical constraint. However, implementations **must** reject
+not expected to be a practical constraint. However, implementations **MUST** reject
 archives whose `entry_count` field or redirect table `count` field exceeds this limit,
-and writers **must** return an error rather than silently wrap the ID space.
+and writers **MUST** return an error rather than silently wrap the ID space.
 
 At Wikipedia scale (~10 M redirects), this saves ~350 MB compared to storing redirects
 as 40-byte entry records.
@@ -498,7 +506,7 @@ types are skipped." Two distinct types are self-describing. An old reader skips 
 gracefully. Section-level flags would require every reader to understand the flag scheme.
 
 **Why front articles only?** The `is_front_article` entry flag is the authoritative
-marker for user-visible content. CSS, JS, images, and internal resources should never
+marker for user-visible content. CSS, JS, images, and internal resources SHOULD NOT
 appear in search results.
 
 ### 4.3 Wire Format (v1)
@@ -572,7 +580,7 @@ not improved compression.
 
 ### 4.5.2 Frequency Pruning
 
-Writers may omit trigrams that appear in a high fraction of indexed documents
+Writers MAY omit trigrams that appear in a high fraction of indexed documents
 (default: ≥50%). These trigrams provide negligible selectivity during query
 intersection -- a trigram in every document narrows nothing. Pruning removes
 0.3-8.7% of trigrams by count but 3-16% of uncompressed index bytes, since
@@ -632,8 +640,8 @@ At runtime the reader applies the same character-aligned extraction to the query
 | U+F900–U+FAFF | CJK Compatibility Ideographs |
 
 The `hasCJK` flag is set automatically by `TrigramBuilder` when any CJK rune is
-encountered. Writers must not set bit 0 unless they use character-aligned grams;
-readers must not assume character-aligned grams unless bit 0 is set.
+encountered. Writers MUST NOT set bit 0 unless they use character-aligned grams;
+readers MUST NOT assume character-aligned grams unless bit 0 is set.
 
 ### 4.7 Trade-offs
 
@@ -683,7 +691,7 @@ Excluded: zlib, bzip2, XZ/LZMA.
 
 ### 5.2.1 Image Transcoding
 
-Writers may transcode GIF and PNG content to WebP before storage using external
+Writers MAY transcode GIF and PNG content to WebP before storage using external
 tools from libwebp. This is a pre-storage transform, not a compression step --
 the resulting WebP bytes are stored uncompressed in image chunks (WebP is already
 a compressed format).
@@ -775,7 +783,7 @@ Optional Ed25519 signatures live in a **trailer appended after the 32-byte file
 checksum**, not as an entry in the section table. (The section-type value
 `0x000A` is reserved for historical reasons; readers will never see a
 `SIGNATURES` section in the section table.) This ordering is required: each
-signature signs the file-level SHA-256, so the signatures must come after it on
+signature signs the file-level SHA-256, so the signatures MUST come after it on
 disk.
 
 Trailer layout (variable size; only present when `has_signatures` header flag is set):
@@ -816,7 +824,7 @@ entry.
 
 ### 7.2 Chrome Section
 
-The optional CHROME section contains UI assets that a reader **may** use:
+The optional CHROME section contains UI assets that a reader **MAY** use:
 
 ```
 4 bytes: asset_count
@@ -847,7 +855,7 @@ index.
 
 ### 7.4 Writer Obligations
 
-Writers must produce self-contained HTML:
+Writers MUST produce self-contained HTML:
 - No references to `Special:*` or any CMS-specific URLs
 - No components requiring external JS bundles to render
 - All internal links are relative paths
