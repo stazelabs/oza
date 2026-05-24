@@ -24,7 +24,7 @@ ZIM has served the offline content community since 2007, but its design has aged
 - **Four compression formats** -- readers must carry zlib, bzip2, XZ, and Zstd
 - **Chrome entanglement** -- HTML assumes a specific application shell at runtime
 
-OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](docs/FORMAT.md) for the full specification.
+OZA addresses all of these with a clean-break redesign. See [docs/SPEC.md](docs/SPEC.md) for the full specification.
 
 ## Format Highlights
 

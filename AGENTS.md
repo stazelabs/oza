@@ -6,7 +6,7 @@
 
 - **Module:** `github.com/stazelabs/oza`
 - **Go version:** 1.24+
-- **Format spec:** `docs/FORMAT.md`
+- **Format spec:** `docs/SPEC.md`
 - **Reference project:** `github.com/stazelabs/gozim` (ZIM reader library)
 - **Branding:** 王座 (Japanese: oza, "throne") -- OZA takes the throne as ZIM's successor
 
@@ -52,7 +52,7 @@ oza/
 │   └── zim2oza/             # CLI: ZIM-to-OZA converter (critical tool)
 ├── testdata/                # Test files
 ├── docs/
-│   ├── FORMAT.md            # OZA format specification
+│   ├── SPEC.md              # OZA format specification (canonical)
 │   └── BRANDING.md          # 王座 branding guide
 └── Makefile
 ```
@@ -164,7 +164,7 @@ All v0.1.0 milestones shipped:
 | Ed25519 signatures (signing in ozawrite, verifying in ozaverify --signatures) | ✓ |
 | MCP server (ozamcp standalone, ozaserve --mcp) | ✓ |
 | Adversarial corpus (34 recipes in oza/badoza_test.go) | ✓ |
-| CHROME section (FORMAT.md §7) | **Reserved but not implemented** |
+| CHROME section (SPEC.md §7) | **Reserved but not implemented** |
 | Multi-module repo + pkg.go.dev examples | ✓ |
 | Fuzz tests, benchmarks, CI/CD matrix | ✓ |
 

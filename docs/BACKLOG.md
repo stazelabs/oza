@@ -173,7 +173,7 @@ are invisible.
 A CLI tool to "clean" / repack an OZA file. Opportunities: re-optimize compression,
 strip sections, upgrade to a new format version, add/remove signatures.
 
-### 6.2 Chrome section (FORMAT.md §7.2)
+### 6.2 Chrome section (SPEC.md §7.2)
 
 Implement the optional CHROME section:
 - `ozawrite/chrome.go` — `AddChromeAsset(role, name, data)` on Writer

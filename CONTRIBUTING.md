@@ -98,7 +98,7 @@ cmd/              — CLI module (separate go.mod)
   ozakeygen/      — generate Ed25519 signing key pairs
   zim2oza/        — ZIM → OZA converter
 docs/
-  FORMAT.md       — binary format specification
+  SPEC.md         — binary format specification (canonical)
   BACKLOG.md      — known issues, design observations, future work
 ```
 
@@ -106,7 +106,7 @@ docs/
 
 1. `make test-race` must pass.
 2. `make lint` must exit 0 (or new findings must be addressed with a rationale).
-3. Format changes that touch the on-disk binary layout must update `docs/FORMAT.md`.
+3. Format changes that touch the on-disk binary layout must update `docs/SPEC.md`.
 4. New public API must have godoc comments.
 
 There is no CLA. Contributions are accepted under the same license as the project
@@ -114,7 +114,7 @@ There is no CLA. Contributions are accepted under the same license as the projec
 
 ## Spec changes
 
-The format spec lives in `docs/FORMAT.md`. Any change that affects the wire format
+The format spec lives in `docs/SPEC.md`. Any change that affects the wire format
 must be discussed before implementation — even in pre-v1, byte-level compatibility
 between the spec and the Go implementation is a hard requirement. Open an issue or
 start a discussion before sending a spec PR.

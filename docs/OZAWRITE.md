@@ -121,8 +121,11 @@ Close is a multi-phase pipeline:
    are always `text/html` (0), `text/css` (1), `application/javascript` (2),
    regardless of whether any entries use them.
 
-5. **Build entry table** — serialises content entry records (40 bytes each) in
-   ID order. Redirect entries are excluded from the entry table.
+5. **Build entry table** — serialises variable-length content entry records
+   (~15 bytes each on average; `type_and_flags` byte + uvarint
+   `mime_index`/`chunk_id`/`blob_offset`/`blob_size` + fixed 8-byte
+   `content_hash`) preceded by a uint32 offset table for O(1) random access
+   by ID. Redirect entries are excluded from this table.
 
 6. **Build redirect section** — serialises redirect records (5 bytes each:
    1-byte flags + 4-byte target ID) prefixed by a uint32 count. Redirect
@@ -216,10 +219,20 @@ AddEntry. Training triggers when:
 - 2000 HTML samples are collected, OR
 - 4000 total entries are buffered (whichever comes first)
 
-Dictionaries are trained per MIME group (html, css, js, other). Image content
-is excluded from sampling.
+Dictionaries are trained per **chunk group**, not per MIME group. The grouping
+key is `ChunkKey(mimeType, contentLen)` (see `ozawrite/chunk.go`), which combines
+the broad MIME group with a size bucket: non-image entries below
+`smallEntryThreshold` (4 KiB) are routed into a `<group>-small` chunk so they
+share a dictionary trained on similar-sized neighbors. Real groups in flight:
+`html`, `html-small`, `css`, `css-small`, `js`, `js-small`, `other`,
+`other-small`, `image`. Image content is excluded from dictionary sampling
+because precompressed formats benefit nothing from a dictionary.
 
-**Dictionary IDs**: html=1, css=2, js=3, other=4.
+**Dictionary IDs are assigned dynamically** in training order — there is no
+fixed `html=1, css=2, …` scheme. The writer assigns the next available ID
+(starting at 1) to whichever group finishes training first; the assignment is
+recorded once in `Writer.dictIDs[group] = id` and referenced from each chunk
+descriptor's `dict_id` field and from the corresponding `ZSTD_DICT` section.
 
 **Validation**: each trained dictionary is tested with a compress→decompress
 round-trip on up to 5 samples. If any round-trip fails, the dictionary is
@@ -244,7 +257,9 @@ ASCII bytes are lowercased; non-ASCII bytes pass through unchanged. Each
 (trigram, entryID) pair is recorded at most once per IndexEntry call.
 
 The indices are serialised during Close into a binary format with a sorted
-trigram table and delta-encoded posting lists (LEB128 varints).
+trigram table and **serialized roaring bitmaps** as posting lists
+(`RoaringBitmap/roaring/v2` portable format via `bitmap.WriteTo`). See
+`docs/SPEC.md` §4 for the on-disk wire format.
 
 ## Compression details
 
