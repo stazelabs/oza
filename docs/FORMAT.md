@@ -116,6 +116,49 @@ to get an entry index, read the URL pointer list to get a file offset, then read
 directory entry at that offset. This was designed for sequential media; on modern SSDs,
 the indirection just adds latency.
 
+### Versioning Policy
+
+ZIM's history shows the cost of leaving this unstated: extension attempts were made
+inside v5 files using overloaded fields because a major-version bump was seen as too
+disruptive, fragmenting the ecosystem. OZA states its version philosophy before v1
+freezes.
+
+**Two-field version scheme**
+
+OZA archives carry `major_version` and `minor_version` in the file header. The two
+fields have distinct meanings and distinct reader obligations.
+
+**Minor version increments are additive only**
+
+A minor version increment signals a backwards-compatible addition:
+
+- New optional section types (not marked `SECTION_CRITICAL`)
+- New optional metadata keys
+
+A v1 reader MUST NOT reject a v1 archive whose `minor_version` is greater than zero.
+Unknown minor features that are skippable by design do not justify aborting. A reader
+that does not understand a new optional section simply skips it.
+
+**Major version increments signal breaking changes**
+
+A major version increment means a v(N) reader cannot safely open the file without
+explicit adaptation. A v1 reader that encounters `major_version != 1` MUST return
+`ErrUnsupportedVersion`; this applies equally to past values (0) and future values (>1).
+
+**Forward-compatibility obligation**
+
+A v(N+1) reader SHOULD accept v(N) files for at least one full major version. Stating
+this obligation in advance lowers the cost of future major versions and removes the
+incentive to overload fields in the current one — the failure mode ZIM encountered.
+
+**Extension sections across major versions**
+
+Section types `0x0100+` are the extensibility path within any major version. Writers
+MUST set `SECTION_CRITICAL` on extension sections that a reader must understand to open
+the archive correctly, and MUST leave the flag clear when skipping is safe (see §3.3
+for full `SECTION_CRITICAL` semantics). This mechanism is designed to carry forward
+across future major versions.
+
 ---
 
 ## 2. Design Goals
