@@ -2,6 +2,7 @@ package oza_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -926,5 +927,204 @@ func TestVerifyAll(t *testing.T) {
 		if !r.OK {
 			t.Errorf("VerifyAll: tier=%s id=%s FAILED", r.Tier, r.ID)
 		}
+	}
+}
+
+// --- OZA-29: spec-coverage tests ---
+
+func TestArchive_RejectsEntryCountExceedingMax(t *testing.T) {
+	data := buildMinimal(t)
+	c := clone(data)
+	put32(c, 28, 0x80000000) // EntryCount at [28:32] = MaxContentEntries+1
+	path := writeCorrupt(t, c)
+	mustFailOpenWith(t, path, oza.ErrCorruptedSection)
+}
+
+func TestArchive_RejectsRedirectCountExceedingMax(t *testing.T) {
+	data := buildMinimal(t)
+	c := clone(data)
+	put32(c, 60, 0x80000000) // RedirectCount at [60:64] = MaxRedirectEntries+1
+	path := writeCorrupt(t, c)
+	mustFailOpenWith(t, path, oza.ErrCorruptedSection)
+}
+
+func TestArchive_SkipsUnknownSectionType(t *testing.T) {
+	data := buildWithSearch(t)
+	c := clone(data)
+	_, idx := findSection(c, oza.SectionSearchTitle)
+	h := parseHdr(c)
+	put32(c, sectionDescOff(h, idx), 0x9999)
+	path := writeCorrupt(t, c)
+	a, err := oza.OpenWithOptions(path, oza.WithMmap(false))
+	if err != nil {
+		t.Fatalf("archive with unknown section type should open: %v", err)
+	}
+	defer a.Close()
+}
+
+func TestWithMaxBlobSize_Enforced(t *testing.T) {
+	data := buildMinimal(t) // entry 0 has content "<h1>Hello</h1>" (14 bytes)
+	path := writeCorrupt(t, data)
+	a, err := oza.OpenWithOptions(path, oza.WithMmap(false), oza.WithMaxBlobSize(1))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer a.Close()
+	e, err := a.EntryByID(0)
+	if err != nil {
+		t.Fatalf("EntryByID(0): %v", err)
+	}
+	_, err = e.ReadContent()
+	if !errors.Is(err, oza.ErrBlobTooLarge) {
+		t.Fatalf("expected ErrBlobTooLarge, got: %v", err)
+	}
+}
+
+func TestWithMaxDecompressedSize_Enforced(t *testing.T) {
+	data := buildMinimal(t) // zstd-compressed chunk, decompresses to ~14 bytes
+	path := writeCorrupt(t, data)
+	a, err := oza.OpenWithOptions(path, oza.WithMmap(false), oza.WithMaxDecompressedSize(1))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer a.Close()
+	e, err := a.EntryByID(0)
+	if err != nil {
+		t.Fatalf("EntryByID(0): %v", err)
+	}
+	_, err = e.ReadContent()
+	if !errors.Is(err, oza.ErrDecompressedTooLarge) {
+		t.Fatalf("expected ErrDecompressedTooLarge, got: %v", err)
+	}
+}
+
+func TestWithMaxMetadataValueSize_Enforced(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "meta*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3})
+	setRequiredMeta(w)
+	w.SetMetadata("description", string(make([]byte, 1000)))
+	w.AddEntry("index.html", "Index", "text/html", []byte("<h1>ok</h1>"), false)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	_, err = oza.OpenWithOptions(f.Name(), oza.WithMmap(false), oza.WithMaxMetadataValueSize(100))
+	if !errors.Is(err, oza.ErrMetadataValueTooLarge) {
+		t.Fatalf("expected ErrMetadataValueTooLarge, got: %v", err)
+	}
+}
+
+func TestWithVerifyOnOpen_VerifiesAllSections(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "verify*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3})
+	setRequiredMeta(w)
+	w.AddEntry("index.html", "Index", "text/html", []byte("<h1>ok</h1>"), false)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	a, err := oza.OpenWithOptions(f.Name(), oza.WithMmap(false), oza.WithVerifyOnOpen())
+	if err != nil {
+		t.Fatalf("WithVerifyOnOpen on valid archive: %v", err)
+	}
+	defer a.Close()
+}
+
+func TestSearch_QueryLowercased(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "srch*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3, BuildSearch: true})
+	setRequiredMeta(w)
+	w.AddEntry("quantum.html", "Quantum Mechanics", "text/html",
+		[]byte("<html>quantum physics body</html>"), true)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	a, err := oza.OpenWithOptions(f.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	results, err := a.Search("QUANTUM", oza.SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("Search(QUANTUM): %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatal("Search(QUANTUM): expected results for uppercase query, got none")
+	}
+}
+
+func TestSearch_TitleMatchesFirst(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "rank*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3, BuildSearch: true})
+	setRequiredMeta(w)
+	// Entry 0: title contains the unique term, body does not.
+	w.AddEntry("a.html", "Frobnicate Theory", "text/html", []byte("<html>other content here</html>"), true)
+	// Entry 1: title does not, body contains the term.
+	w.AddEntry("b.html", "Another Topic", "text/html", []byte("<html>frobnicate appears in body</html>"), true)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	a, err := oza.OpenWithOptions(f.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	results, err := a.Search("frobnicate", oza.SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("Search: got %d results, want >= 2", len(results))
+	}
+	if !results[0].TitleMatch {
+		t.Error("first result should be a title match, got body-only")
+	}
+}
+
+func TestSearch_EmptyResultsForMissingTerm(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "empty*.oza")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ozawrite.NewWriter(f, ozawrite.WriterOptions{ZstdLevel: 3, BuildSearch: true})
+	setRequiredMeta(w)
+	w.AddEntry("index.html", "Hello World", "text/html", []byte("<h1>hello world</h1>"), true)
+	if err := w.Close(); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	a, err := oza.OpenWithOptions(f.Name(), oza.WithMmap(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if !a.HasSearch() {
+		t.Skip("archive has no search index")
+	}
+	results, err := a.Search("xyznomatches", oza.SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("Search for nonexistent term: got %d results, want 0", len(results))
 	}
 }

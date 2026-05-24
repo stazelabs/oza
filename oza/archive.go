@@ -155,6 +155,12 @@ func (a *Archive) load(verify bool) error {
 		return err
 	}
 	a.hdr = hdr
+	if hdr.EntryCount > uint32(MaxContentEntries) {
+		return fmt.Errorf("oza: entry count %d exceeds maximum %d: %w", hdr.EntryCount, MaxContentEntries, ErrCorruptedSection)
+	}
+	if hdr.RedirectCount > uint32(MaxRedirectEntries) {
+		return fmt.Errorf("oza: redirect count %d exceeds maximum %d: %w", hdr.RedirectCount, MaxRedirectEntries, ErrCorruptedSection)
+	}
 
 	// 1b. Warn on non-zero header reserved bytes (offsets 68-127).
 	{
@@ -333,6 +339,9 @@ func (a *Archive) parseSection(t SectionType, data []byte) error {
 			return fmt.Errorf("oza: redirect table section too short")
 		}
 		a.redirectCount = binary.LittleEndian.Uint32(data[0:4])
+		if a.redirectCount > uint32(MaxRedirectEntries) {
+			return fmt.Errorf("oza: redirect count %d exceeds maximum %d: %w", a.redirectCount, MaxRedirectEntries, ErrCorruptedSection)
+		}
 		a.redirectData = data
 	}
 	// Unknown section types are silently ignored (extensibility).
@@ -479,6 +488,9 @@ func (a *Archive) parseEntryTable(data []byte) error {
 		return fmt.Errorf("oza: entry table too short: %d bytes", len(data))
 	}
 	count := binary.LittleEndian.Uint32(data[0:4])
+	if count > uint32(MaxContentEntries) {
+		return fmt.Errorf("oza: entry count %d exceeds maximum %d: %w", count, MaxContentEntries, ErrCorruptedSection)
+	}
 	recordDataOff := binary.LittleEndian.Uint32(data[4:8])
 
 	offsetTableEnd := EntryTableHeaderSize + int(count)*4

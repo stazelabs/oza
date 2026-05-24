@@ -1156,5 +1156,106 @@ func allRecipes(t *testing.T) []recipe {
 		},
 	})
 
+	// H. Header Resource Exhaustion (count cap enforcement)
+	recipes = append(recipes,
+		recipe{
+			Name:  "H3_EntryCountExceedsMax",
+			Build: buildMinimal,
+			Corrupt: func(data []byte) []byte {
+				c := clone(data)
+				// Header EntryCount at [28:32]; set to MaxContentEntries+1.
+				put32(c, 28, 0x80000000)
+				return c
+			},
+			Check: func(t *testing.T, path string) {
+				mustFailOpenWith(t, path, oza.ErrCorruptedSection)
+			},
+		},
+		recipe{
+			Name:  "H4_RedirectCountExceedsMax",
+			Build: buildMinimal,
+			Corrupt: func(data []byte) []byte {
+				c := clone(data)
+				// Header RedirectCount at [60:64]; set to MaxRedirectEntries+1.
+				put32(c, 60, 0x80000000)
+				return c
+			},
+			Check: func(t *testing.T, path string) {
+				mustFailOpenWith(t, path, oza.ErrCorruptedSection)
+			},
+		},
+	)
+
+	// L. Content / Chunk Attacks (dict)
+	recipes = append(recipes, recipe{
+		Name:  "L4_MissingDict",
+		Build: buildMinimal,
+		Corrupt: func(data []byte) []byte {
+			c := clone(data)
+			s, _ := findSection(c, oza.SectionContent)
+			// First chunk descriptor starts 4 bytes into the CONTENT section.
+			chunkDescStart := int(s.Offset) + 4
+			// DictID at [20:24], Compression at [24].
+			put32(c, chunkDescStart+20, 42) // DictID = 42
+			c[chunkDescStart+24] = oza.CompZstdDict
+			return c
+		},
+		Check: func(t *testing.T, path string) {
+			a, err := oza.OpenWithOptions(path, oza.WithMmap(false))
+			if err != nil {
+				return // open-time rejection is acceptable too
+			}
+			defer a.Close()
+			e, err := a.EntryByID(0)
+			if err != nil {
+				return
+			}
+			_, err = e.ReadContent()
+			if err == nil {
+				t.Fatal("expected ReadContent to fail with missing dict")
+			}
+		},
+	})
+
+	// K. Search Index (CJK flag mismatch — no crash)
+	recipes = append(recipes, recipe{
+		Name:  "K3_TrigramBigramFlagMismatch",
+		Build: buildWithSearch,
+		Corrupt: func(data []byte) []byte {
+			c := clone(data)
+			var s oza.SectionDesc
+			var found bool
+			for _, st := range []oza.SectionType{oza.SectionSearchTitle, oza.SectionSearchBody} {
+				func() {
+					defer func() { recover() }()
+					s, _ = findSection(c, st)
+					found = true
+				}()
+				if found {
+					break
+				}
+			}
+			if !found || s.Compression != oza.CompNone {
+				return c
+			}
+			// Set CJK bigram flag in search section flags field [4:8].
+			off := int(s.Offset) + 4
+			flags := binary.LittleEndian.Uint32(c[off:])
+			flags |= 0x1 // flagCJKBigram
+			binary.LittleEndian.PutUint32(c[off:], flags)
+			return c
+		},
+		Check: func(t *testing.T, path string) {
+			a, err := oza.OpenWithOptions(path, oza.WithMmap(false))
+			if err != nil {
+				return // open failure acceptable
+			}
+			defer a.Close()
+			// Search must not panic regardless of flag mismatch.
+			results, _ := a.Search("hello", oza.SearchOptions{Limit: 10})
+			_ = results
+		},
+	})
+
 	return recipes
 }

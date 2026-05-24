@@ -1,6 +1,9 @@
 package oza
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func makeContentEntry() EntryRecord {
 	return EntryRecord{
@@ -134,6 +137,26 @@ func TestRedirectIDHelpers(t *testing.T) {
 	// Content ID should not be a redirect ID.
 	if IsRedirectID(42) {
 		t.Error("IsRedirectID(42) should be false")
+	}
+}
+
+func TestVarEntryRecord_UvarintBoundaries(t *testing.T) {
+	boundaries := []EntryRecord{
+		// All zeros.
+		{Type: EntryContent, MIMEIndex: 0, ChunkID: 0, BlobOffset: 0, BlobSize: 0, ContentHash: 0},
+		// 1-byte uvarint max (127).
+		{Type: EntryContent, MIMEIndex: 127, ChunkID: 127, BlobOffset: 127, BlobSize: 127, ContentHash: 127},
+		// 2-byte uvarint start (128).
+		{Type: EntryContent, MIMEIndex: 128, ChunkID: 128, BlobOffset: 128, BlobSize: 128, ContentHash: 128},
+		// 2-byte uvarint max (16383).
+		{Type: EntryContent, MIMEIndex: 16383, ChunkID: 16383, BlobOffset: 16383, BlobSize: 16383, ContentHash: 16383},
+		// 3-byte uvarint start (16384).
+		{Type: EntryContent, MIMEIndex: 0, ChunkID: 16384, BlobOffset: 16384, BlobSize: 16384, ContentHash: 16384},
+		// Large uint32 max.
+		{Type: EntryContent, MIMEIndex: 0, ChunkID: 0xFFFFFFFF, BlobOffset: 0xFFFFFFFF, BlobSize: 0xFFFFFFFF, ContentHash: 0xFFFFFFFFFFFFFFFF},
+	}
+	for i, e := range boundaries {
+		testVarEntryRoundTrip(t, fmt.Sprintf("boundary[%d]", i), e)
 	}
 }
 

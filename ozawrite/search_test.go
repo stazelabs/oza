@@ -1,7 +1,10 @@
 package ozawrite
 
 import (
+	"encoding/binary"
 	"testing"
+
+	"github.com/stazelabs/oza/oza"
 )
 
 func TestTrigramBuilder(t *testing.T) {
@@ -105,5 +108,51 @@ func TestTrigramBuilderCJKNoPureASCII(t *testing.T) {
 	flags := uint32(data[4]) | uint32(data[5])<<8 | uint32(data[6])<<16 | uint32(data[7])<<24
 	if flags&1 != 0 {
 		t.Errorf("flags bit 0 should not be set for ASCII-only content (flags=0x%x)", flags)
+	}
+}
+
+func TestTrigramBuilder_FrequencyPruning(t *testing.T) {
+	tb := newTrigramBuilder()
+
+	// Index 1000 docs with shared text — shared trigrams will appear in 1000 docs.
+	// With pruneFreq=0.5 and pruneMinDocs=1000, any trigram in >= 500 docs and >= 1000
+	// total doc appearances is pruned.
+	for i := uint32(0); i < 1000; i++ {
+		tb.IndexEntry(i, []byte("common text across all documents"))
+	}
+	// One extra doc with a rare unique term.
+	tb.IndexEntry(1000, []byte("unique rarity xyz"))
+
+	// Build with pruning enabled.
+	prunedData, err := tb.Build(0.5)
+	if err != nil {
+		t.Fatalf("Build(0.5): %v", err)
+	}
+	prunedCount := binary.LittleEndian.Uint32(prunedData[8:12])
+
+	// Build without pruning for comparison.
+	tb2 := newTrigramBuilder()
+	for i := uint32(0); i < 1000; i++ {
+		tb2.IndexEntry(i, []byte("common text across all documents"))
+	}
+	tb2.IndexEntry(1000, []byte("unique rarity xyz"))
+	unprunedData, err := tb2.Build(0)
+	if err != nil {
+		t.Fatalf("Build(0): %v", err)
+	}
+	unprunedCount := binary.LittleEndian.Uint32(unprunedData[8:12])
+
+	if prunedCount >= unprunedCount {
+		t.Errorf("pruning should reduce trigram count: pruned=%d unpruned=%d", prunedCount, unprunedCount)
+	}
+
+	// The rare term "xyz" should still be searchable.
+	idx, err := oza.ParseTrigramIndex(prunedData)
+	if err != nil {
+		t.Fatalf("ParseTrigramIndex: %v", err)
+	}
+	ids := idx.Search("xyz", 10)
+	if len(ids) == 0 {
+		t.Error("rare trigram xyz should survive pruning")
 	}
 }
