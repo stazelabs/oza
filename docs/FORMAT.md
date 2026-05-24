@@ -259,6 +259,23 @@ Each section descriptor is **80 bytes**:
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
 | 0x0100+ | -- | Reserved for extensions |
 
+**Section cardinality:** Writers MUST NOT produce archives that violate these rules.
+Readers MUST reject archives that do.
+
+| Section | Cardinality | Notes |
+|---------|-------------|-------|
+| METADATA (0x0001) | Exactly once | Required |
+| MIME_TABLE (0x0002) | Exactly once | Required |
+| ENTRY_TABLE (0x0003) | Exactly once | Required |
+| PATH_INDEX (0x0004) | At most once | RECOMMENDED; omission degrades path lookup to a linear scan |
+| TITLE_INDEX (0x0005) | At most once | Optional |
+| CONTENT (0x0006) | Exactly once | Required |
+| REDIRECT_TABLE (0x0007) | At most once | MUST be present if `header.redirect_count > 0`; MUST be absent otherwise |
+| CHROME (0x0009) | At most once | Optional |
+| ZSTD_DICT (0x000B) | Zero or more | One section per dictionary; chunk descriptors reference by `dict_id` |
+| SEARCH_TITLE (0x000C) | At most once | Optional |
+| SEARCH_BODY (0x000D) | At most once | Optional |
+
 **A reader that encounters an unknown section type skips it** using
 `offset + compressed_size`. This is the entire extensibility mechanism -- no TLV nesting,
 no protobuf. Just a flat table with self-describing entries.
