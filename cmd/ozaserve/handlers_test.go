@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -149,8 +150,11 @@ func TestHandleContentHTML(t *testing.T) {
 		t.Errorf("Content-Type = %q, want text/html; charset=utf-8", ct)
 	}
 	csp := resp.Header.Get("Content-Security-Policy")
-	if csp != "sandbox" {
-		t.Errorf("CSP = %q, want sandbox", csp)
+	// HTML content gets the relaxed sandbox that allows scripts/same-origin for
+	// the in-page autocomplete fetch (see handlers.go isHTML branch).
+	const wantCSP = "sandbox allow-forms allow-scripts allow-same-origin"
+	if csp != wantCSP {
+		t.Errorf("CSP = %q, want %q", csp, wantCSP)
 	}
 	if resp.Header.Get("ETag") == "" {
 		t.Error("ETag header missing")
@@ -211,13 +215,20 @@ func TestHandleContentMarkdown(t *testing.T) {
 	if ct != "text/html; charset=utf-8" {
 		t.Errorf("Content-Type = %q, want text/html; charset=utf-8", ct)
 	}
-	if resp.Header.Get("Content-Security-Policy") != "sandbox" {
-		t.Errorf("CSP = %q, want sandbox", resp.Header.Get("Content-Security-Policy"))
+	// Same relaxed CSP as text/html (markdown is rendered to HTML, see
+	// handlers.go isHTML branch).
+	const wantCSP = "sandbox allow-forms allow-scripts allow-same-origin"
+	if got := resp.Header.Get("Content-Security-Policy"); got != wantCSP {
+		t.Errorf("CSP = %q, want %q", got, wantCSP)
 	}
 
-	body := make([]byte, 4096)
-	n, _ := resp.Body.Read(body)
-	bodyStr := string(body[:n])
+	// Response wraps the rendered markdown in a doctype + injected header/footer
+	// bars, so the body is well over 4 KiB; read it all.
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	bodyStr := string(body)
 	if !strings.Contains(bodyStr, "<h1>") {
 		t.Error("rendered HTML missing <h1> heading")
 	}
