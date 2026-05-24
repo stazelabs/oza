@@ -108,7 +108,7 @@ Current resources: `oza://{slug}/metadata`, `oza://{slug}/entry/{id}`.
 
 ### 4.1 Future MCP tools (require new sections)
 
-Mapped to the LLM.md roadmap:
+Mapped to the LLM.md vision (archived at `docs/archive/LLM.md`):
 
 | Tool | Depends On | Purpose |
 |------|-----------|---------|
@@ -122,7 +122,7 @@ Mapped to the LLM.md roadmap:
 
 ### 4.2 AI section implementation priority
 
-From LLM.md, ordered by value and build cost:
+From the archived LLM.md vision (`docs/archive/LLM.md`), ordered by value and build cost:
 
 1. **PLAIN_TEXT (0x0101)** — Foundation. Everything else depends on clean text with
    stable passage boundaries. Medium build cost, critical value.
