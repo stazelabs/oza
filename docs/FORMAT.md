@@ -381,6 +381,20 @@ library page instead of showing a single opaque archive row. The convention is
 converter-agnostic: any tool that bundles multiple items into one archive can
 write a `catalog` key.
 
+**Key namespacing.** The metadata key space is partitioned to prevent collisions between
+the spec-defined vocabulary and community extensions:
+
+- **Unprefixed keys** (e.g. `title`, `language`, `creator`) are reserved for this
+  specification. Writers MUST NOT use unprefixed keys that are not defined here.
+- **Reverse-domain keys** use the form `com.example:key_name`. This is the standard
+  path for vendor- or community-specific metadata:
+  `com.kiwix:scrape_version`, `org.wikimedia:dump_date`.
+- **Short-prefix keys** use the form `prefix:key_name` for well-known vocabularies
+  with broadly accepted short identifiers: `dc:identifier`, `schema:author`.
+
+Writers adding custom keys MUST use a prefixed form. Readers MUST ignore keys with
+unrecognised prefixes rather than failing.
+
 ### 3.5 MIME Table
 
 ```
