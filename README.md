@@ -202,11 +202,10 @@ go run ./cmd/ozamcp archive.oza
 
 Generate an Ed25519 signing keypair. The private key is written as PEM to the
 `--out` target (or stdout if omitted); the public key is printed to **stdout**
-as hex for use with `ozaverify --pubkey`. (When using `--out`, the public-key
-line is the only thing on stdout, making it easy to capture: `PUBKEY=`.)
+as hex (prefixed with `Public key (hex):`) for use with `ozaverify --pubkey`.
 
 ```bash
-# Write private key PEM to signer.key; public key hex on stderr
+# Write private key PEM to signer.key; public key hex printed on stdout
 go run ./cmd/ozakeygen --out signer.key
 
 # Sign an archive at write time (Go):
