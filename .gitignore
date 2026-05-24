@@ -32,3 +32,8 @@ go.work.sum
 *~
 .idea/
 .vscode/
+
+# ash agent shell — per-developer daemon dirs + local config
+.ash/
+cmd/.ash/
+ash.toml
