@@ -47,6 +47,8 @@ Used at the top of `--help` output and verbose mode headers.
 王座 ozasearch v0.1.0
 王座 ozaverify v0.1.0
 王座 zim2oza v0.1.0
+王座 ozamcp v0.1.0
+王座 ozakeygen v0.1.0
 ```
 
 ### ASCII Box (README, docs)
@@ -64,7 +66,7 @@ Used at the top of `--help` output and verbose mode headers.
 - **Error prefix:** `oza:` (e.g., `oza: invalid magic number`)
 - **Package doc:** `// Package oza provides a pure Go implementation for reading OZA archives.`
 - **Go module:** `github.com/stazelabs/oza`
-- **Binary names:** `ozainfo`, `ozacat`, `ozaserve`, `ozasearch`, `ozaverify`, `zim2oza`
+- **Binary names:** `ozainfo`, `ozacat`, `ozaserve`, `ozasearch`, `ozaverify`, `zim2oza`, `ozamcp`, `ozakeygen`
 
 ## Tagline
 

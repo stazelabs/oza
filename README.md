@@ -31,7 +31,7 @@ OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](doc
 | Feature | ZIM | OZA |
 |---------|-----|-----|
 | Header | Fixed 80 bytes, no extensibility | 128 bytes + section table |
-| Entry records | Variable length, 3 pointer indirections | Fixed 40 bytes, O(1) by ID |
+| Entry records | Variable length, 3 pointer indirections | Variable length (~15 B avg), O(1) by ID via offset table |
 | Content size | Must decompress cluster | `blob_size` in every entry |
 | Compression | XZ/Zstd/zlib/bzip2 | Zstd only + dictionaries |
 | Integrity | Single MD5 | SHA-256 at file/section/chunk |
@@ -42,8 +42,19 @@ OZA addresses all of these with a clean-break redesign. See [docs/FORMAT.md](doc
 
 ## Install
 
+The library lives in the `oza` (reader) and `ozawrite` (writer) subpackages:
+
 ```bash
-go get github.com/stazelabs/oza
+go get github.com/stazelabs/oza/oza        # reader
+go get github.com/stazelabs/oza/ozawrite   # writer
+```
+
+Prebuilt CLI binaries are published on the [releases page](https://github.com/stazelabs/oza/releases). To install from source:
+
+```bash
+go install github.com/stazelabs/oza/cmd/ozainfo@latest
+go install github.com/stazelabs/oza/cmd/ozaserve@latest
+# ...etc — see ./cmd/ for the full list
 ```
 
 ## Usage
@@ -83,7 +94,7 @@ func main() {
     }
     fmt.Printf("Content-Type: %s\n", entry.MIMEType())
     fmt.Printf("Size: %d bytes\n", len(data))
-    fmt.Printf("Blob size: %d bytes\n", entry.BlobSize) // no decompression needed
+    fmt.Printf("Blob size: %d bytes\n", entry.Size()) // no decompression needed
 
     // Iterate all front articles
     for e := range a.FrontArticles() {
@@ -160,47 +171,131 @@ go run ./cmd/ozacat -m archive.oza
 
 ### ozasearch
 
-Full-text trigram search:
+Full-text trigram search. By default searches both title and body indices with title matches ranked first:
 
 ```bash
 go run ./cmd/ozasearch archive.oza "quantum mechanics"
+go run ./cmd/ozasearch -l 50 archive.oza "quantum"     # raise result limit (default 20)
+go run ./cmd/ozasearch -t archive.oza "quantum"        # title index only
+go run ./cmd/ozasearch -j archive.oza "quantum"        # JSON output for scripting
 ```
 
 ### ozaverify
 
-Three-tier integrity verification:
+Tiered integrity verification (file → section → entry SHA-256) plus optional Ed25519 signature verification:
 
 ```bash
-# File-level SHA-256 check
+# File-level SHA-256 check (fastest, single-pass)
 go run ./cmd/ozaverify archive.oza
 
-# Full verification (file + section + chunk)
+# Full integrity verification (file + section + entry)
 go run ./cmd/ozaverify --all archive.oza
+
+# Section-level only / entry-level only
+go run ./cmd/ozaverify --sections archive.oza
+go run ./cmd/ozaverify --chunks archive.oza
+
+# Verify Ed25519 signatures against trusted public keys (hex-encoded, repeat for multiple)
+go run ./cmd/ozaverify --signatures --pubkey <hex> archive.oza
+
+# Quiet mode (exit code only, suppresses progress)
+go run ./cmd/ozaverify --quiet --all archive.oza
 ```
 
 ### ozaserve
 
-Serve OZA files over HTTP:
+Serve OZA files over HTTP (and optionally as an MCP server). See [cmd/ozaserve/docs/ozaserve.md](cmd/ozaserve/docs/ozaserve.md) for the full guide.
 
 ```bash
+# Single archive
 go run ./cmd/ozaserve -a :8080 archive.oza
+
+# Directory of archives (each served at its own slug)
+go run ./cmd/ozaserve -a :8080 -d /path/to/archives/
+
+# Recursive directory scan
+go run ./cmd/ozaserve -a :8080 -d /path/to/archives/ -r
+
+# Run as an MCP server alongside HTTP (recommended for AI assistants)
+go run ./cmd/ozaserve -a :8080 -d ./archives/ --mcp
+
+# Tune chunk cache size (entries; default 64)
+go run ./cmd/ozaserve -a :8080 -c 256 archive.oza
+
+# Suppress the /_info page
+go run ./cmd/ozaserve -a :8080 --no-info archive.oza
 ```
 
 ### zim2oza
 
-Convert ZIM files to OZA format:
+Convert ZIM files to OZA format. The default settings target compatibility; pass `--minify` for tighter HTML and adjust `--zstd-level` to trade size for build time.
 
 ```bash
 go run ./cmd/zim2oza wikipedia.zim wikipedia.oza
 
-# With verbose statistics
+# Verbose progress + JSON statistics
 go run ./cmd/zim2oza --verbose wikipedia.zim wikipedia.oza
+go run ./cmd/zim2oza --json-stats stats.json wikipedia.zim wikipedia.oza
 
 # Dry run (analyze without writing)
 go run ./cmd/zim2oza --dry-run wikipedia.zim
 
-# Control parallel compression (default: number of CPUs)
-go run ./cmd/zim2oza --compress-workers 4 wikipedia.zim wikipedia.oza
+# Compression tuning
+go run ./cmd/zim2oza --zstd-level 19 --minify wikipedia.zim wikipedia.oza
+go run ./cmd/zim2oza --no-dict wikipedia.zim wikipedia.oza           # skip dictionary training
+go run ./cmd/zim2oza --no-search wikipedia.zim wikipedia.oza         # skip trigram indices
+go run ./cmd/zim2oza --no-optimize-images wikipedia.zim wikipedia.oza # skip JPEG re-encode
+
+# Parallel compression workers (default: min(NumCPU, 4))
+go run ./cmd/zim2oza --compress-workers 8 wikipedia.zim wikipedia.oza
+
+# Chunk size in MB (default 4)
+go run ./cmd/zim2oza --chunk-size 8 wikipedia.zim wikipedia.oza
+
+# Dictionary training samples per group (default 1000)
+go run ./cmd/zim2oza --dict-samples 2000 wikipedia.zim wikipedia.oza
+
+# pprof CPU profile
+go run ./cmd/zim2oza --profile convert.pprof wikipedia.zim wikipedia.oza
+```
+
+### ozakeygen
+
+Generate Ed25519 keypairs for signing OZA archives. Pair with `ozaverify --signatures` for publisher authentication.
+
+```bash
+# Print private key PEM to stdout (also prints the public key hex on stderr)
+go run ./cmd/ozakeygen
+
+# Write private key to file
+go run ./cmd/ozakeygen --out signer.key
+```
+
+Sign at write time via `ozawrite.WriterOptions.SigningKeys`:
+
+```go
+priv, _ := os.ReadFile("signer.key")  // PEM-decoded to ed25519.PrivateKey
+w := ozawrite.NewWriter(f, ozawrite.WriterOptions{
+    SigningKeys: []ozawrite.SigningKey{{Key: priv, KeyID: 1}},
+})
+```
+
+Verify at read time:
+
+```bash
+go run ./cmd/ozaverify --signatures --pubkey <hex-from-ozakeygen> archive.oza
+```
+
+### ozamcp
+
+Standalone Model Context Protocol server exposing one or more OZA archives as MCP tools (`list_archives`, `search_text`, `read_entry`, `get_entry_info`, `browse_titles`, `get_random`, `get_archive_stats`). For an HTTP-backed alternative that pairs MCP with browseable URLs, use `ozaserve --mcp`. See [docs/OZAMCP.md](docs/OZAMCP.md) for Claude Desktop config.
+
+```bash
+# Serve a directory of archives over MCP stdio (default transport)
+go run ./cmd/ozamcp -d /path/to/archives/
+
+# Recursive scan, larger cache
+go run ./cmd/ozamcp -d /path/to/archives/ -r -c 256
 ```
 
 ## API Overview
@@ -219,31 +314,40 @@ archive.Metadata("title") (string, error)
 archive.Entries() iter.Seq[Entry]
 archive.EntriesByTitle() iter.Seq[Entry]
 archive.FrontArticles() iter.Seq[Entry]
-archive.Search("query", limit) []Entry
+archive.Search(query string, opts SearchOptions) ([]SearchResult, error)
+archive.SearchTitles(query string, opts SearchOptions) ([]SearchResult, error)
+archive.HasSearch() bool
+archive.HasSignatures() bool
 archive.Verify() error
 archive.VerifyAll() ([]VerifyResult, error)
+archive.VerifySignatures(trusted []ed25519.PublicKey) ([]SignatureVerifyResult, error)
 ```
 
 ### Entry
 
 ```go
+entry.ID() uint32
 entry.Path() string
 entry.Title() string
-entry.BlobSize uint32              // content size without decompression
+entry.Size() uint32                  // content size without decompression
 entry.IsRedirect() bool
 entry.IsFrontArticle() bool
 entry.MIMEType() string
+entry.MIMEIndex() uint
 entry.ReadContent() ([]byte, error)  // resolves redirects
+entry.ContentReader() (io.Reader, error)
 entry.Resolve() (Entry, error)       // follow redirect chain
-entry.ContentHash uint64             // truncated SHA-256
 ```
 
 ### Options
 
 ```go
-oza.WithMmap(false)      // disable memory mapping
-oza.WithCacheSize(32)    // chunk cache size (default: 16)
-oza.WithVerifyOnOpen()   // verify section checksums on open
+oza.WithMmap(false)                 // disable memory mapping
+oza.WithCacheSize(32)               // chunk cache size (default: 8)
+oza.WithVerifyOnOpen()              // verify section checksums on open
+oza.WithMaxDecompressedSize(1<<30)  // reject decompressions above this (default: 1 GiB)
+oza.WithMaxBlobSize(256<<20)        // reject blobs above this (default: 256 MiB)
+oza.WithMaxMetadataValueSize(16<<20)// reject metadata values above this (default: 16 MiB)
 ```
 
 ## Benchmarks

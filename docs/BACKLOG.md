@@ -24,10 +24,11 @@ not its successor in spirit.
 - Content-Security-Policy is set on the index page but not on served HTML content.
   Served articles should get `Content-Security-Policy: sandbox` to prevent script
   execution in untrusted HTML.
-- No read timeout on the HTTP server (uses `http.ListenAndServe` defaults).
+- ~~No read timeout on the HTTP server~~ — fixed: `ReadTimeout: 30s`, `WriteTimeout: 60s`,
+  `IdleTimeout: 120s` configured in `cmd/ozaserve/main.go`.
 
-**Fix:** Add `ReadTimeout`, `WriteTimeout`, `IdleTimeout` to the server. Add CSP
-sandbox header to content responses. Consider optional rate limiting middleware.
+**Fix:** Add CSP sandbox header to content responses. Consider optional rate limiting
+middleware.
 
 ---
 
@@ -190,7 +191,8 @@ flags on `zim2oza`.
 
 ### 6.4 Incremental / append mode
 
-See `docs/INCREMENTAL.md`. Optimized rebuild with chunk-level copy. Key methods:
+Tracked in Linear (OZA team) as a four-ticket epic — see archived design doc
+`docs/archive/INCREMENTAL.md`. Optimized rebuild with chunk-level copy; key methods:
 `CopyChunk`, `AddFromArchive`. Estimated 6x speedup for 95%-unchanged Wikipedia.
 
 ### 6.5 Split archives
@@ -301,23 +303,11 @@ info, error pages) are untested. This is the most user-facing surface area.
 Neither `ozamcp` nor `ozaserve` MCP tool handlers have tests. Test each tool with
 valid/invalid inputs, missing archives, boundary conditions.
 
-### 8.3 Concurrent access tests
-
-No tests exercise concurrent `EntryByPath()` / `ReadContent()` / search from multiple
-goroutines. Relevant for validating the thread-safety contract.
-
-**Fix:** Add `TestConcurrentReads` with `testing.T.Parallel()` and `-race` flag.
-
 ### 8.4 Large archive integration test
 
 The test suite uses small synthetic archives. No automated test converts a real ZIM
 file and verifies with `ozaverify --all`. The Makefile has `bench-convert-large` for
 manual runs.
-
-### 8.5 Cross-platform CI
-
-No automated testing on Windows or macOS. The mmap/pread abstraction layer exists but
-is untested in CI.
 
 ---
 

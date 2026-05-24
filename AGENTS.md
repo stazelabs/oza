@@ -18,15 +18,13 @@ oza/
 │   ├── archive.go           # Archive type -- Open, Close, entry lookup, chunk cache
 │   ├── header.go            # 128-byte header parse/serialize
 │   ├── section.go           # 80-byte section descriptors, SectionType enum
-│   ├── entry.go             # 40-byte fixed entry records, EntryType enum
+│   ├── entry.go             # Variable-length entry records (uvarint), 5-byte redirect records, EntryType enum
 │   ├── metadata.go          # Length-prefixed key-value pairs
 │   ├── mime.go              # MIME table (length-prefixed, index 0/1/2 convention)
 │   ├── chunk.go             # Content chunk reading + decompression + blob extraction
 │   ├── compress.go          # Zstd decompression with dictionary support
 │   ├── index.go             # Path/title index binary search
 │   ├── search.go            # Trigram index reader + query algorithm
-│   ├── redirect.go          # Redirect table + chain resolution
-│   ├── chrome.go            # Chrome section reader
 │   ├── signature.go         # Ed25519 signature verification
 │   ├── checksum.go          # SHA-256 at file/section/chunk tiers
 │   ├── io.go                # reader interface (mmap + pread)
@@ -67,7 +65,7 @@ The writer has heavier dependencies (Zstd encoding + dictionary training, ed2551
 
 ### OZA Format vs ZIM
 
-OZA entries are **fixed 40 bytes** with explicit `entry_type`, `blob_size`, and `content_hash`. No variable-length directory entries, no MIME sentinel overloading, no pointer indirection chains. Entry N is at `section_offset + N * 40` -- O(1) access.
+OZA content entries use **variable-length records** (uvarint-encoded mime_index, chunk_id, blob_offset, blob_size, plus a fixed 8-byte content_hash — ~15 bytes average) preceded by a uint32 offset table for O(1) random access by ID. Redirects live in a separate REDIRECT_TABLE section as **5-byte records** (flags + uint32 target_id). Tagged IDs use bit 31 to distinguish content entries from redirects, capping each namespace at 2³¹−1.
 
 Key format differences from ZIM:
 - No namespaces -- flat paths by convention (`Main_Page`, `_res/style.css`)
@@ -99,9 +97,9 @@ Same as gozim: internal `reader` interface with mmap (default on 64-bit) and pre
 
 ## OZA Format Quick Reference
 
-- **Header:** 128 bytes, little-endian. Magic `0x415A4F01`. Version 1.0.
-- **Section table:** 80-byte descriptors. Unknown types skippable via `offset + compressed_size`.
-- **Entry table:** Fixed 40-byte records. `entry_type` field (0=content, 1=redirect, 2=metadata_ref).
+- **Header:** 128 bytes, little-endian. Magic `0x01415A4F` ("OZA\x01" on disk). Version 1.0.
+- **Section table:** 80-byte descriptors. Unknown types skippable via `offset + compressed_size`. Sections themselves may be Zstd-compressed (the writer compresses entry/index/redirect/search sections at level 19).
+- **Entry table:** Variable-length records (`type_and_flags` byte + uvarints for mime/chunk/blob fields + 8-byte content_hash) with a uint32 offset table. `entry_type` is 0=content or 2=metadata_ref. Redirects (1) are not stored here — they live in the REDIRECT_TABLE as 5-byte records.
 - **MIME table:** Length-prefixed strings. Index 0=text/html, 1=text/css, 2=application/javascript.
 - **Content:** Chunks with per-chunk compression. Zstd level 19 for text, uncompressed for images.
 - **Indexes:** Path and title indexes with offset tables for binary search.
@@ -120,11 +118,26 @@ Same as gozim: internal `reader` interface with mmap (default on 64-bit) and pre
 
 ## Dependencies
 
+The repo is split into two Go modules. The reader/writer library has minimal deps; the CLI tools carry the heavier surface.
+
+**Root module (`github.com/stazelabs/oza`):**
+
 | Package | Purpose |
 |---------|---------|
 | `github.com/klauspost/compress` | Zstd encode/decode + dictionary training |
-| `github.com/spf13/cobra` | CLI framework (cmd/ tools only) |
+| `github.com/RoaringBitmap/roaring/v2` | Trigram posting lists |
+| `github.com/tdewolff/minify/v2` + `tdewolff/parse/v2` | HTML/CSS/JS minification (used by ozawrite) |
+
+**cmd module (`github.com/stazelabs/oza/cmd`):**
+
+| Package | Purpose |
+|---------|---------|
+| `github.com/spf13/cobra` | CLI framework |
 | `github.com/stazelabs/gozim` | ZIM reading (zim2oza converter only) |
+| `github.com/modelcontextprotocol/go-sdk` | MCP server (ozamcp, ozaserve --mcp) |
+| `github.com/JohannesKaufmann/html-to-markdown/v2` | HTML → markdown in MCP tools |
+| `github.com/yuin/goldmark` | Markdown rendering |
+| `golang.org/x/net` | HTML parsing |
 
 ## Testing
 
@@ -135,17 +148,27 @@ go test -bench=. ./oza/ ./ozawrite/  # Benchmarks
 make testdata              # Download test files
 ```
 
-## Implementation Phases
+## Status
 
-1. **Format Primitives** -- header, section, entry, metadata, MIME parsing + tests
-2. **Writer** -- ozawrite: AddEntry/AddRedirect/Close, compression, indexes, dedup, checksums
-3. **Reader** -- oza/archive: Open, EntryByPath, ReadContent, chunk cache, iterators
-4. **zim2oza** -- full conversion pipeline, statistics reporting
-5. **Core CLI** -- ozainfo, ozacat, ozaverify
-6. **Search** -- trigram index read/write, ozasearch
-7. **HTTP Server** -- ozaserve
-8. **Advanced** -- Ed25519 signatures, chrome extraction, CJK bigrams
-9. **Polish** -- fuzz tests, benchmarks, CI/CD, v0.1.0
+All v0.1.0 milestones shipped:
+
+| Area | Status |
+|------|--------|
+| Format primitives (header, section, entry, metadata, MIME) | ✓ |
+| Writer (AddEntry/AddRedirect/Close, compression, indexes, dedup, checksums) | ✓ |
+| Reader (Open, EntryByPath, ReadContent, chunk cache, iterators) | ✓ |
+| zim2oza (full conversion + stats) | ✓ |
+| Core CLIs (ozainfo, ozacat, ozaverify) | ✓ |
+| Search (trigram + CJK bigram + ozasearch) | ✓ |
+| HTTP server (ozaserve) | ✓ |
+| Ed25519 signatures (signing in ozawrite, verifying in ozaverify --signatures) | ✓ |
+| MCP server (ozamcp standalone, ozaserve --mcp) | ✓ |
+| Adversarial corpus (34 recipes in oza/badoza_test.go) | ✓ |
+| CHROME section (FORMAT.md §7) | **Reserved but not implemented** |
+| Multi-module repo + pkg.go.dev examples | ✓ |
+| Fuzz tests, benchmarks, CI/CD matrix | ✓ |
+
+Active workstreams are tracked in [docs/BACKLOG.md](docs/BACKLOG.md) and Linear (team: OZA).
 
 <!-- ash:begin -->
 # ash — agent guidance
