@@ -426,6 +426,15 @@ Section layout:
 Entry ID is implicit: the index into the offset table. Uvarints use unsigned LEB128
 encoding (same as Go `encoding/binary.PutUvarint`).
 
+**Entry IDs are transient.** An ID is a build-specific index into the offset table of
+a particular archive build. Monthly rebuilds reassign every ID: entries added, removed,
+or reordered in any position produce entirely different assignments. Applications
+MUST NOT store entry IDs as persistent references across archive versions. The canonical
+persistent identifier for an entry is its NFC-normalised path. Applications that need
+long-term or cross-archive entry references SHOULD use paths, not IDs. (A future
+`STABLE_IDS` section could carry per-entry UUIDs or content-addressed identifiers for
+archives that require stable links.)
+
 Key properties:
 
 - **O(1) access:** Entry N is at `record_data[offset_table[N]]`. One extra indirection
