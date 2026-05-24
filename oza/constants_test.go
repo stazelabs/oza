@@ -3,20 +3,20 @@ package oza
 import "testing"
 
 func TestMagicBytes(t *testing.T) {
-	// Magic = 0x01415A4F stored little-endian produces on-disk bytes "OZA\x01"
-	// (same convention as ZIM: 0x044D495A LE -> "ZIM\x04")
-	const want = uint32(0x01415A4F)
+	// Magic = 0x00415A4F stored little-endian produces on-disk bytes "OZA\x00".
+	// The null byte is the permanent identity sentinel; version is in major_version.
+	const want = uint32(0x00415A4F)
 	if Magic != want {
 		t.Errorf("Magic = 0x%08X, want 0x%08X", Magic, want)
 	}
 }
 
 func TestMagicString(t *testing.T) {
-	// Verify on-disk little-endian layout spells "OZA\x01"
+	// Verify on-disk little-endian layout spells "OZA\x00"
 	m := uint32(Magic)
 	b := [4]byte{byte(m), byte(m >> 8), byte(m >> 16), byte(m >> 24)}
-	if b[0] != 'O' || b[1] != 'Z' || b[2] != 'A' || b[3] != 0x01 {
-		t.Errorf("Magic on-disk bytes = %v, want [O Z A 0x01]", b)
+	if b[0] != 'O' || b[1] != 'Z' || b[2] != 'A' || b[3] != 0x00 {
+		t.Errorf("Magic on-disk bytes = %v, want [O Z A 0x00]", b)
 	}
 }
 

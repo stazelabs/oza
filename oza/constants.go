@@ -3,8 +3,10 @@ package oza
 import "fmt"
 
 const (
-	// Magic is the OZA file magic number: "OZA\x01" stored as a little-endian uint32.
-	Magic = 0x01415A4F
+	// Magic is the OZA file identity sentinel: "OZA\x00" stored as a little-endian uint32.
+	// The null byte is permanent — all future major versions share this magic value.
+	// Version is carried separately in the major_version header field.
+	Magic = 0x00415A4F
 	// HeaderSize is the fixed size of the OZA file header in bytes.
 	HeaderSize = 128
 	// SectionSize is the fixed size of each section descriptor in the section table.

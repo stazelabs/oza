@@ -200,7 +200,7 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0 | 4 | `magic` | `0x01415A4F` ("OZA\x01" on disk, little-endian) |
+| 0 | 4 | `magic` | `0x00415A4F` ("OZA\x00" on disk, little-endian) |
 | 4 | 2 | `major_version` | 1 |
 | 6 | 2 | `minor_version` | 0 |
 | 8 | 16 | `uuid` | Random UUID v4 |
@@ -213,6 +213,12 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 60 | 4 | `redirect_count` | Number of redirect entries |
 | 64 | 4 | `front_article_count` | Number of front-article entries (content + redirect) |
 | 68 | 60 | `reserved` | MUST be zero |
+
+The `magic` field encodes only format identity, never version. The null byte (`\x00`) is
+a permanent sentinel: v2, v3, and all future major versions use the same magic value. A
+reader MUST check `magic` first (identity gate), then `major_version` (version gate). This
+keeps `file(1)`, OS file-type associations, and naive format detectors working correctly
+across all future major versions.
 
 **Flags:**
 
@@ -959,7 +965,7 @@ During transition, a reader detects format by magic number:
 ```go
 func Open(path string) (*Archive, error) {
     // 0x044D495A -> ZIM  ("ZIM\x04" on disk, little-endian)
-    // 0x01415A4F -> OZA  ("OZA\x01" on disk, little-endian)
+    // 0x00415A4F -> OZA  ("OZA\x00" on disk, little-endian)
 }
 ```
 
