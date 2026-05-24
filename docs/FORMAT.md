@@ -175,16 +175,16 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 56 | 4 | `flags` | Bit flags (see below) |
 | 60 | 4 | `redirect_count` | Number of redirect entries |
 | 64 | 4 | `front_article_count` | Number of front-article entries (content + redirect) |
-| 68 | 60 | `reserved` | Must be zero |
+| 68 | 60 | `reserved` | Writers MUST emit zero. Readers MAY surface a warning on non-zero bytes but MUST NOT reject the file (forward-compatibility for future minor versions). |
 
 **Flags:**
 
 | Bit | Name | Meaning |
 |-----|------|---------|
 | 0 | `has_search` | Search section present |
-| 1 | `has_chrome` | Chrome section present |
+| 1 | `has_chrome` | Chrome section present (reserved; see §7) |
 | 2 | `has_signatures` | Signature section present |
-| 3-31 | -- | Reserved (must be zero; readers ignore unknown flags) |
+| 3-31 | -- | Reserved (writers MUST emit zero; readers MUST ignore unknown bits) |
 
 ### 3.3 Section Table
 
@@ -198,10 +198,12 @@ Each section descriptor is **80 bytes**:
 | 16 | 8 | `compressed_size` | On-disk size |
 | 24 | 8 | `uncompressed_size` | Decompressed size |
 | 32 | 1 | `compression` | 0=none, 1=zstd, 2=zstd+dict |
-| 33 | 3 | `reserved` | Must be zero |
+| 33 | 3 | `reserved` | Should be zero; readers may warn but must not reject |
 | 36 | 4 | `dict_id` | Dictionary ID (0 if none) |
-| 40 | 32 | `sha256` | SHA-256 of compressed section bytes |
-| 72 | 8 | `reserved2` | Must be zero |
+| 40 | 8 | `reserved2` | Should be zero; readers may warn but must not reject |
+| 48 | 32 | `sha256` | SHA-256 of on-disk (compressed) section bytes |
+
+**Section bytes are themselves compressible.** The `compression` field applies to the section's on-disk wire bytes, not just to CONTENT chunks. The writer currently applies Zstd level 19 to ENTRY_TABLE, PATH_INDEX, TITLE_INDEX, REDIRECT_TABLE, SEARCH_TITLE, and SEARCH_BODY when the uncompressed payload is ≥ 256 bytes; METADATA and MIME_TABLE are stored uncompressed. `sha256` is computed over the bytes that actually appear on disk.
 
 **Section types:**
 
@@ -214,9 +216,10 @@ Each section descriptor is **80 bytes**:
 | 0x0005 | TITLE_INDEX | Title lookup index |
 | 0x0006 | CONTENT | Content chunks |
 | 0x0007 | REDIRECT_TABLE | Redirect mappings |
-| 0x0009 | CHROME | UI/navigation assets |
+| 0x0008 | -- | Reserved (unassigned; readers must treat as unknown and skip) |
+| 0x0009 | CHROME | UI/navigation assets (reserved; not yet implemented — see §7) |
 | 0x000A | SIGNATURES | Cryptographic signatures |
-| 0x000B | ZSTD_DICT | Shared Zstd dictionaries |
+| 0x000B | ZSTD_DICT | Shared Zstd dictionaries (one section per dictionary) |
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
 | 0x0100+ | -- | Reserved for extensions |
@@ -243,7 +246,8 @@ Per pair:
 
 **Optional well-known keys:** `description`, `long_description`, `license` (SPDX),
 `favicon_entry` (uint32 entry ID), `main_entry` (uint32 entry ID), `article_count`,
-`scraper` (tool name + version).
+`scraper` (tool name + version), `chunk_target_size` (writer-recorded target chunk
+size in bytes; auto-injected by the reference writer when not set explicitly).
 
 ### 3.5 MIME Table
 
@@ -278,12 +282,21 @@ Section layout:
                                 relative to record_data_offset
 
   Per record (variable length, ~15 bytes average):
-    uint8   type_and_flags      Bits 0-3: entry_type (0=content, 2=metadata_ref)
-                                Bits 4-7: flags (bit 4 = is_front_article)
-    uvarint mime_index          Index into MIME table
+    uint8   type_and_flags      Low nibble (bits 0-3): entry_type
+                                    0 = content
+                                    2 = metadata_ref
+                                    (value 1 is reserved as the in-memory "redirect"
+                                     dispatch marker used by reader APIs and must never
+                                     appear on disk; redirects live in REDIRECT_TABLE.)
+                                High nibble (bits 4-7): entry flags
+                                    bit 4 of type_and_flags (= bit 0 of flags nibble)
+                                          = is_front_article
+                                    other flag bits are reserved (writers MUST set zero;
+                                    readers MUST ignore unknown flag bits)
+    uvarint mime_index          Index into MIME table (must fit uint16; see §3.5)
     uvarint chunk_id            Content chunk ID
     uvarint blob_offset         Byte offset within decompressed chunk
-    uvarint blob_size           Decompressed content size in bytes
+    uvarint blob_size           Decompressed content size in bytes (must fit uint32)
     uint64  content_hash        Truncated SHA-256 (first 8 bytes, LE)
 ```
 
@@ -343,38 +356,95 @@ as 40-byte entry records.
 
 ### 3.7 Path Index
 
-Front-coded index sorted by path for binary search. Uses the IDX1 format with
-restart blocks every 64 entries for efficient random access.
+Sorted-by-path index for binary search. Uses the **IDX1 wire format**: front-coded
+restart blocks every 64 entries, with a per-section shared **string table** that
+holds frequently-repeated path components.
 
 ```
-Header (16 + restart_count * 4 bytes):
+Header (24 + restart_count * 4 bytes):
   4 bytes: magic (0x49445831 = "IDX1" little-endian)
-  4 bytes: count (total number of entries)
+  4 bytes: count (total number of entries; 0 is legal — empty index)
   4 bytes: restart_interval (64)
   4 bytes: restart_count
-  restart_count * 4 bytes: restart_offsets (byte offset from section start)
+  4 bytes: string_table_count (number of strings in the shared table)
+  4 bytes: string_table_size  (byte length of the serialized string table)
+  restart_count * 4 bytes: restart_offsets (byte offset from section start
+                           to each restart record)
 
-Records (front-coded within restart blocks):
+String table (immediately after restart_offsets, string_table_size bytes):
+  Per entry:
+    uint16 string_length
+    string_length bytes: UTF-8 token bytes
 
-  Restart record (first in each block of 64):
+  Tokens are stored sorted by descending frequency (most common first), so
+  high-frequency tokens get low table indices. The table is capped at 65534
+  entries; index 0xFFFF is reserved as the "no table entry" sentinel for
+  inline tuples (see below). A writer may keep the table empty
+  (string_table_count = 0, string_table_size = 0) when no token clears the
+  inclusion threshold.
+
+Records (immediately after the string table):
+
+  Restart record (first in each block of restart_interval):
     4 bytes: entry_id
-    2 bytes: key_length
-    key_length bytes: full key (UTF-8, NFC)
+    1 byte:  token_count
+    token_count tuples (see below)
 
-  Non-restart record:
+  Non-restart record (the other restart_interval-1 in each block):
     4 bytes: entry_id
-    2 bytes: prefix_length (bytes shared with previous key)
-    2 bytes: suffix_length
-    suffix_length bytes: suffix bytes
+    2 bytes: prefix_length (bytes shared with previous key in the block)
+    1 byte:  token_count   (tokens encoding the suffix after prefix_length)
+    token_count tuples
+
+  Tuple (4-byte header + optional inline literal):
+    2 bytes: table_index    — index into the string table, or 0xFFFF for inline
+    2 bytes: literal_length — bytes that follow; MUST be 0 when
+                              table_index < 0xFFFF
+    literal_length bytes    : inline UTF-8 token bytes (present only when
+                              table_index == 0xFFFF)
+
+  A restart record's key is the concatenation of its tuple values. A
+  non-restart record's key is
+      prev_key[:prefix_length] + concatenation_of_tuple_values
+  where prev_key is the immediately-preceding record's reconstructed key.
 ```
 
-**No namespaces.** Paths are flat: `Main_Page`, `_res/style.css`, `_meta/Title`.
-Content organization is by convention (path prefix), not by format-level namespace.
+**Tokenization.** Path keys are tokenized on the `/` boundary, keeping the
+delimiter as a suffix of each component except the last (`"A/Hello_World"` →
+`["A/", "Hello_World"]`). This lets the shared string table dedup directory-
+prefix tokens like `"A/"` across millions of entries. Tokens are UTF-8 byte
+sequences; no Unicode normalization is performed by the index layer — paths
+are expected to be NFC-normalized by the writer (§3.1).
 
-Binary search uses restart offsets for O(1) block access, then linear scan within the
-block. Overall lookup is O(log(count / 64) + 64) string comparisons.
+**Restart-record decoder warning.** A restart record has no `prefix_length`
+field. Readers must not assume the same per-record header as non-restart
+records — the byte at offset 4 is `token_count`, not the low byte of a
+two-byte `prefix_length`.
+
+**No namespaces.** Paths are flat: `Main_Page`, `_res/style.css`, `_meta/Title`.
+Content organization is by convention (path prefix), not by format-level
+namespace.
+
+**Empty index.** When `count == 0`, the writer emits only the 24-byte header
+(`restart_count = 0`, `string_table_count = 0`, `string_table_size = 0`); no
+records follow.
+
+Binary search uses restart offsets for O(1) block access, then linear scan
+within the block. Overall lookup is O(log(count / restart_interval) +
+restart_interval) string comparisons.
 
 ### 3.8 Title Index
+
+Same IDX1 wire format as the path index (§3.7), with two differences:
+
+- **Sorted by title.** Records are emitted in title-sort order (UTF-8 binary).
+- **Tokenized on space.** Titles use ASCII space (0x20) as the token boundary
+  instead of `/`, so the string table deduplicates whole title words rather
+  than path components.
+
+Entries without an explicit title use their path as the title; the writer
+populates this at creation time.
+
 
 Same IDX1 format as the path index, but sorted by title. Entries without an explicit
 title use their path. The writer populates this at creation time.
@@ -399,15 +469,20 @@ Chunk Table (at section start):
 Each chunk is independently compressed. Each chunk has its own compression type — HTML
 chunks use Zstd level 19, image-only chunks store uncompressed.
 
-Chunk descriptors are sorted by `chunk_id`. Entry records reference chunks by ID;
-`compressed_offset` is relative to the start of the chunk data area (immediately after
-the chunk table).
+**Chunk IDs are dense and zero-based.** `chunk_descs[i].chunk_id == i` for all
+`i ∈ [0, chunk_count)`. Readers MUST reject archives that violate this invariant
+(`ErrChunkTableUnsorted` in the reference implementation). `compressed_offset` is
+relative to the start of the chunk data area (immediately after the chunk table).
+Entry records reference chunks by their dense ID.
 
 **Chunk sizing guidance for writers:**
 - Group entries by MIME type (HTML with HTML, images with images)
 - Target 1-4 MB uncompressed per chunk for text
 - Store large media (video, large images) as single-blob chunks, uncompressed
-- Group small entries (< 1 KB) aggressively to amortize overhead
+- Group small entries aggressively to amortize overhead. The reference writer
+  routes non-image entries below 4 KiB into per-MIME "-small" chunks
+  (`html-small`, `css-small`, `js-small`, `other-small`) so they share a
+  Zstd dictionary trained on similar-sized neighbors.
 
 ### 3.10 Zstd Dictionary Section
 
@@ -598,10 +673,11 @@ over the file for quick verification.
 **Section-level:** SHA-256 of each section's on-disk bytes, stored in the section
 descriptor. Verify any section independently.
 
-**Chunk-level:** Derived from chunk table entries. Pinpoint exactly which chunk is
-corrupted.
+**Entry-level:** Each entry record carries a truncated SHA-256 (first 8 bytes, LE) of
+its uncompressed content (§3.6, `content_hash`). This pinpoints the specific entry
+whose blob doesn't match — finer-grained than the chunk that contains it.
 
-If the file-level check fails, drill into section-level, then chunk-level, to localize
+If the file-level check fails, drill into section-level, then entry-level to localize
 the damage. Compare this to ZIM's single MD5: "something's wrong somewhere."
 
 ### 6.2 Signatures
@@ -634,6 +710,12 @@ Not a format feature, but the spec recommends:
 ---
 
 ## 7. Chrome/UI Separation
+
+> **Status: reserved, not yet implemented.** The section type `0x0009` and the
+> header flag `has_chrome` are reserved in v1 but the reference writer and reader
+> do not emit or parse a chrome section. The format described below is the design
+> target; implementations should ignore any `CHROME` section encountered until the
+> reference implementation lands. Tracked as a follow-up workstream in Linear.
 
 ### 7.1 The Contract
 
