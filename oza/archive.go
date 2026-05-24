@@ -252,7 +252,7 @@ func (a *Archive) loadSection(s SectionDesc) error {
 		if err != nil {
 			return fmt.Errorf("oza: reading section 0x%04x: %w", s.Type, err)
 		}
-		return a.parseSection(s.Type, data)
+		return a.parseSection(s, data)
 	}
 }
 
@@ -278,8 +278,8 @@ func (a *Archive) readSectionData(s SectionDesc) ([]byte, error) {
 }
 
 // parseSection dispatches parsed data to the appropriate field.
-func (a *Archive) parseSection(t SectionType, data []byte) error {
-	switch t {
+func (a *Archive) parseSection(s SectionDesc, data []byte) error {
+	switch s.Type {
 	case SectionMIMETable:
 		types, err := ParseMIMETable(data)
 		if err != nil {
@@ -343,8 +343,13 @@ func (a *Archive) parseSection(t SectionType, data []byte) error {
 			return fmt.Errorf("oza: redirect count %d exceeds maximum %d: %w", a.redirectCount, MaxRedirectEntries, ErrCorruptedSection)
 		}
 		a.redirectData = data
+	default:
+		// Unknown section type. If the writer marked it SECTION_CRITICAL, the
+		// reader must reject rather than silently skip.
+		if s.IsCritical() {
+			return fmt.Errorf("oza: unknown critical section %s: %w", s.Type, ErrUnknownCriticalSection)
+		}
 	}
-	// Unknown section types are silently ignored (extensibility).
 	return nil
 }
 

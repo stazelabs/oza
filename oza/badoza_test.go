@@ -1257,5 +1257,31 @@ func allRecipes(t *testing.T) []recipe {
 		},
 	})
 
+	// P. Section Critical Flag
+	recipes = append(recipes, recipe{
+		Name:  "P4_UnknownCriticalSection",
+		Build: buildMinimal,
+		Corrupt: func(data []byte) []byte {
+			c := clone(data)
+			// Corrupt the last section descriptor in-place: change its type to
+			// an unknown value and set SECTION_CRITICAL (bit 0 of flags).
+			// No bytes are inserted, so existing section offsets remain valid and
+			// all required sections (METADATA, MIME_TABLE, ENTRY_TABLE, CONTENT)
+			// are loaded successfully before the corrupted descriptor is reached.
+			count := binary.LittleEndian.Uint32(c[24:28])
+			if count == 0 {
+				return c
+			}
+			tableOff := binary.LittleEndian.Uint64(c[40:48])
+			lastDescOff := int(tableOff) + int(count-1)*80
+			binary.LittleEndian.PutUint32(c[lastDescOff:], 0xBEEF) // unknown type
+			binary.LittleEndian.PutUint32(c[lastDescOff+4:], 1)    // SECTION_CRITICAL
+			return c
+		},
+		Check: func(t *testing.T, path string) {
+			mustFailOpenWith(t, path, oza.ErrUnknownCriticalSection)
+		},
+	})
+
 	return recipes
 }

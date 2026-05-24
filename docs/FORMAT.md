@@ -236,7 +236,7 @@ Each section descriptor is **80 bytes**:
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
 | 0 | 4 | `section_type` | Enum (see below) |
-| 4 | 4 | `flags` | Section-specific flags |
+| 4 | 4 | `flags` | Section descriptor flags (see below) |
 | 8 | 8 | `offset` | Absolute file offset |
 | 16 | 8 | `compressed_size` | On-disk size |
 | 24 | 8 | `uncompressed_size` | Decompressed size |
@@ -245,6 +245,13 @@ Each section descriptor is **80 bytes**:
 | 36 | 4 | `dict_id` | Dictionary ID (0 if none) |
 | 40 | 8 | `reserved2` | MUST be zero |
 | 48 | 32 | `sha256` | SHA-256 of compressed section bytes |
+
+**Section descriptor flags** (the `flags` field at offset 4):
+
+| Bit | Name | Meaning |
+|-----|------|---------|
+| 0 | `SECTION_CRITICAL` | Reader MUST reject the archive if it does not recognise this section type |
+| 1-31 | -- | Reserved (MUST be zero) |
 
 **Section types:**
 
@@ -282,9 +289,16 @@ Readers MUST reject archives that do.
 | SEARCH_TITLE (0x000C) | At most once | Optional |
 | SEARCH_BODY (0x000D) | At most once | Optional |
 
-**A reader that encounters an unknown section type skips it** using
-`offset + compressed_size`. This is the entire extensibility mechanism -- no TLV nesting,
-no protobuf. Just a flat table with self-describing entries.
+When a reader encounters an unknown section type it checks the `SECTION_CRITICAL` flag
+before deciding how to proceed:
+
+- If `SECTION_CRITICAL` is **clear**: skip using `offset + compressed_size` and continue
+  opening the archive. This is the extensibility path for optional enhancements.
+- If `SECTION_CRITICAL` is **set**: the reader MUST reject the archive with an error.
+  This allows future writers to emit a section that old readers must not silently ignore
+  (for example, a replacement index format that supersedes an optional one).
+
+No TLV nesting, no protobuf. Just a flat table with self-describing entries.
 
 ### 3.4 Metadata Section
 

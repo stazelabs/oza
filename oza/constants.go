@@ -64,6 +64,15 @@ const (
 	FlagHasSignatures = 1 << 2
 )
 
+// Section descriptor flag bits stored in the flags field of each section descriptor.
+const (
+	// SectionFlagCritical (bit 0) signals that a reader which does not recognise
+	// this section type MUST reject the archive rather than silently skipping it.
+	// Writers MUST set this bit on extension sections that a reader must understand
+	// to produce correct output.
+	SectionFlagCritical uint32 = 1 << 0
+)
+
 // SectionType identifies a section in the section table.
 type SectionType uint32
 

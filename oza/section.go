@@ -30,6 +30,10 @@ type SectionDesc struct {
 	SHA256           [32]byte
 }
 
+// IsCritical reports whether the SECTION_CRITICAL flag is set on this descriptor.
+// A reader that does not recognise the section type must reject the archive if this returns true.
+func (s SectionDesc) IsCritical() bool { return s.Flags&SectionFlagCritical != 0 }
+
 // ParseSectionDesc parses a single 80-byte section descriptor from data.
 func ParseSectionDesc(data []byte) (SectionDesc, error) {
 	if len(data) < SectionSize {
