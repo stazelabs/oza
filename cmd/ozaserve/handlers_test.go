@@ -5,79 +5,19 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stazelabs/oza/cmd/internal/testutil"
 	"github.com/stazelabs/oza/oza"
-	"github.com/stazelabs/oza/ozawrite"
 )
-
-// buildTestOZA creates a small OZA archive in a temp file and returns the path.
-func buildTestOZA(t *testing.T, search bool) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "test.oza")
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	opts := ozawrite.WriterOptions{
-		ZstdLevel:   3,
-		TrainDict:   false,
-		BuildSearch: search,
-	}
-	w := ozawrite.NewWriter(f, opts)
-	w.SetMetadata("title", "Test Archive")
-	w.SetMetadata("language", "en")
-	w.SetMetadata("creator", "test")
-	w.SetMetadata("date", "2026-01-01")
-	w.SetMetadata("source", "https://example.com")
-	w.SetMetadata("main_entry", "0")
-
-	if _, err := w.AddEntry("index.html", "Main Page", "text/html",
-		[]byte(`<html><head><title>Main</title></head><body><h1>Main Page</h1><p>Welcome.</p></body></html>`), true); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.AddEntry("articles/alpha.html", "Alpha Article", "text/html",
-		[]byte(`<html><body><h1>Alpha</h1><p>Alpha content about quantum physics.</p></body></html>`), true); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.AddEntry("articles/beta.html", "Beta Article", "text/html",
-		[]byte(`<html><body><h1>Beta</h1><p>Beta content about relativity.</p></body></html>`), true); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.AddEntry("style.css", "Style", "text/css",
-		[]byte(`body { margin: 0; }`), false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.AddEntry("logo.png", "Logo", "image/png",
-		[]byte{0x89, 0x50, 0x4e, 0x47}, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.AddEntry("guide.md", "Guide", "text/markdown",
-		[]byte("# Guide\n\nThis is a **markdown** guide.\n\n## Section\n\nWith a table:\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"), true); err != nil {
-		t.Fatal(err)
-	}
-	// Add a redirect entry.
-	if _, err := w.AddRedirect("old-page.html", "Old Page", 0); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
 
 // newTestLibrary creates a library with a single archive for testing.
 func newTestLibrary(t *testing.T, search bool) (*library, string) {
 	t.Helper()
 	initTemplates()
-	path := buildTestOZA(t, search)
+	path := testutil.BuildTestArchive(t, testutil.WithSearch(search))
 	a, err := oza.OpenWithOptions(path, oza.WithMmap(false))
 	if err != nil {
 		t.Fatal(err)

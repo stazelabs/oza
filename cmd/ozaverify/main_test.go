@@ -27,7 +27,7 @@ func newTestCmd(args ...string) *cobra.Command {
 }
 
 func TestOzaverifySmoke(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path)
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("ozaverify: %v", err)
@@ -35,7 +35,7 @@ func TestOzaverifySmoke(t *testing.T) {
 }
 
 func TestOzaverifySections(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path)
 	cmd.Flags().Set("sections", "true")
 	if err := cmd.Execute(); err != nil {
@@ -44,7 +44,7 @@ func TestOzaverifySections(t *testing.T) {
 }
 
 func TestOzaverifyAll(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path)
 	cmd.Flags().Set("all", "true")
 	if err := cmd.Execute(); err != nil {

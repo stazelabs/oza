@@ -22,7 +22,7 @@ func newTestCmd(args ...string) *cobra.Command {
 }
 
 func TestOzacatList(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path)
 	cmd.Flags().Set("list", "true")
 	if err := cmd.Execute(); err != nil {
@@ -31,7 +31,7 @@ func TestOzacatList(t *testing.T) {
 }
 
 func TestOzacatMeta(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path)
 	cmd.Flags().Set("meta", "true")
 	if err := cmd.Execute(); err != nil {
@@ -40,7 +40,7 @@ func TestOzacatMeta(t *testing.T) {
 }
 
 func TestOzacatExtract(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	cmd := newTestCmd(path, "index.html")
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("ozacat extract: %v", err)

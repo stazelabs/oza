@@ -7,28 +7,28 @@ import (
 )
 
 func TestOzasearchSmoke(t *testing.T) {
-	path := testutil.BuildTestOZA(t, true)
+	path := testutil.BuildTestArchive(t, testutil.WithSearch(true))
 	if err := run(path, "alpha", 10, false, false); err != nil {
 		t.Fatalf("ozasearch: %v", err)
 	}
 }
 
 func TestOzasearchJSON(t *testing.T) {
-	path := testutil.BuildTestOZA(t, true)
+	path := testutil.BuildTestArchive(t, testutil.WithSearch(true))
 	if err := run(path, "alpha", 10, true, false); err != nil {
 		t.Fatalf("ozasearch --json: %v", err)
 	}
 }
 
 func TestOzasearchTitleOnly(t *testing.T) {
-	path := testutil.BuildTestOZA(t, true)
+	path := testutil.BuildTestArchive(t, testutil.WithSearch(true))
 	if err := run(path, "main", 10, false, true); err != nil {
 		t.Fatalf("ozasearch --title-only: %v", err)
 	}
 }
 
 func TestOzasearchNoIndex(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	if err := run(path, "alpha", 10, false, false); err == nil {
 		t.Fatal("expected error for archive without search index")
 	}

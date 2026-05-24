@@ -9,7 +9,7 @@ import (
 )
 
 func TestOzainfoSmoke(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 
 	cmd := exec.Command(os.Args[0], "-test.run=^$") // dummy; we call run() directly
 	_ = cmd                                         // not used; we test run() directly
@@ -20,7 +20,7 @@ func TestOzainfoSmoke(t *testing.T) {
 }
 
 func TestOzainfoJSON(t *testing.T) {
-	path := testutil.BuildTestOZA(t, false)
+	path := testutil.BuildTestArchive(t)
 	jsonOutput = true
 	defer func() { jsonOutput = false }()
 	if err := run(path); err != nil {
