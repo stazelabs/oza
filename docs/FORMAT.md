@@ -960,6 +960,59 @@ Not a format feature, but the spec recommends:
 - Disable JavaScript execution by default
 - Block external resource loading in offline mode
 
+### 6.4 Signature Security Model
+
+The signature trailer's position after the file SHA-256 has deliberate security
+consequences that readers and distribution systems MUST understand.
+
+**Threat model.** OZA signatures authenticate publisher identity; the file SHA-256
+handles integrity. Signatures answer "who vouches for this content?" not "has this file
+been modified?". The security model holds only when trusted public keys are obtained
+through an out-of-band channel.
+
+**Stripping attacks.** An attacker with write access to an OZA file can suppress all
+signatures in two ways:
+
+1. *Flag-clear strip:* clear the `has_signatures` header flag and recompute the 32-byte
+   file SHA-256 (the header is inside the checksum window). This produces a structurally
+   valid, signature-free file. Detection requires an out-of-band known-good hash or a
+   policy that refuses unsigned files.
+
+2. *Count-zero strip:* keep `has_signatures` set but write `signature_count = 0` in the
+   trailer. The trailer lies outside the checksum window, so no SHA-256 recomputation is
+   required. The result is a file that asserts signatures are present but carries none.
+
+To defend against count-zero stripping:
+
+- A reader that requires at least one valid signature MUST NOT treat
+  `has_signatures = 1, signature_count = 0` as a signed file.
+- Distribution systems that require signatures SHOULD verify that at least one signature
+  from a trusted key is present at ingestion.
+- Applications enforcing a strict "must be signed" policy SHOULD reject files where
+  `has_signatures` is set but no signature verifies against a trusted key.
+
+**Appending signatures.** Because the trailer lies outside the checksum window, a mirror
+or aggregator MAY append its own signature without altering the file SHA-256 or any
+existing signature. To do so: increment `signature_count` and append one 128-byte
+signature record (public key, Ed25519 signature over the existing file-level SHA-256,
+key ID, 28 reserved bytes). No change to the header or the checksum is required. This is
+intentional: it allows third-party endorsement after publication.
+
+**Truncation.** If `has_signatures` is set but fewer than 4 bytes follow the file
+SHA-256, the reader MUST treat the file as malformed and refuse to open it.
+
+**Malformed trailer.** If `signature_count` is present but fewer than
+`signature_count × 128` bytes follow it, the reader MUST treat the file as malformed and
+MUST NOT open it.
+
+If `signature_count = 0` and `has_signatures` is set, the trailer is structurally valid
+but carries no signatures; readers MUST NOT treat this state as equivalent to a
+positively-verified file.
+
+Invalid Ed25519 data of correct length is a verification failure, not a format error.
+Readers SHOULD report which signatures verified and which did not; whether to warn,
+refuse, or continue is policy-defined.
+
 ---
 
 ## 7. Chrome/UI Separation
