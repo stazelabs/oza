@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779663361599,
+  "lastUpdate": 1779663641582,
   "repoUrl": "https://github.com/stazelabs/oza",
   "entries": {
     "Benchmark": [
@@ -57946,6 +57946,2640 @@ window.BENCHMARK_DATA = {
           {
             "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
             "value": 7405,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "6634045+cstaszak@users.noreply.github.com",
+            "name": "cstaszak",
+            "username": "cstaszak"
+          },
+          "committer": {
+            "email": "6634045+cstaszak@users.noreply.github.com",
+            "name": "cstaszak",
+            "username": "cstaszak"
+          },
+          "distinct": true,
+          "id": "f91af60ccfeb657a8097a60047c6e8d0ff5ade12",
+          "message": "docs(spec): document signature security model (OZA-68)\n\nAdds §6.4 \"Signature Security Model\" to FORMAT.md covering:\n- Flag-clear and count-zero stripping attacks and reader defenses\n- Mirror signature appending (explicitly permitted, by design)\n- Truncation and malformed-trailer error handling with MUST/SHOULD guidance\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-05-24T15:58:10-07:00",
+          "tree_id": "460bb17252077aadab8a60d5e29658b5c217d1bb",
+          "url": "https://github.com/stazelabs/oza/commit/f91af60ccfeb657a8097a60047c6e8d0ff5ade12"
+        },
+        "date": 1779663641147,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza)",
+            "value": 89134,
+            "unit": "ns/op\t   54177 B/op\t     691 allocs/op",
+            "extra": "13419 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 89134,
+            "unit": "ns/op",
+            "extra": "13419 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - B/op",
+            "value": 54177,
+            "unit": "B/op",
+            "extra": "13419 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 691,
+            "unit": "allocs/op",
+            "extra": "13419 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza)",
+            "value": 88472,
+            "unit": "ns/op\t   54186 B/op\t     691 allocs/op",
+            "extra": "13578 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 88472,
+            "unit": "ns/op",
+            "extra": "13578 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - B/op",
+            "value": 54186,
+            "unit": "B/op",
+            "extra": "13578 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 691,
+            "unit": "allocs/op",
+            "extra": "13578 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza)",
+            "value": 89283,
+            "unit": "ns/op\t   54163 B/op\t     691 allocs/op",
+            "extra": "13399 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 89283,
+            "unit": "ns/op",
+            "extra": "13399 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - B/op",
+            "value": 54163,
+            "unit": "B/op",
+            "extra": "13399 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 691,
+            "unit": "allocs/op",
+            "extra": "13399 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza)",
+            "value": 89236,
+            "unit": "ns/op\t   54192 B/op\t     691 allocs/op",
+            "extra": "13442 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 89236,
+            "unit": "ns/op",
+            "extra": "13442 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - B/op",
+            "value": 54192,
+            "unit": "B/op",
+            "extra": "13442 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 691,
+            "unit": "allocs/op",
+            "extra": "13442 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza)",
+            "value": 89017,
+            "unit": "ns/op\t   54170 B/op\t     691 allocs/op",
+            "extra": "13460 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 89017,
+            "unit": "ns/op",
+            "extra": "13460 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - B/op",
+            "value": 54170,
+            "unit": "B/op",
+            "extra": "13460 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkOpen (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 691,
+            "unit": "allocs/op",
+            "extra": "13460 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza)",
+            "value": 3665,
+            "unit": "ns/op\t    1792 B/op\t     108 allocs/op",
+            "extra": "322468 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 3665,
+            "unit": "ns/op",
+            "extra": "322468 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - B/op",
+            "value": 1792,
+            "unit": "B/op",
+            "extra": "322468 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 108,
+            "unit": "allocs/op",
+            "extra": "322468 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza)",
+            "value": 3668,
+            "unit": "ns/op\t    1792 B/op\t     108 allocs/op",
+            "extra": "312717 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 3668,
+            "unit": "ns/op",
+            "extra": "312717 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - B/op",
+            "value": 1792,
+            "unit": "B/op",
+            "extra": "312717 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 108,
+            "unit": "allocs/op",
+            "extra": "312717 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza)",
+            "value": 3638,
+            "unit": "ns/op\t    1792 B/op\t     108 allocs/op",
+            "extra": "332780 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 3638,
+            "unit": "ns/op",
+            "extra": "332780 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - B/op",
+            "value": 1792,
+            "unit": "B/op",
+            "extra": "332780 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 108,
+            "unit": "allocs/op",
+            "extra": "332780 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza)",
+            "value": 3686,
+            "unit": "ns/op\t    1792 B/op\t     108 allocs/op",
+            "extra": "320107 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 3686,
+            "unit": "ns/op",
+            "extra": "320107 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - B/op",
+            "value": 1792,
+            "unit": "B/op",
+            "extra": "320107 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 108,
+            "unit": "allocs/op",
+            "extra": "320107 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza)",
+            "value": 3675,
+            "unit": "ns/op\t    1792 B/op\t     108 allocs/op",
+            "extra": "322378 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 3675,
+            "unit": "ns/op",
+            "extra": "322378 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - B/op",
+            "value": 1792,
+            "unit": "B/op",
+            "extra": "322378 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPath (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 108,
+            "unit": "allocs/op",
+            "extra": "322378 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza)",
+            "value": 63.99,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "18137301 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 63.99,
+            "unit": "ns/op",
+            "extra": "18137301 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "18137301 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "18137301 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza)",
+            "value": 63.98,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "18591892 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 63.98,
+            "unit": "ns/op",
+            "extra": "18591892 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "18591892 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "18591892 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza)",
+            "value": 63.91,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "18791985 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 63.91,
+            "unit": "ns/op",
+            "extra": "18791985 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "18791985 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "18791985 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza)",
+            "value": 63.97,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "18811812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 63.97,
+            "unit": "ns/op",
+            "extra": "18811812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "18811812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "18811812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza)",
+            "value": 64.73,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "17564026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 64.73,
+            "unit": "ns/op",
+            "extra": "17564026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "17564026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByID (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "17564026 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza)",
+            "value": 138,
+            "unit": "ns/op\t4188.34 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "7457350 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 138,
+            "unit": "ns/op",
+            "extra": "7457350 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4188.34,
+            "unit": "MB/s",
+            "extra": "7457350 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "7457350 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "7457350 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza)",
+            "value": 131.6,
+            "unit": "ns/op\t4390.64 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9025327 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 131.6,
+            "unit": "ns/op",
+            "extra": "9025327 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4390.64,
+            "unit": "MB/s",
+            "extra": "9025327 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9025327 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9025327 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza)",
+            "value": 131.9,
+            "unit": "ns/op\t4381.98 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9225230 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 131.9,
+            "unit": "ns/op",
+            "extra": "9225230 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4381.98,
+            "unit": "MB/s",
+            "extra": "9225230 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9225230 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9225230 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza)",
+            "value": 141,
+            "unit": "ns/op\t4098.44 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "7099594 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 141,
+            "unit": "ns/op",
+            "extra": "7099594 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4098.44,
+            "unit": "MB/s",
+            "extra": "7099594 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "7099594 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "7099594 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza)",
+            "value": 130.6,
+            "unit": "ns/op\t4424.30 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9023894 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 130.6,
+            "unit": "ns/op",
+            "extra": "9023894 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4424.3,
+            "unit": "MB/s",
+            "extra": "9023894 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9023894 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Cached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9023894 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza)",
+            "value": 131.4,
+            "unit": "ns/op\t4400.31 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9091027 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 131.4,
+            "unit": "ns/op",
+            "extra": "9091027 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4400.31,
+            "unit": "MB/s",
+            "extra": "9091027 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9091027 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9091027 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza)",
+            "value": 132.2,
+            "unit": "ns/op\t4371.13 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9052188 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 132.2,
+            "unit": "ns/op",
+            "extra": "9052188 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4371.13,
+            "unit": "MB/s",
+            "extra": "9052188 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9052188 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9052188 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza)",
+            "value": 132.1,
+            "unit": "ns/op\t4376.30 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9065577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 132.1,
+            "unit": "ns/op",
+            "extra": "9065577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4376.3,
+            "unit": "MB/s",
+            "extra": "9065577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9065577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9065577 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza)",
+            "value": 132.6,
+            "unit": "ns/op\t4358.05 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "9021328 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 132.6,
+            "unit": "ns/op",
+            "extra": "9021328 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4358.05,
+            "unit": "MB/s",
+            "extra": "9021328 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "9021328 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "9021328 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza)",
+            "value": 134.7,
+            "unit": "ns/op\t4292.26 MB/s\t     640 B/op\t       1 allocs/op",
+            "extra": "8881051 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 134.7,
+            "unit": "ns/op",
+            "extra": "8881051 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - MB/s",
+            "value": 4292.26,
+            "unit": "MB/s",
+            "extra": "8881051 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - B/op",
+            "value": 640,
+            "unit": "B/op",
+            "extra": "8881051 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContent/Uncached (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "8881051 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza)",
+            "value": 7687,
+            "unit": "ns/op\t   32976 B/op\t       4 allocs/op",
+            "extra": "152634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7687,
+            "unit": "ns/op",
+            "extra": "152634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - B/op",
+            "value": 32976,
+            "unit": "B/op",
+            "extra": "152634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "152634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza)",
+            "value": 7655,
+            "unit": "ns/op\t   32976 B/op\t       4 allocs/op",
+            "extra": "153812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7655,
+            "unit": "ns/op",
+            "extra": "153812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - B/op",
+            "value": 32976,
+            "unit": "B/op",
+            "extra": "153812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "153812 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza)",
+            "value": 7810,
+            "unit": "ns/op\t   32976 B/op\t       4 allocs/op",
+            "extra": "147799 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7810,
+            "unit": "ns/op",
+            "extra": "147799 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - B/op",
+            "value": 32976,
+            "unit": "B/op",
+            "extra": "147799 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "147799 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza)",
+            "value": 7678,
+            "unit": "ns/op\t   32976 B/op\t       4 allocs/op",
+            "extra": "151414 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7678,
+            "unit": "ns/op",
+            "extra": "151414 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - B/op",
+            "value": 32976,
+            "unit": "B/op",
+            "extra": "151414 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "151414 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza)",
+            "value": 7699,
+            "unit": "ns/op\t   32976 B/op\t       4 allocs/op",
+            "extra": "149930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7699,
+            "unit": "ns/op",
+            "extra": "149930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - B/op",
+            "value": 32976,
+            "unit": "B/op",
+            "extra": "149930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerify (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "149930 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza)",
+            "value": 54027,
+            "unit": "ns/op\t  133320 B/op\t     224 allocs/op",
+            "extra": "22173 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 54027,
+            "unit": "ns/op",
+            "extra": "22173 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - B/op",
+            "value": 133320,
+            "unit": "B/op",
+            "extra": "22173 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 224,
+            "unit": "allocs/op",
+            "extra": "22173 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza)",
+            "value": 54300,
+            "unit": "ns/op\t  133320 B/op\t     224 allocs/op",
+            "extra": "21940 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 54300,
+            "unit": "ns/op",
+            "extra": "21940 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - B/op",
+            "value": 133320,
+            "unit": "B/op",
+            "extra": "21940 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 224,
+            "unit": "allocs/op",
+            "extra": "21940 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza)",
+            "value": 53916,
+            "unit": "ns/op\t  133320 B/op\t     224 allocs/op",
+            "extra": "22272 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 53916,
+            "unit": "ns/op",
+            "extra": "22272 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - B/op",
+            "value": 133320,
+            "unit": "B/op",
+            "extra": "22272 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 224,
+            "unit": "allocs/op",
+            "extra": "22272 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza)",
+            "value": 53821,
+            "unit": "ns/op\t  133320 B/op\t     224 allocs/op",
+            "extra": "22360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 53821,
+            "unit": "ns/op",
+            "extra": "22360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - B/op",
+            "value": 133320,
+            "unit": "B/op",
+            "extra": "22360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 224,
+            "unit": "allocs/op",
+            "extra": "22360 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza)",
+            "value": 53819,
+            "unit": "ns/op\t  133320 B/op\t     224 allocs/op",
+            "extra": "22269 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 53819,
+            "unit": "ns/op",
+            "extra": "22269 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - B/op",
+            "value": 133320,
+            "unit": "B/op",
+            "extra": "22269 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVerifyAll (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 224,
+            "unit": "allocs/op",
+            "extra": "22269 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza)",
+            "value": 23171,
+            "unit": "ns/op\t   12144 B/op\t     147 allocs/op",
+            "extra": "49185 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 23171,
+            "unit": "ns/op",
+            "extra": "49185 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12144,
+            "unit": "B/op",
+            "extra": "49185 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 147,
+            "unit": "allocs/op",
+            "extra": "49185 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza)",
+            "value": 22901,
+            "unit": "ns/op\t   12144 B/op\t     147 allocs/op",
+            "extra": "51868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 22901,
+            "unit": "ns/op",
+            "extra": "51868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12144,
+            "unit": "B/op",
+            "extra": "51868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 147,
+            "unit": "allocs/op",
+            "extra": "51868 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza)",
+            "value": 22927,
+            "unit": "ns/op\t   12144 B/op\t     147 allocs/op",
+            "extra": "52038 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 22927,
+            "unit": "ns/op",
+            "extra": "52038 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12144,
+            "unit": "B/op",
+            "extra": "52038 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 147,
+            "unit": "allocs/op",
+            "extra": "52038 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza)",
+            "value": 23021,
+            "unit": "ns/op\t   12144 B/op\t     147 allocs/op",
+            "extra": "51993 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 23021,
+            "unit": "ns/op",
+            "extra": "51993 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12144,
+            "unit": "B/op",
+            "extra": "51993 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 147,
+            "unit": "allocs/op",
+            "extra": "51993 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza)",
+            "value": 22990,
+            "unit": "ns/op\t   12144 B/op\t     147 allocs/op",
+            "extra": "51754 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 22990,
+            "unit": "ns/op",
+            "extra": "51754 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12144,
+            "unit": "B/op",
+            "extra": "51754 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearch (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 147,
+            "unit": "allocs/op",
+            "extra": "51754 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza)",
+            "value": 7698,
+            "unit": "ns/op\t      72 B/op\t       3 allocs/op",
+            "extra": "155474 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7698,
+            "unit": "ns/op",
+            "extra": "155474 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 72,
+            "unit": "B/op",
+            "extra": "155474 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "155474 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza)",
+            "value": 7670,
+            "unit": "ns/op\t      72 B/op\t       3 allocs/op",
+            "extra": "155320 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7670,
+            "unit": "ns/op",
+            "extra": "155320 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 72,
+            "unit": "B/op",
+            "extra": "155320 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "155320 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza)",
+            "value": 7686,
+            "unit": "ns/op\t      72 B/op\t       3 allocs/op",
+            "extra": "156589 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7686,
+            "unit": "ns/op",
+            "extra": "156589 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 72,
+            "unit": "B/op",
+            "extra": "156589 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "156589 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza)",
+            "value": 7686,
+            "unit": "ns/op\t      72 B/op\t       3 allocs/op",
+            "extra": "156291 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7686,
+            "unit": "ns/op",
+            "extra": "156291 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 72,
+            "unit": "B/op",
+            "extra": "156291 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "156291 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza)",
+            "value": 7688,
+            "unit": "ns/op\t      72 B/op\t       3 allocs/op",
+            "extra": "156708 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 7688,
+            "unit": "ns/op",
+            "extra": "156708 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 72,
+            "unit": "B/op",
+            "extra": "156708 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntriesByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 3,
+            "unit": "allocs/op",
+            "extra": "156708 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza)",
+            "value": 19.02,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "62971363 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 19.02,
+            "unit": "ns/op",
+            "extra": "62971363 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "62971363 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "62971363 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza)",
+            "value": 19.04,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "61459335 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 19.04,
+            "unit": "ns/op",
+            "extra": "61459335 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "61459335 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "61459335 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza)",
+            "value": 19.04,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "62555559 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 19.04,
+            "unit": "ns/op",
+            "extra": "62555559 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "62555559 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "62555559 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza)",
+            "value": 19.03,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "63033406 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 19.03,
+            "unit": "ns/op",
+            "extra": "63033406 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "63033406 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "63033406 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza)",
+            "value": 19.02,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "63075219 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 19.02,
+            "unit": "ns/op",
+            "extra": "63075219 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "63075219 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryCountByMIME (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "63075219 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza)",
+            "value": 101.1,
+            "unit": "ns/op\t     576 B/op\t       1 allocs/op",
+            "extra": "10589498 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 101.1,
+            "unit": "ns/op",
+            "extra": "10589498 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 576,
+            "unit": "B/op",
+            "extra": "10589498 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "10589498 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza)",
+            "value": 100.5,
+            "unit": "ns/op\t     576 B/op\t       1 allocs/op",
+            "extra": "11013078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 100.5,
+            "unit": "ns/op",
+            "extra": "11013078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 576,
+            "unit": "B/op",
+            "extra": "11013078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "11013078 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza)",
+            "value": 110,
+            "unit": "ns/op\t     576 B/op\t       1 allocs/op",
+            "extra": "12422661 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 110,
+            "unit": "ns/op",
+            "extra": "12422661 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 576,
+            "unit": "B/op",
+            "extra": "12422661 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "12422661 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza)",
+            "value": 100.1,
+            "unit": "ns/op\t     576 B/op\t       1 allocs/op",
+            "extra": "12357397 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 100.1,
+            "unit": "ns/op",
+            "extra": "12357397 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 576,
+            "unit": "B/op",
+            "extra": "12357397 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "12357397 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza)",
+            "value": 99.96,
+            "unit": "ns/op\t     576 B/op\t       1 allocs/op",
+            "extra": "12382573 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 99.96,
+            "unit": "ns/op",
+            "extra": "12382573 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 576,
+            "unit": "B/op",
+            "extra": "12382573 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkReadContentParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "12382573 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza)",
+            "value": 466.8,
+            "unit": "ns/op\t     493 B/op\t      26 allocs/op",
+            "extra": "2542860 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 466.8,
+            "unit": "ns/op",
+            "extra": "2542860 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 493,
+            "unit": "B/op",
+            "extra": "2542860 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 26,
+            "unit": "allocs/op",
+            "extra": "2542860 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza)",
+            "value": 473.6,
+            "unit": "ns/op\t     493 B/op\t      26 allocs/op",
+            "extra": "2537901 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 473.6,
+            "unit": "ns/op",
+            "extra": "2537901 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 493,
+            "unit": "B/op",
+            "extra": "2537901 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 26,
+            "unit": "allocs/op",
+            "extra": "2537901 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza)",
+            "value": 471,
+            "unit": "ns/op\t     493 B/op\t      26 allocs/op",
+            "extra": "2553408 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 471,
+            "unit": "ns/op",
+            "extra": "2553408 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 493,
+            "unit": "B/op",
+            "extra": "2553408 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 26,
+            "unit": "allocs/op",
+            "extra": "2553408 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza)",
+            "value": 472,
+            "unit": "ns/op\t     493 B/op\t      26 allocs/op",
+            "extra": "2539581 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 472,
+            "unit": "ns/op",
+            "extra": "2539581 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 493,
+            "unit": "B/op",
+            "extra": "2539581 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 26,
+            "unit": "allocs/op",
+            "extra": "2539581 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza)",
+            "value": 467.6,
+            "unit": "ns/op\t     493 B/op\t      26 allocs/op",
+            "extra": "2531114 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 467.6,
+            "unit": "ns/op",
+            "extra": "2531114 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 493,
+            "unit": "B/op",
+            "extra": "2531114 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkEntryByPathParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 26,
+            "unit": "allocs/op",
+            "extra": "2531114 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza)",
+            "value": 118.2,
+            "unit": "ns/op\t     627 B/op\t       1 allocs/op",
+            "extra": "11483641 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 118.2,
+            "unit": "ns/op",
+            "extra": "11483641 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - B/op",
+            "value": 627,
+            "unit": "B/op",
+            "extra": "11483641 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "11483641 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza)",
+            "value": 105.1,
+            "unit": "ns/op\t     627 B/op\t       1 allocs/op",
+            "extra": "11119634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 105.1,
+            "unit": "ns/op",
+            "extra": "11119634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - B/op",
+            "value": 627,
+            "unit": "B/op",
+            "extra": "11119634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "11119634 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza)",
+            "value": 117.9,
+            "unit": "ns/op\t     627 B/op\t       1 allocs/op",
+            "extra": "10499743 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 117.9,
+            "unit": "ns/op",
+            "extra": "10499743 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - B/op",
+            "value": 627,
+            "unit": "B/op",
+            "extra": "10499743 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "10499743 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza)",
+            "value": 105.3,
+            "unit": "ns/op\t     627 B/op\t       1 allocs/op",
+            "extra": "11044666 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 105.3,
+            "unit": "ns/op",
+            "extra": "11044666 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - B/op",
+            "value": 627,
+            "unit": "B/op",
+            "extra": "11044666 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "11044666 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza)",
+            "value": 106.7,
+            "unit": "ns/op\t     627 B/op\t       1 allocs/op",
+            "extra": "11340152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 106.7,
+            "unit": "ns/op",
+            "extra": "11340152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - B/op",
+            "value": 627,
+            "unit": "B/op",
+            "extra": "11340152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCacheThrashing (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "11340152 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza)",
+            "value": 9685,
+            "unit": "ns/op\t   12806 B/op\t     154 allocs/op",
+            "extra": "121700 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 9685,
+            "unit": "ns/op",
+            "extra": "121700 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12806,
+            "unit": "B/op",
+            "extra": "121700 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "121700 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza)",
+            "value": 9726,
+            "unit": "ns/op\t   12806 B/op\t     154 allocs/op",
+            "extra": "123324 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 9726,
+            "unit": "ns/op",
+            "extra": "123324 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12806,
+            "unit": "B/op",
+            "extra": "123324 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "123324 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza)",
+            "value": 9731,
+            "unit": "ns/op\t   12806 B/op\t     154 allocs/op",
+            "extra": "120456 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 9731,
+            "unit": "ns/op",
+            "extra": "120456 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12806,
+            "unit": "B/op",
+            "extra": "120456 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "120456 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza)",
+            "value": 9735,
+            "unit": "ns/op\t   12806 B/op\t     154 allocs/op",
+            "extra": "123092 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 9735,
+            "unit": "ns/op",
+            "extra": "123092 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12806,
+            "unit": "B/op",
+            "extra": "123092 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "123092 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza)",
+            "value": 9829,
+            "unit": "ns/op\t   12806 B/op\t     154 allocs/op",
+            "extra": "118005 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - ns/op",
+            "value": 9829,
+            "unit": "ns/op",
+            "extra": "118005 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - B/op",
+            "value": 12806,
+            "unit": "B/op",
+            "extra": "118005 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkSearchParallel (github.com/stazelabs/oza/oza) - allocs/op",
+            "value": 154,
+            "unit": "allocs/op",
+            "extra": "118005 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite)",
+            "value": 708112,
+            "unit": "ns/op\t 2074567 B/op\t    1209 allocs/op",
+            "extra": "1504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 708112,
+            "unit": "ns/op",
+            "extra": "1504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 2074567,
+            "unit": "B/op",
+            "extra": "1504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 1209,
+            "unit": "allocs/op",
+            "extra": "1504 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite)",
+            "value": 705769,
+            "unit": "ns/op\t 2074565 B/op\t    1209 allocs/op",
+            "extra": "1596 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 705769,
+            "unit": "ns/op",
+            "extra": "1596 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 2074565,
+            "unit": "B/op",
+            "extra": "1596 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 1209,
+            "unit": "allocs/op",
+            "extra": "1596 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite)",
+            "value": 724052,
+            "unit": "ns/op\t 2074563 B/op\t    1209 allocs/op",
+            "extra": "1633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 724052,
+            "unit": "ns/op",
+            "extra": "1633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 2074563,
+            "unit": "B/op",
+            "extra": "1633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 1209,
+            "unit": "allocs/op",
+            "extra": "1633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite)",
+            "value": 721816,
+            "unit": "ns/op\t 2074563 B/op\t    1209 allocs/op",
+            "extra": "1626 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 721816,
+            "unit": "ns/op",
+            "extra": "1626 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 2074563,
+            "unit": "B/op",
+            "extra": "1626 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 1209,
+            "unit": "allocs/op",
+            "extra": "1626 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite)",
+            "value": 699256,
+            "unit": "ns/op\t 2074561 B/op\t    1209 allocs/op",
+            "extra": "1674 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 699256,
+            "unit": "ns/op",
+            "extra": "1674 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 2074561,
+            "unit": "B/op",
+            "extra": "1674 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteSmall (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 1209,
+            "unit": "allocs/op",
+            "extra": "1674 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite)",
+            "value": 50884048,
+            "unit": "ns/op\t37450925 B/op\t  100186 allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 50884048,
+            "unit": "ns/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 37450925,
+            "unit": "B/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 100186,
+            "unit": "allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite)",
+            "value": 52778958,
+            "unit": "ns/op\t37409785 B/op\t  100185 allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 52778958,
+            "unit": "ns/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 37409785,
+            "unit": "B/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 100185,
+            "unit": "allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite)",
+            "value": 52901152,
+            "unit": "ns/op\t37409763 B/op\t  100185 allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 52901152,
+            "unit": "ns/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 37409763,
+            "unit": "B/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 100185,
+            "unit": "allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite)",
+            "value": 52388335,
+            "unit": "ns/op\t37409798 B/op\t  100185 allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 52388335,
+            "unit": "ns/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 37409798,
+            "unit": "B/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 100185,
+            "unit": "allocs/op",
+            "extra": "22 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite)",
+            "value": 52907784,
+            "unit": "ns/op\t37409806 B/op\t  100186 allocs/op",
+            "extra": "21 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 52907784,
+            "unit": "ns/op",
+            "extra": "21 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 37409806,
+            "unit": "B/op",
+            "extra": "21 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteMedium (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 100186,
+            "unit": "allocs/op",
+            "extra": "21 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite)",
+            "value": 147909,
+            "unit": "ns/op\t 443.08 MB/s\t   35697 B/op\t       2 allocs/op",
+            "extra": "7489 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 147909,
+            "unit": "ns/op",
+            "extra": "7489 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - MB/s",
+            "value": 443.08,
+            "unit": "MB/s",
+            "extra": "7489 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 35697,
+            "unit": "B/op",
+            "extra": "7489 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "7489 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite)",
+            "value": 146375,
+            "unit": "ns/op\t 447.73 MB/s\t   32816 B/op\t       2 allocs/op",
+            "extra": "8215 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 146375,
+            "unit": "ns/op",
+            "extra": "8215 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - MB/s",
+            "value": 447.73,
+            "unit": "MB/s",
+            "extra": "8215 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 32816,
+            "unit": "B/op",
+            "extra": "8215 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8215 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite)",
+            "value": 148692,
+            "unit": "ns/op\t 440.75 MB/s\t   32816 B/op\t       2 allocs/op",
+            "extra": "8002 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 148692,
+            "unit": "ns/op",
+            "extra": "8002 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - MB/s",
+            "value": 440.75,
+            "unit": "MB/s",
+            "extra": "8002 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 32816,
+            "unit": "B/op",
+            "extra": "8002 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8002 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite)",
+            "value": 145833,
+            "unit": "ns/op\t 449.39 MB/s\t   32816 B/op\t       2 allocs/op",
+            "extra": "8138 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 145833,
+            "unit": "ns/op",
+            "extra": "8138 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - MB/s",
+            "value": 449.39,
+            "unit": "MB/s",
+            "extra": "8138 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 32816,
+            "unit": "B/op",
+            "extra": "8138 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8138 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite)",
+            "value": 147022,
+            "unit": "ns/op\t 445.76 MB/s\t   32816 B/op\t       2 allocs/op",
+            "extra": "8128 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 147022,
+            "unit": "ns/op",
+            "extra": "8128 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - MB/s",
+            "value": 445.76,
+            "unit": "MB/s",
+            "extra": "8128 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 32816,
+            "unit": "B/op",
+            "extra": "8128 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkCompressChunk (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8128 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite)",
+            "value": 40833,
+            "unit": "ns/op\t  513472 B/op\t      17 allocs/op",
+            "extra": "29455 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 40833,
+            "unit": "ns/op",
+            "extra": "29455 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 513472,
+            "unit": "B/op",
+            "extra": "29455 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 17,
+            "unit": "allocs/op",
+            "extra": "29455 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite)",
+            "value": 41145,
+            "unit": "ns/op\t  513472 B/op\t      17 allocs/op",
+            "extra": "29275 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 41145,
+            "unit": "ns/op",
+            "extra": "29275 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 513472,
+            "unit": "B/op",
+            "extra": "29275 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 17,
+            "unit": "allocs/op",
+            "extra": "29275 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite)",
+            "value": 41101,
+            "unit": "ns/op\t  513472 B/op\t      17 allocs/op",
+            "extra": "29218 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 41101,
+            "unit": "ns/op",
+            "extra": "29218 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 513472,
+            "unit": "B/op",
+            "extra": "29218 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 17,
+            "unit": "allocs/op",
+            "extra": "29218 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite)",
+            "value": 41173,
+            "unit": "ns/op\t  513472 B/op\t      17 allocs/op",
+            "extra": "29070 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 41173,
+            "unit": "ns/op",
+            "extra": "29070 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 513472,
+            "unit": "B/op",
+            "extra": "29070 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 17,
+            "unit": "allocs/op",
+            "extra": "29070 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite)",
+            "value": 41662,
+            "unit": "ns/op\t  513472 B/op\t      17 allocs/op",
+            "extra": "28693 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 41662,
+            "unit": "ns/op",
+            "extra": "28693 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 513472,
+            "unit": "B/op",
+            "extra": "28693 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkTrainDictionary (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 17,
+            "unit": "allocs/op",
+            "extra": "28693 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite)",
+            "value": 10778850,
+            "unit": "ns/op\t 3636419 B/op\t   16254 allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 10778850,
+            "unit": "ns/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 3636419,
+            "unit": "B/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 16254,
+            "unit": "allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite)",
+            "value": 10818606,
+            "unit": "ns/op\t 3636418 B/op\t   16254 allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 10818606,
+            "unit": "ns/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 3636418,
+            "unit": "B/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 16254,
+            "unit": "allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite)",
+            "value": 10821909,
+            "unit": "ns/op\t 3636418 B/op\t   16254 allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 10821909,
+            "unit": "ns/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 3636418,
+            "unit": "B/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 16254,
+            "unit": "allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite)",
+            "value": 10701217,
+            "unit": "ns/op\t 3636418 B/op\t   16254 allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 10701217,
+            "unit": "ns/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 3636418,
+            "unit": "B/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 16254,
+            "unit": "allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite)",
+            "value": 10885581,
+            "unit": "ns/op\t 3636418 B/op\t   16254 allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 10885581,
+            "unit": "ns/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 3636418,
+            "unit": "B/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndex (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 16254,
+            "unit": "allocs/op",
+            "extra": "100 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite)",
+            "value": 204508330,
+            "unit": "ns/op\t52395219 B/op\t   39576 allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 204508330,
+            "unit": "ns/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 52395219,
+            "unit": "B/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 39576,
+            "unit": "allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite)",
+            "value": 206464969,
+            "unit": "ns/op\t52428048 B/op\t   39578 allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 206464969,
+            "unit": "ns/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 52428048,
+            "unit": "B/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 39578,
+            "unit": "allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite)",
+            "value": 206679794,
+            "unit": "ns/op\t52402614 B/op\t   39577 allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 206679794,
+            "unit": "ns/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 52402614,
+            "unit": "B/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 39577,
+            "unit": "allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite)",
+            "value": 205640836,
+            "unit": "ns/op\t52378819 B/op\t   39575 allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 205640836,
+            "unit": "ns/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 52378819,
+            "unit": "B/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 39575,
+            "unit": "allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite)",
+            "value": 206125705,
+            "unit": "ns/op\t52417401 B/op\t   39579 allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 206125705,
+            "unit": "ns/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 52417401,
+            "unit": "B/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkBuildTrigramIndexLarge (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 39579,
+            "unit": "allocs/op",
+            "extra": "5 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite)",
+            "value": 632620568,
+            "unit": "ns/op\t105143964 B/op\t    7423 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 632620568,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 105143964,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 7423,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite)",
+            "value": 633249000,
+            "unit": "ns/op\t105121316 B/op\t    7408 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 633249000,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 105121316,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 7408,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite)",
+            "value": 628424097,
+            "unit": "ns/op\t105121596 B/op\t    7407 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 628424097,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 105121596,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 7407,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite)",
+            "value": 645632304,
+            "unit": "ns/op\t105121764 B/op\t    7409 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 645632304,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 105121764,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 7409,
+            "unit": "allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite)",
+            "value": 639734779,
+            "unit": "ns/op\t105122340 B/op\t    7415 allocs/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - ns/op",
+            "value": 639734779,
+            "unit": "ns/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - B/op",
+            "value": 105122340,
+            "unit": "B/op",
+            "extra": "2 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkWriteWithDict (github.com/stazelabs/oza/ozawrite) - allocs/op",
+            "value": 7415,
             "unit": "allocs/op",
             "extra": "2 times\n4 procs"
           }
