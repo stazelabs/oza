@@ -18,9 +18,27 @@ interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ## 1. Why Redesign ZIM?
 
-The ZIM format has served the offline content community since 2007. Billions of articles
-have been distributed in ZIM files. But after nearly two decades, its design shows its age
-in ways that incremental patches cannot fix.
+The [ZIM format](https://wiki.openzim.org/wiki/OpenZIM) has served the offline content
+community since 2007. Billions of articles have been distributed in ZIM files through the
+Kiwix platform, reaching readers on every continent without an internet connection. That
+track record is a genuine achievement, and OZA is not a rejection of it.
+
+Two decades of deployment at scale are unusually valuable data. They reveal which design
+decisions age well, which become load-bearing hacks, and which simply run out of headroom.
+Redesigning in hindsight is easier than designing from scratch — the failure modes are
+visible, the workarounds are documented, and the cost of each tradeoff is known. OZA
+benefits from that knowledge directly.
+
+The goal is a format that works as a **practical daily driver**: fast path lookup,
+HTTP-range-friendly serving, straightforward to implement in any language without native
+dependencies. It should also hold up as a **long-term archival medium**: localizable
+integrity, stable and well-defined addressing, a version and extension model that can
+evolve without breaking existing readers. Those two purposes reinforce each other — a
+format that is easy to implement correctly gets deployed widely, and wide deployment is
+what makes archival meaningful.
+
+The following sections document where ZIM's design stops short of those goals, and why
+the gaps cannot be closed with incremental patches.
 
 ### The Header Problem
 
