@@ -159,12 +159,6 @@ Implement the optional CHROME section:
 
 Currently `categoryChrome` exists in the converter but entries are skipped.
 
-#### 3.5b SVG minification
-
-GIF→WebP and PNG→WebP transcoding are implemented (see §Completed 3.5/3.16), but SVG
-images are served as-is. Minifying SVG (stripping comments, metadata, editor cruft,
-collapsing whitespace) could yield meaningful savings for icon-heavy archives.
-
 #### 3.6 Incremental / append mode
 
 See `docs/INCREMENTAL.md`. Optimized rebuild with chunk-level copy. Estimated 6x

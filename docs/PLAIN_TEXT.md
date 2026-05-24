@@ -1,5 +1,11 @@
 # PLAIN_TEXT (0x0101) Section — Design & Implementation Plan
 
+> **Status: Design.** No implementation exists in current code (no `SectionPlainText`
+> constant, no `PlainTextBuilder`, no `HasPlainText()`/`PlainText()` reader API).
+> Tracked as a six-ticket epic on Linear (OZA-5 through OZA-10). This document is the
+> source of truth for the wire format and the implementation pipeline until those
+> tickets ship.
+
 ## Context
 
 LLM.md describes PLAIN_TEXT as "The Foundation" — the section everything else depends on. Today, HTML→markdown conversion happens **at runtime** in three separate places:

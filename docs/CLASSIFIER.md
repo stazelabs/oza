@@ -1,5 +1,11 @@
 # CLASSIFIER.md -- Archive Content Classifier
 
+> **Status: Shipped (v0.1).** Implementation: `cmd/internal/classify/`. Surfaced via
+> `ozainfo --classify` (post-load classification on an OZA file) and `zim2oza --auto`
+> (pre-conversion classification on a ZIM, applying per-profile WriterOptions
+> recommendations). This document describes the design that landed; the integration
+> points and decision logic are accurate as of `origin/main` aedabe2.
+
 ## Motivation
 
 OZA archives vary widely in content profile -- Wikipedia articles, Wiktionary dictionaries, Gutenberg books, StackExchange Q&A, TED media, scraped sites. Today, conversion uses fixed defaults for chunk size, compression level, dictionary training, etc. A coarse-grained classifier that detects the archive's content profile enables per-profile strategy defaults, informs a future `ozaclean` tool, and gives users insight into what they're working with.
