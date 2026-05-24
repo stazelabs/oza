@@ -551,6 +551,13 @@ var mimeOverrides = map[string]string{
 	".yml":         "application/yaml",
 	".toml":        "application/toml",
 	".webmanifest": "application/manifest+json",
+	// JavaScript: pin to text/javascript (per RFC 9239) so the value is
+	// consistent across platforms. mime.TypeByExtension returns
+	// "application/javascript" on Windows (registry) but "text/javascript"
+	// on Linux/macOS.
+	".js":  "text/javascript; charset=utf-8",
+	".mjs": "text/javascript; charset=utf-8",
+	".cjs": "text/javascript; charset=utf-8",
 }
 
 func detectMIME(relPath string) string {
