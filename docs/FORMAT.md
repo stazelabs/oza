@@ -803,6 +803,37 @@ readers MUST NOT assume character-aligned grams unless bit 0 is set.
 - **False positives < 5%** for queries longer than 4 characters. Can be eliminated by a
   verification pass against actual content.
 
+### 4.8 Derived-Artifact Semantics
+
+SEARCH_TITLE and SEARCH_BODY are **derived artifacts**: their contents are fully
+determined by the ENTRY_TABLE and CONTENT sections. They carry no primary data that
+cannot be reconstructed.
+
+Consequences for readers and writers:
+
+**Readers MAY regenerate search indices from CONTENT.** If a search section is absent,
+corrupt (section-level checksum fails), or too large for available storage, a reader MAY
+build a fresh index from the ENTRY_TABLE and CONTENT sections. The regenerated index is
+semantically equivalent to the original; no special handling or downgrade warning is
+required.
+
+**Writers of incremental updates SHOULD only re-index changed entries.** When producing
+an updated archive where a subset of entries has changed, a writer SHOULD rebuild only
+the posting-list contributions of modified entries rather than re-indexing the full
+corpus. An entry is considered changed if its `content_hash` differs from the previous
+version. Unchanged entries retain their existing posting lists; the writer merges the
+delta into the existing index.
+
+**On-device index generation.** A reader on constrained storage MAY omit search sections
+entirely when writing a redistributed or stripped archive, and regenerate them locally
+on first use. Implementations SHOULD store externally generated indices separately from
+the archive (e.g., in a sidecar file or local cache) rather than modifying the original
+`.oza` file.
+
+**Repair.** A corrupted SEARCH_TITLE or SEARCH_BODY section does not render an archive
+unreadable. Readers SHOULD fall back to linear scan or absent-index behavior and
+regenerate the section if storage permits.
+
 ---
 
 ## 5. Compression Strategy
