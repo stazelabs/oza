@@ -456,12 +456,13 @@ Key properties:
 - **~60% smaller** than fixed 40-byte records. Average record is ~15 bytes + 4 bytes
   offset table entry = ~19 bytes/entry.
 - **`content_hash`** is xxhash64 of the (transformed) content, stored as a fixed
-  8-byte little-endian uint64. It supports tamper-detection (per-entry verification)
-  and deduplication (identical content hashes share the same chunk/blob). It is
-  **not a cryptographic hash** — file-level and section-level integrity remain
-  SHA-256 (§6.1). The 8-byte size is fixed (not varint) because hash values are
-  uniformly
-  distributed — varint encoding would be worse.
+  8-byte little-endian uint64. It provides **error-detection** against accidental bit
+  corruption (per-entry verification) and deduplication (identical content hashes share
+  the same chunk/blob). xxhash64 is non-cryptographic and trivially forgeable by an
+  adversary; `content_hash` provides **no tamper-resistance**. For tamper-resistance,
+  rely on the file-level and section-level SHA-256 checksums (§6.1). The 8-byte size is
+  fixed (not varint) because hash values are uniformly distributed — varint encoding
+  would be worse.
 - **`blob_size` is in the entry.** HTTP `Content-Length` without decompression.
 - **`is_front_article`** replaces namespace-based heuristics for "is this user-visible?"
 
@@ -902,9 +903,10 @@ over the file for quick verification.
 descriptor. Verify any section independently.
 
 **Entry-level:** Each entry record carries a xxhash64 of its (transformed) content
-in the `content_hash` field (§3.6). xxhash is fast (5-10× SHA-256) and good enough
-for non-cryptographic tamper-detection; combined with the SHA-256 tiers above it
-catches accidental corruption while keeping per-entry verification cheap.
+in the `content_hash` field (§3.6). xxhash is fast (5-10× SHA-256) and provides
+error-detection against accidental bit corruption; it is non-cryptographic and provides
+no tamper-resistance against adversarial modification. For tamper-resistance, rely on
+the SHA-256 tiers above.
 
 If the file-level check fails, drill into section-level, then entry-level to localize
 the damage. Compare this to ZIM's single MD5: "something's wrong somewhere."
