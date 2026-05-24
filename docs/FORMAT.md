@@ -322,7 +322,7 @@ Each section descriptor is **80 bytes**:
 | 0x0007 | REDIRECT_TABLE | Redirect mappings |
 | 0x0008 | — | Reserved (not used in v1) |
 | 0x0009 | CHROME | UI/navigation assets |
-| 0x000A | -- | Reserved (signatures live in a trailer after the file checksum, not in a section; see §6.2) |
+| 0x000A | — | Reserved (not used in v1) |
 | 0x000B | ZSTD_DICT | Shared Zstd dictionaries |
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
@@ -960,9 +960,7 @@ the damage. Compare this to ZIM's single MD5: "something's wrong somewhere."
 ### 6.2 Signatures
 
 Optional Ed25519 signatures live in a **trailer appended after the 32-byte file
-checksum**, not as an entry in the section table. (The section-type value
-`0x000A` is reserved for historical reasons; readers will never see a
-`SIGNATURES` section in the section table.) This ordering is required: each
+checksum**, not as an entry in the section table. This ordering is required: each
 signature signs the file-level SHA-256, so the signatures MUST come after it on
 disk.
 

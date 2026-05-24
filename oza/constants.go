@@ -94,8 +94,7 @@ const (
 	// 0x0008 is reserved and intentionally unused.
 	// SectionChrome is the optional UI/navigation assets section.
 	SectionChrome SectionType = 0x0009
-	// SectionSignatures is the optional Ed25519 signature section.
-	SectionSignatures SectionType = 0x000A
+	// 0x000A is reserved and intentionally unused (signatures are a post-checksum trailer, not a section).
 	// SectionZstdDict is a shared Zstd compression dictionary section.
 	SectionZstdDict SectionType = 0x000B
 	// SectionSearchTitle is the trigram index of front-article titles.
@@ -162,8 +161,6 @@ func (t SectionType) String() string {
 		return "REDIRECT_TABLE"
 	case SectionChrome:
 		return "CHROME"
-	case SectionSignatures:
-		return "SIGNATURES"
 	case SectionZstdDict:
 		return "ZSTD_DICT"
 	case SectionSearchTitle:
