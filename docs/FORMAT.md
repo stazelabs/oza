@@ -151,9 +151,9 @@ the indirection just adds latency.
 +-------------------+
 | Zstd Dictionaries |  Shared compression dictionaries (optional)
 +-------------------+
-| Signatures        |  Ed25519 signatures (optional)
-+-------------------+
 | File Checksum     |  32-byte SHA-256
++-------------------+
+| Signatures        |  Ed25519 signature trailer (optional, see §6.2)
 +-------------------+
 ```
 
@@ -216,7 +216,7 @@ Each section descriptor is **80 bytes**:
 | 0x0007 | REDIRECT_TABLE | Redirect mappings |
 | 0x0008 | — | Reserved (not used in v1) |
 | 0x0009 | CHROME | UI/navigation assets |
-| 0x000A | SIGNATURES | Cryptographic signatures |
+| 0x000A | -- | Reserved (signatures live in a trailer after the file checksum, not in a section; see §6.2) |
 | 0x000B | ZSTD_DICT | Shared Zstd dictionaries |
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
@@ -303,7 +303,7 @@ Section layout:
     uvarint chunk_id            Content chunk ID
     uvarint blob_offset         Byte offset within decompressed chunk
     uvarint blob_size           Decompressed content size in bytes
-    uint64  content_hash        Truncated SHA-256 (first 8 bytes, LE)
+    uint64  content_hash        xxhash64 of the (transformed) content, little-endian
 ```
 
 Entry ID is implicit: the index into the offset table. Uvarints use unsigned LEB128
@@ -315,7 +315,12 @@ Key properties:
   vs fixed-size records, but the offset table stays cache-hot.
 - **~60% smaller** than fixed 40-byte records. Average record is ~15 bytes + 4 bytes
   offset table entry = ~19 bytes/entry.
-- **`content_hash`** is fixed 8 bytes (not varint) because hash values are uniformly
+- **`content_hash`** is xxhash64 of the (transformed) content, stored as a fixed
+  8-byte little-endian uint64. It supports tamper-detection (per-entry verification)
+  and deduplication (identical content hashes share the same chunk/blob). It is
+  **not a cryptographic hash** — file-level and section-level integrity remain
+  SHA-256 (§6.1). The 8-byte size is fixed (not varint) because hash values are
+  uniformly
   distributed — varint encoding would be worse.
 - **`blob_size` is in the entry.** HTTP `Content-Length` without decompression.
 - **`is_front_article`** replaces namespace-based heuristics for "is this user-visible?"
@@ -646,14 +651,23 @@ readers must not assume character-aligned grams unless bit 0 is set.
 
 ## 5. Compression Strategy
 
-### 5.1 Zstd Only
+### 5.1 Zstd (and Brotli)
 
-No zlib. No bzip2. No XZ/LZMA.
+Two codecs are supported. Legacy formats are deliberately excluded.
 
-- Zstd decompresses 5-10x faster than XZ at comparable ratios
-- First-class dictionary support
-- Pure implementations exist in Go, Rust, JavaScript, Python, Java
-- LZMA's only advantage is ~5-10% better ratio at ultra settings, not worth 10x slowdown
+- **Zstd** (compression byte `1`, dict-variant `2`) — the primary codec.
+  Decompresses 5-10× faster than XZ at comparable ratios; first-class dictionary
+  support; pure implementations exist in Go, Rust, JavaScript, Python, Java.
+  LZMA's only advantage is ~5-10% better ratio at ultra settings, not worth the
+  10× slowdown.
+
+- **Brotli** (compression byte `3`) — used as a complement to Zstd on text
+  chunks. The reference writer trial-compresses non-dict text chunks with both
+  Zstd and Brotli and keeps whichever produces the smaller output. Brotli often
+  beats Zstd on small text chunks where its built-in static dictionary helps.
+  Pure-Go decode via `github.com/andybalholm/brotli`.
+
+Excluded: zlib, bzip2, XZ/LZMA.
 
 ### 5.2 Recommended Levels
 
@@ -747,31 +761,40 @@ over the file for quick verification.
 **Section-level:** SHA-256 of each section's on-disk bytes, stored in the section
 descriptor. Verify any section independently.
 
-**Chunk-level:** Derived from chunk table entries. Pinpoint exactly which chunk is
-corrupted.
+**Entry-level:** Each entry record carries a xxhash64 of its (transformed) content
+in the `content_hash` field (§3.6). xxhash is fast (5-10× SHA-256) and good enough
+for non-cryptographic tamper-detection; combined with the SHA-256 tiers above it
+catches accidental corruption while keeping per-entry verification cheap.
 
-If the file-level check fails, drill into section-level, then chunk-level, to localize
+If the file-level check fails, drill into section-level, then entry-level to localize
 the damage. Compare this to ZIM's single MD5: "something's wrong somewhere."
 
 ### 6.2 Signatures
 
-Optional `SIGNATURES` section with Ed25519:
+Optional Ed25519 signatures live in a **trailer appended after the 32-byte file
+checksum**, not as an entry in the section table. (The section-type value
+`0x000A` is reserved for historical reasons; readers will never see a
+`SIGNATURES` section in the section table.) This ordering is required: each
+signature signs the file-level SHA-256, so the signatures must come after it on
+disk.
+
+Trailer layout (variable size; only present when `has_signatures` header flag is set):
 
 ```
-4 bytes: signature_count
+4 bytes: signature_count (uint32, little-endian)
 
 Per signature (128 bytes):
-  32 bytes: public_key
-  64 bytes: signature (of the file-level SHA-256)
-  4 bytes:  key_id
-  28 bytes: reserved
+  32 bytes: public_key  (Ed25519)
+  64 bytes: signature   (Ed25519 over the 32-byte file-level SHA-256)
+  4 bytes:  key_id      (uint32, little-endian — implementation-defined key identifier)
+  28 bytes: reserved    (writers MUST emit zero; readers MUST ignore)
 ```
 
-The signed payload is the SHA-256 hash, not raw file bytes. Signatures can be verified
-without re-reading the entire file if the hash is already known.
+The signed payload is the file SHA-256, not the raw file bytes. Signatures can be
+verified without re-reading the entire file if the hash is already known.
 
-OZA does not define a PKI. Key distribution is out of scope. A reader obtains trusted
-public keys externally (config file, well-known URL, TOFU).
+OZA does not define a PKI. Key distribution is out of scope. A reader obtains
+trusted public keys externally (config file, well-known URL, TOFU).
 
 ### 6.3 Content Sandboxing Guidance
 
