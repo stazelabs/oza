@@ -114,7 +114,8 @@ func (e ValidationError) Error() string {
 //   - date: ISO 8601 (YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ)
 //   - language: BCP-47 primary subtag (2–3 lowercase ASCII letters, optional subtags)
 //   - title, creator, source: non-empty valid UTF-8
-//   - favicon_entry, main_entry: decimal uint32 if present
+//   - favicon_entry: decimal uint32 if present
+//   - main_entry: non-empty path string if present (existence-checking is the reader's job)
 //   - license: non-empty if present
 //
 // All issues are collected and returned; the caller gets the full picture rather
@@ -178,15 +179,18 @@ func ValidateMetadataStrict(m map[string][]byte) []ValidationError {
 		}
 	}
 
-	// Optional uint32 keys.
-	for _, key := range []string{"favicon_entry", "main_entry"} {
-		if v, ok := m[key]; ok {
-			n, err := strconv.ParseUint(string(v), 10, 32)
-			if err != nil {
-				add(key, fmt.Sprintf("must be a decimal uint32 (got %q)", string(v)))
-			}
-			_ = n
+	// favicon_entry: optional decimal uint32.
+	if v, ok := m["favicon_entry"]; ok {
+		n, err := strconv.ParseUint(string(v), 10, 32)
+		if err != nil {
+			add("favicon_entry", fmt.Sprintf("must be a decimal uint32 (got %q)", string(v)))
 		}
+		_ = n
+	}
+
+	// main_entry: optional non-empty path string.
+	if v, ok := m["main_entry"]; ok && len(strings.TrimSpace(string(v))) == 0 {
+		add("main_entry", "must be non-empty if present")
 	}
 
 	// Optional non-empty keys.

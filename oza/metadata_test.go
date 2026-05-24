@@ -181,6 +181,22 @@ func TestValidateMetadataStrictValidFaviconEntry(t *testing.T) {
 	}
 }
 
+func TestValidateMetadataStrictPathStringMainEntry(t *testing.T) {
+	m := makeTestMetadata()
+	m["main_entry"] = []byte("index.html")
+	if errs := ValidateMetadataStrict(m); len(errs) != 0 {
+		t.Fatalf("expected no errors for path-string main_entry, got %v", errs)
+	}
+}
+
+func TestValidateMetadataStrictEmptyMainEntry(t *testing.T) {
+	m := makeTestMetadata()
+	m["main_entry"] = []byte("")
+	if errs := ValidateMetadataStrict(m); !hasErrKey(errs, "main_entry") {
+		t.Fatal("expected error for empty main_entry")
+	}
+}
+
 func TestValidateMetadataStrictEmptyLicense(t *testing.T) {
 	m := makeTestMetadata()
 	m["license"] = []byte("")

@@ -878,6 +878,35 @@ func TestReservedFieldWarnings(t *testing.T) {
 	}
 }
 
+// --- TestMainEntry ---
+
+func TestMainEntry(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		w.AddEntry("index.html", "Index", "text/html", []byte("<html>main</html>"), true)
+		w.SetMetadata("main_entry", "index.html")
+	})
+	defer cleanup()
+
+	e, err := a.MainEntry()
+	if err != nil {
+		t.Fatalf("MainEntry: %v", err)
+	}
+	if e.Path() != "index.html" {
+		t.Errorf("MainEntry path = %q, want %q", e.Path(), "index.html")
+	}
+}
+
+func TestMainEntryNotSet(t *testing.T) {
+	a, cleanup := newTestArchive(t, func(w *ozawrite.Writer) {
+		w.AddEntry("index.html", "Index", "text/html", []byte("<html>main</html>"), true)
+	})
+	defer cleanup()
+
+	if _, err := a.MainEntry(); err == nil {
+		t.Fatal("MainEntry: expected error when main_entry metadata not set, got nil")
+	}
+}
+
 // --- TestVerifyAll ---
 
 func TestVerifyAll(t *testing.T) {
