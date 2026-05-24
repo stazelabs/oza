@@ -16,7 +16,18 @@ interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 ---
 
-## 1. Why Redesign ZIM?
+## Introduction
+
+OZA (Open Zipped Archive) is a binary archive format for offline content distribution
+and long-term preservation. It packages web content — articles, images, stylesheets, and
+search indices — into a single self-contained file that can be served over HTTP, read
+directly from disk, or stored indefinitely. The format is designed to stay readable
+without ecosystem maintenance: a complete read-only implementation requires no native
+dependencies and fits comfortably in a week of work in any language.
+
+---
+
+## 1. From ZIM to OZA
 
 The [ZIM format](https://wiki.openzim.org/wiki/OpenZIM) has served the offline content
 community since 2007. Billions of articles have been distributed in ZIM files through the
