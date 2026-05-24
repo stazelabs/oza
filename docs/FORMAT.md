@@ -246,7 +246,7 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 0 | 4 | `magic` | `0x00415A4F` ("OZA\x00" on disk, little-endian) |
 | 4 | 2 | `major_version` | 1 |
 | 6 | 2 | `minor_version` | 0 |
-| 8 | 16 | `uuid` | Random UUID v4 |
+| 8 | 16 | `uuid` | UUID v5 content identity (see below) |
 | 24 | 4 | `section_count` | Number of sections |
 | 28 | 4 | `entry_count` | Content entries (excludes redirects) |
 | 32 | 8 | `content_size` | Total uncompressed content bytes |
@@ -271,6 +271,19 @@ across all future major versions.
 | 1 | `has_chrome` | Chrome section present |
 | 2 | `has_signatures` | Signature section present |
 | 3-31 | -- | Reserved (MUST be zero; readers ignore unknown flags) |
+
+**Content UUID (`uuid` field).** `header.uuid` is a deterministic UUID v5 (RFC 4122
+§4.3) that identifies the archive content independently of when it was built. Writers
+MUST compute it as:
+
+    uuidV5(ArchiveIdentityNamespace, source + "\x00" + language)
+
+where `source` and `language` are the values of the required metadata keys, and
+`ArchiveIdentityNamespace` is the fixed 16-byte value
+`c0a8f6e2-4b73-4d92-8a15-3e7f6c9b1d04`. Monthly rebuilds of the same archive
+(same source, same language) produce the same `uuid`. The per-build random UUID v4
+that identifies the specific build artifact is stored separately in the optional
+`build_uuid` metadata key (§3.4).
 
 ### 3.3 Section Table
 
@@ -361,7 +374,9 @@ Per pair:
 
 **Optional well-known keys:** `description`, `long_description`, `license` (SPDX),
 `favicon_entry` (entry path string — same lookup mechanism as `main_entry`; existence is checked by the reader via `EntryByPath`), `main_entry` (entry path string — any non-empty UTF-8; existence is checked by the reader via `EntryByPath`), `article_count`,
-`scraper` (tool name + version), `catalog` (JSON array, see below).
+`scraper` (tool name + version), `catalog` (JSON array, see below),
+`build_uuid` (UUID v4 string identifying the specific build artifact — distinct from
+the content UUID in `header.uuid`).
 
 **Catalog metadata.** Archives that bundle multiple logical items (e.g. a book
 collection) MAY set `catalog` to a JSON array of item descriptors. Each element

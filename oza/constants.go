@@ -116,6 +116,18 @@ const (
 	EntryMetadataRef EntryType = 2
 )
 
+// ArchiveIdentityNamespace is the fixed UUID v5 namespace used to derive the
+// stable content UUID stored in header.uuid. Writers compute:
+//
+//	uuidV5(ArchiveIdentityNamespace, source + "\x00" + language)
+//
+// This value MUST NOT change; doing so would invalidate all existing content UUIDs.
+// Value: c0a8f6e2-4b73-4d92-8a15-3e7f6c9b1d04
+var ArchiveIdentityNamespace = [16]byte{
+	0xc0, 0xa8, 0xf6, 0xe2, 0x4b, 0x73, 0x4d, 0x92,
+	0x8a, 0x15, 0x3e, 0x7f, 0x6c, 0x9b, 0x1d, 0x04,
+}
+
 // IndexV1Magic is the magic number for the IDX1 index format.
 const IndexV1Magic uint32 = 0x49445831 // "IDX1"
 

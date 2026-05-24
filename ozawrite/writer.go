@@ -2,6 +2,7 @@ package ozawrite
 
 import (
 	"crypto/rand"
+	"crypto/sha1" //nolint:gosec // UUID v5 mandates SHA-1 per RFC 4122 §4.3; not used as a security primitive
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -474,6 +475,17 @@ func (w *Writer) Close() error {
 		w.opts.Progress("compress", len(w.chunkDescs), len(w.chunkDescs))
 	}
 
+	// 1b. Generate per-build UUID (stored as optional metadata key "build_uuid").
+	if _, ok := w.meta["build_uuid"]; !ok {
+		var b [16]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			return fmt.Errorf("ozawrite: generating build UUID: %w", err)
+		}
+		b[6] = (b[6] & 0x0F) | 0x40 // UUID version 4
+		b[8] = (b[8] & 0x3F) | 0x80 // RFC 4122 variant
+		w.meta["build_uuid"] = []byte(formatUUID(b))
+	}
+
 	// 4. Validate metadata.
 	if err := oza.ValidateMetadata(w.meta); err != nil {
 		return fmt.Errorf("ozawrite: %w", err)
@@ -615,10 +627,13 @@ func (w *Writer) Close() error {
 	checksumOff := off
 
 	// 15. Build header.
-	var uuid [16]byte
-	if _, err := rand.Read(uuid[:]); err != nil {
-		return fmt.Errorf("ozawrite: generating UUID: %w", err)
-	}
+	// Content UUID: deterministic UUID v5 stable across rebuilds of the same archive.
+	// Input: source + null separator + language (both required metadata keys).
+	nameData := make([]byte, 0, len(w.meta["source"])+1+len(w.meta["language"]))
+	nameData = append(nameData, w.meta["source"]...)
+	nameData = append(nameData, 0)
+	nameData = append(nameData, w.meta["language"]...)
+	uuid := uuidV5(oza.ArchiveIdentityNamespace, nameData)
 	var totalContent uint64
 	for _, e := range w.entries {
 		totalContent += uint64(e.blobSize)
@@ -735,4 +750,23 @@ func (w *Writer) Close() error {
 	w.cleanupTemp()
 
 	return nil
+}
+
+// uuidV5 computes a deterministic UUID version 5 (RFC 4122 §4.3) using SHA-1.
+func uuidV5(namespace [16]byte, name []byte) [16]byte {
+	h := sha1.New()
+	h.Write(namespace[:])
+	h.Write(name)
+	s := h.Sum(nil)
+	var u [16]byte
+	copy(u[:], s[:16])
+	u[6] = (u[6] & 0x0F) | 0x50 // version 5
+	u[8] = (u[8] & 0x3F) | 0x80 // RFC 4122 variant
+	return u
+}
+
+// formatUUID formats a 16-byte UUID as "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx".
+func formatUUID(u [16]byte) string {
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		u[0:4], u[4:6], u[6:8], u[8:10], u[10:16])
 }
