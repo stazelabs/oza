@@ -774,6 +774,65 @@ func allRecipes(t *testing.T) []recipe {
 				mustFailOpenWith(t, path, oza.ErrChunkTableUnsorted)
 			},
 		},
+		// L3 exercises the dense-chunk_id invariant from SPEC §3.9. The
+		// reference reader requires chunk_descs[i].chunk_id == i for all i.
+		// L1 above swaps two descriptors (still dense, just out of order);
+		// this recipe instead renumbers chunk 1 to chunk 5, leaving 1,2,3,4
+		// missing.
+		{
+			Name: "L3_ChunkIDGap",
+			Build: func(t *testing.T) []byte {
+				t.Helper()
+				f, err := os.CreateTemp(t.TempDir(), "adv-chunk-gap*.oza")
+				if err != nil {
+					t.Fatal(err)
+				}
+				w := ozawrite.NewWriter(f, ozawrite.WriterOptions{
+					ZstdLevel:       3,
+					TrainDict:       false,
+					BuildSearch:     false,
+					ChunkTargetSize: 50, // force multiple chunks
+				})
+				setRequiredMeta(w)
+				for i := 0; i < 4; i++ {
+					body := make([]byte, 100)
+					for j := range body {
+						body[j] = byte('A' + i)
+					}
+					path := "A/P" + string(rune('0'+i))
+					if _, err := w.AddEntry(path, path, "text/html", body, true); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := w.Close(); err != nil {
+					t.Fatal(err)
+				}
+				name := f.Name()
+				f.Close()
+				data, err := os.ReadFile(name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return data
+			},
+			Corrupt: func(data []byte) []byte {
+				c := clone(data)
+				s, _ := findSection(c, oza.SectionContent)
+				chunkTableStart := int(s.Offset) + 4
+				count := binary.LittleEndian.Uint32(c[s.Offset:])
+				if count < 2 {
+					return c
+				}
+				// Set descriptor 1's chunk_id (first 4 bytes) to 5 so the
+				// dense invariant breaks (i=1, id=5).
+				descStart := chunkTableStart + oza.ChunkDescSize
+				binary.LittleEndian.PutUint32(c[descStart:descStart+4], 5)
+				return c
+			},
+			Check: func(t *testing.T, path string) {
+				mustFailOpenWith(t, path, oza.ErrChunkTableUnsorted)
+			},
+		},
 		{
 			Name:  "L2_ZeroLengthChunk",
 			Build: buildMinimal,

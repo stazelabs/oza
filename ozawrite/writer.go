@@ -156,7 +156,6 @@ type Writer struct {
 	// Search index builders — fed incrementally during AddEntry.
 	titleTB *trigramBuilder
 	bodyTB  *trigramBuilder
-
 }
 
 // pendingEntry holds an entry's content while we buffer for dictionary training.

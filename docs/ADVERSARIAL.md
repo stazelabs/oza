@@ -128,6 +128,7 @@ go test ./oza/ -run TestAdversarialArchives -race
 |----|------|----------|----------|
 | L1 | `ChunkTableUnsorted` | Swap two chunk descriptors | `ErrChunkTableUnsorted` |
 | L2 | `ZeroLengthChunk` | Chunk `CompressedSize` → 0 | ReadContent fails |
+| L3 | `ChunkIDGap` | Renumber chunk 1's `chunk_id` to 5 (breaks dense invariant) | `ErrChunkTableUnsorted` |
 
 ### M. Signature Corruption
 

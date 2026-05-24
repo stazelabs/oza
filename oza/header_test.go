@@ -111,6 +111,66 @@ func TestParseHeaderUnsupportedVersion(t *testing.T) {
 	}
 }
 
+// TestParseHeader_RejectsVersionZero pins the SPEC §3.2 contract that
+// version 1 is the only currently-defined major. MajorVersion=0 is not a
+// valid in-flight pre-v1 marker; readers MUST reject it just like a future
+// major version.
+func TestParseHeader_RejectsVersionZero(t *testing.T) {
+	h := makeTestHeader()
+	h.MajorVersion = 0
+	b := h.Marshal()
+
+	_, err := ParseHeader(b[:])
+	if err != ErrUnsupportedVersion {
+		t.Errorf("expected ErrUnsupportedVersion for MajorVersion=0, got %v", err)
+	}
+}
+
+// TestParseHeader_AcceptsFutureMinor pins the forward-compatibility contract
+// for minor versions: a v1.X reader MUST accept v1.Y headers (Y > X). Major
+// version is the breaking-change axis; minor is additive.
+func TestParseHeader_AcceptsFutureMinor(t *testing.T) {
+	h := makeTestHeader()
+	h.MinorVersion = MinorVersion + 5 // pretend we're a future minor
+	b := h.Marshal()
+
+	got, err := ParseHeader(b[:])
+	if err != nil {
+		t.Fatalf("unexpected error parsing future minor version: %v", err)
+	}
+	if got.MinorVersion != MinorVersion+5 {
+		t.Errorf("MinorVersion = %d, want %d", got.MinorVersion, MinorVersion+5)
+	}
+}
+
+// TestParseHeader_IgnoresUnknownFlags pins the forward-compatibility contract
+// for the flags field: SPEC §3.2 says "readers MUST ignore unknown bits". A
+// header with bit 7 set (currently undefined) must parse cleanly and the
+// known accessors must still report the right values.
+func TestParseHeader_IgnoresUnknownFlags(t *testing.T) {
+	h := makeTestHeader()
+	const unknownBit uint32 = 1 << 7
+	h.Flags = FlagHasSearch | unknownBit
+	b := h.Marshal()
+
+	got, err := ParseHeader(b[:])
+	if err != nil {
+		t.Fatalf("unexpected error parsing header with unknown flag bit: %v", err)
+	}
+	if !got.HasSearch() {
+		t.Error("HasSearch() should be true")
+	}
+	if got.HasChrome() {
+		t.Error("HasChrome() should be false (bit 1 not set)")
+	}
+	if got.HasSignatures() {
+		t.Error("HasSignatures() should be false (bit 2 not set)")
+	}
+	if got.Flags&unknownBit == 0 {
+		t.Error("unknown flag bit was not preserved in parsed header")
+	}
+}
+
 func FuzzParseHeader(f *testing.F) {
 	h := makeTestHeader()
 	b := h.Marshal()
