@@ -1,9 +1,0 @@
-# ash configuration for the oza repo. Read by ashd on startup; restart the
-# daemon (`ash stop`) after editing — hot reload is deferred.
-
-# Enable the LSP broker so `ash lang --op outline|def|refs|callers|impl`
-# can answer semantic queries against the Go code. The broker shells out
-# to gopls (resolved via $PATH unless gopls_path is set below).
-[lsp]
-enabled = true
-# gopls_path = "/Users/cstaszak/go/bin/gopls"  # uncomment to pin
