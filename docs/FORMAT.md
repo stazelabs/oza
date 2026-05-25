@@ -381,7 +381,7 @@ Readers MUST reject archives that do.
 | METADATA (0x0001) | Exactly once | Required |
 | MIME_TABLE (0x0002) | Exactly once | Required |
 | ENTRY_TABLE (0x0003) | Exactly once | Required |
-| PATH_INDEX (0x0004) | At most once | RECOMMENDED; omission degrades path lookup to a linear scan |
+| PATH_INDEX (0x0004) | At most once | RECOMMENDED in general; **REQUIRED if `header.redirect_count > 0`** (see §3.6a). Omission otherwise degrades path lookup to a linear scan |
 | TITLE_INDEX (0x0005) | At most once | Optional |
 | CONTENT (0x0006) | Exactly once | Required |
 | REDIRECT_TABLE (0x0007) | At most once | MUST be present if `header.redirect_count > 0`; MUST be absent otherwise |
@@ -659,6 +659,15 @@ Path and title indices store tagged IDs, so lookups transparently dispatch to th
 correct table. Redirect targets are always content entry IDs (chains are flattened at
 write time).
 
+**PATH_INDEX is required when this table is non-empty.** A redirect record carries no
+path of its own — only its target ID. The address a redirect answers to is recoverable
+only by reverse lookup through the path index (scanning PATH_INDEX for the tagged ID
+whose high bit is set and low 31 bits equal this record's position). Consequently,
+writers **MUST** emit PATH_INDEX (0x0004) whenever `header.redirect_count > 0`, and
+readers **MUST** reject archives that contain a non-empty REDIRECT_TABLE but lack a
+PATH_INDEX. This constraint is reflected in the cardinality table in §4. Archives with
+zero redirects MAY still omit PATH_INDEX (with the usual lookup-degradation tradeoff).
+
 **Capacity constraint (v1 format invariant).** Because bit 31 is permanently reserved
 as a type tag, each namespace is capped at 2,147,483,647 entries (2³¹ − 1):
 
@@ -730,6 +739,12 @@ assumes each key is unique. Writers **MUST NOT** emit a PATH_INDEX with duplicat
 Readers **MUST** reject archives whose path index contains duplicate paths. Uniqueness
 is defined as UTF-8 NFC byte equality (case-sensitive), consistent with the NFC
 normalisation requirement in §3.6.
+
+**Required when redirects exist.** PATH_INDEX is RECOMMENDED in general, but
+**REQUIRED** whenever `header.redirect_count > 0`. Redirect records (§3.6a) carry only
+a target ID, not a path; the URL a redirect answers to is recoverable only by reverse
+lookup through this index. Archives that violate this rule (non-empty REDIRECT_TABLE
+without PATH_INDEX) MUST be rejected by readers and MUST NOT be produced by writers.
 
 ### 3.8 Title Index
 
