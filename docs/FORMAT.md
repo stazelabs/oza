@@ -1145,11 +1145,12 @@ Trailer layout (variable size; only present when `has_signatures` header flag is
 Per signature (128 bytes):
   32 bytes: public_key      (algorithm-specific; for Ed25519, the 32-byte public key)
   64 bytes: signature       (algorithm-specific; for Ed25519, the 64-byte signature over the file-level SHA-256)
-  4 bytes:  key_id          (uint32, little-endian — implementation-defined key identifier)
-  1 byte:   key_algorithm   (0 = Ed25519; all other values reserved for future algorithms)
-  1 byte:   role            (0 = creator, 1 = distributor, 2 = verifier; see below)
-  2 bytes:  key_uri_length  (uint16, little-endian; 0 = no URI present)
-  24 bytes: key_uri         (UTF-8 URI; key_uri_length bytes used, remainder MUST be zero)
+  4 bytes:  key_id                    (uint32, little-endian — implementation-defined key identifier)
+  1 byte:   key_algorithm             (0 = Ed25519; all other values reserved for future algorithms)
+  1 byte:   role                      (0 = creator, 1 = distributor, 2 = verifier; see below)
+  2 bytes:  key_uri_length            (uint16, little-endian; 0 = no URI present)
+  23 bytes: key_uri                   (UTF-8 URI; key_uri_length bytes used, remainder MUST be zero)
+  1 byte:   parent_signature_index    (0xFF = none; otherwise the index of the parent signature in this trailer — see below)
 ```
 
 The signed payload is the file SHA-256, not the raw file bytes. Signatures can be
@@ -1174,10 +1175,45 @@ error — they SHOULD ignore the role field and process the signature normally.
 
 **`key_uri` / `key_uri_length`.** An optional UTF-8 URI where the public key can be
 fetched (e.g. `https://keys.example.org/pub/abc123.pub`). If no URI is present,
-`key_uri_length` MUST be 0 and all 24 `key_uri` bytes MUST be zero. When
+`key_uri_length` MUST be 0 and all 23 `key_uri` bytes MUST be zero. When
 `key_uri_length > 0`, only the first `key_uri_length` bytes carry the URI; the remainder
-MUST be zero-padded. `key_uri_length` MUST NOT exceed 24. Readers MUST NOT fetch the URI
+MUST be zero-padded. `key_uri_length` MUST NOT exceed 23. Readers MUST NOT fetch the URI
 automatically; it is provided as a hint for out-of-band key retrieval.
+
+**`parent_signature_index`.** Encodes an ordered custody chain over the signature
+trailer. Each signature record names at most one parent — the signature it directly
+endorses — forming a linked list. The reserved value `0xFF` means **no parent**: the
+record is a chain root (typically the content creator). Any value `0 ≤ N ≤ 0xFE`
+references the signature at trailer index `N`.
+
+Chain invariants:
+
+- `parent_signature_index` of every record MUST be either `0xFF` or strictly less than
+  the record's own trailer index. This makes cycles structurally impossible and
+  guarantees a topological order: a signature can only endorse a predecessor that was
+  already written.
+- Because every parent index is strictly less than its child's index, well-formed
+  trailers cannot produce dangling references through honest truncation: removing
+  signatures from the end of the trailer preserves the chain invariants for every
+  surviving record. A `parent_signature_index` that violates the invariants — equal
+  to or greater than the record's own index, or `≥ signature_count` while not equal
+  to `0xFF` — indicates either a malformed writer or post-publication trailer
+  tampering. Readers MUST NOT crash on such records; they SHOULD treat the chain
+  link as broken (verify the signature itself in isolation) and SHOULD report the
+  invariant violation.
+- The trailer's maximum chain length is 255 (the 0xFF sentinel reserves one value).
+  This far exceeds any realistic custody chain depth.
+
+The chain expresses **who endorses what**, not whose signature is required for
+acceptance. A reader's trust policy decides which roots, which roles, and which path
+lengths are acceptable. Common policies include "at least one valid signature from a
+trusted creator" (ignore the chain) and "every chain from a trusted creator to the
+local mirror must verify" (walk the chain bottom-up).
+
+When a mirror or aggregator appends its own signature, it SHOULD set
+`parent_signature_index` to the trailer index of the signature it is endorsing —
+typically the previous distributor or the original creator. A root-of-its-own
+endorsement (no relationship to existing signatures) sets `parent_signature_index = 0xFF`.
 
 OZA does not define a PKI. Key distribution is out of scope. A reader obtains
 trusted public keys externally (config file, well-known URL, TOFU).
@@ -1223,10 +1259,13 @@ To defend against count-zero stripping:
 **Appending signatures.** Because the trailer lies outside the checksum window, a mirror
 or aggregator MAY append its own signature without altering the file SHA-256 or any
 existing signature. To do so: increment `signature_count` and append one 128-byte
-signature record (public key, Ed25519 signature over the existing file-level SHA-256,
-key ID, and the four agility fields: `key_algorithm`, `role`, `key_uri_length`, `key_uri`).
-No change to the header or the checksum is required. This is
-intentional: it allows third-party endorsement after publication.
+signature record carrying the public key, an Ed25519 signature over the existing
+file-level SHA-256, the key ID, the agility fields (`key_algorithm`, `role`,
+`key_uri_length`, `key_uri`), and `parent_signature_index` — either `0xFF` for an
+independent endorsement or the trailer index of the signature being endorsed (typically
+the most recent distributor or the original creator). No change to the header or the
+checksum is required. This is intentional: it allows third-party endorsement after
+publication and lets each endorser record its position in the custody chain.
 
 **Truncation.** If `has_signatures` is set but fewer than 4 bytes follow the file
 SHA-256, the reader MUST treat the file as malformed and refuse to open it.
