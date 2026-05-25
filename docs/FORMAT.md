@@ -369,6 +369,7 @@ Each section descriptor is **80 bytes**:
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
 | 0x000E | LANGUAGE_TABLE | BCP-47 language string table (multilingual archives) |
+| 0x000F | MIME_INDEX | Secondary index mapping each MIME type to its entry IDs |
 | 0x0100–0x01FF | -- | Spec-sanctioned extensions (see `docs/EXTENSION_REGISTRY.md`) |
 | 0x0200–0xFEFF | -- | Vendor/community extensions (4-byte vendor prefix required in payload) |
 | 0xFF00–0xFFFF | -- | Private/experimental use (MUST NOT appear in distributed archives) |
@@ -390,6 +391,7 @@ Readers MUST reject archives that do.
 | SEARCH_TITLE (0x000C) | At most once | Optional |
 | SEARCH_BODY (0x000D) | At most once | Optional |
 | LANGUAGE_TABLE (0x000E) | At most once | MUST be present if any entry has `lang_index > 0`; otherwise MAY be omitted |
+| MIME_INDEX (0x000F) | At most once | Optional secondary index (§3.8a); omission means MIME-filtered enumeration falls back to a linear scan of ENTRY_TABLE |
 
 When a reader encounters an unknown section type it checks the `SECTION_CRITICAL` flag
 before deciding how to proceed:
@@ -750,6 +752,74 @@ without PATH_INDEX) MUST be rejected by readers and MUST NOT be produced by writ
 
 Same IDX1 format as the path index, but sorted by title. Entries without an explicit
 title use their path. The writer populates this at creation time.
+
+### 3.8a MIME Index
+
+Optional secondary index (section type `0x000F`, `MIME_INDEX`) that maps each MIME
+table index to the set of content entry IDs whose `mime_index` field equals that value.
+PATH_INDEX answers "where is path `p`?" — MIME_INDEX answers "which entries have MIME
+type `t`?" without a linear scan of ENTRY_TABLE. This matters at Wikipedia scale (~4 M
+entries, ~90 GB on disk), where "list every image" or "enumerate all HTML pages"
+otherwise touches hundreds of MB of entry records just to read the `mime_index` field.
+
+Posting lists use the **Roaring Bitmap portable format** (`roaring.WriteTo`), matching
+the encoding already used for SEARCH_TITLE / SEARCH_BODY posting lists (§4.3). This
+lets readers reuse a single posting-list decoder for both subsystems.
+
+```
+Header (12 bytes):
+  4 bytes: version            (uint32, 1)
+  4 bytes: flags              (uint32, reserved — writers MUST emit 0,
+                               readers MUST reject non-zero values)
+  4 bytes: mime_count         (uint32, number of MIME entries that follow)
+
+MIME Table (sorted ascending by mime_index for binary search):
+  Per record (12 bytes):
+    2 bytes: mime_index           (uint16, index into MIME_TABLE §3.5)
+    2 bytes: reserved             (0)
+    4 bytes: posting_list_offset  (uint32, byte offset from section start)
+    4 bytes: posting_list_length  (uint32, byte length of the posting list)
+
+Posting Lists:
+  Per posting list: a serialized Roaring Bitmap (portable format) whose
+  values are content entry IDs (bit 31 clear; redirect IDs MUST NOT appear).
+```
+
+**Coverage and tagging.** MIME_INDEX covers content entries only. Redirect entries
+(§3.6a) have no MIME type, so their IDs MUST NOT appear in any posting list. Writers
+MUST emit untagged content entry IDs (bit 31 clear, as stored in ENTRY_TABLE), and
+readers MUST reject archives whose posting lists contain tagged redirect IDs.
+
+**Completeness.** When MIME_INDEX is present, it MUST be exhaustive over content
+entries: every content entry's `mime_index` MUST be represented in the table, and the
+union of all posting lists MUST equal exactly the set of content entry IDs `0 ..
+header.entry_count - 1`. A MIME index with `mime_count == 0` is permitted only in
+archives with no content entries. MIME table indices that are referenced by zero
+entries MAY be omitted from the table; writers MUST NOT emit an empty posting list.
+
+**Uniqueness.** Each `mime_index` value MUST appear at most once in the MIME table.
+Readers MUST reject archives whose MIME index table contains duplicate `mime_index`
+values. The ascending-sort requirement enables binary search and makes duplicate
+detection a single-pass check.
+
+**Forward compatibility.** The `version` and `flags` fields exist for future
+extensions (e.g. alternative posting-list encodings). v1 readers MUST reject
+`version != 1` or `flags != 0` rather than guess at unknown semantics; this is
+intentionally stricter than the trailing-uvarint pattern used by ENTRY_TABLE fields,
+because incorrect posting-list decoding could silently return wrong results.
+
+**Size and cost.** Roaring bitmaps store dense runs efficiently. A Wikipedia-scale
+archive whose writer groups entries by MIME (the recommended chunk-packing strategy
+in §3.9) yields long consecutive entry-ID runs per MIME type — roaring compresses
+each MIME's posting list to a small constant plus run descriptors. Total MIME_INDEX
+size for English Wikipedia (~4 M entries across ~10 distinct MIME types) is expected
+to be well under 1 MB.
+
+**When to omit.** MIME_INDEX is purely an enumeration accelerator. Readers that never
+filter by MIME type, and archives whose `entry_count` is small enough that linear
+scans are fast, gain nothing from this section. Writers SHOULD emit it for archives
+larger than ~100 K entries or whenever a known consumer (e.g. a UI that lists "all
+images") will perform MIME-typed enumeration.
 
 ### 3.9 Content Section
 
