@@ -1035,14 +1035,41 @@ Trailer layout (variable size; only present when `has_signatures` header flag is
 4 bytes: signature_count (uint32, little-endian)
 
 Per signature (128 bytes):
-  32 bytes: public_key  (Ed25519)
-  64 bytes: signature   (Ed25519 over the 32-byte file-level SHA-256)
-  4 bytes:  key_id      (uint32, little-endian — implementation-defined key identifier)
-  28 bytes: reserved    (writers MUST emit zero; readers MUST ignore)
+  32 bytes: public_key      (algorithm-specific; for Ed25519, the 32-byte public key)
+  64 bytes: signature       (algorithm-specific; for Ed25519, the 64-byte signature over the file-level SHA-256)
+  4 bytes:  key_id          (uint32, little-endian — implementation-defined key identifier)
+  1 byte:   key_algorithm   (0 = Ed25519; all other values reserved for future algorithms)
+  1 byte:   role            (0 = creator, 1 = distributor, 2 = verifier; see below)
+  2 bytes:  key_uri_length  (uint16, little-endian; 0 = no URI present)
+  24 bytes: key_uri         (UTF-8 URI; key_uri_length bytes used, remainder MUST be zero)
 ```
 
 The signed payload is the file SHA-256, not the raw file bytes. Signatures can be
 verified without re-reading the entire file if the hash is already known.
+
+**`key_algorithm`.** The single-byte algorithm tag provides forward agility without a
+format version bump. The only currently defined value is `0` (Ed25519). Writers MUST set
+`key_algorithm = 0` when producing Ed25519 records. Readers encountering an unknown
+`key_algorithm` value MUST skip that signature record rather than failing; they SHOULD
+report that an unrecognised algorithm was skipped.
+
+**`role`.** Declares the signer's relationship to the archive:
+
+| Value | Role         | Meaning                                              |
+|-------|--------------|------------------------------------------------------|
+| `0`   | `creator`    | Original author or content producer                  |
+| `1`   | `distributor`| Mirror or hosting organisation that redistributes    |
+| `2`   | `verifier`   | Third-party auditor that endorses the content        |
+
+All other `role` values are reserved; readers MUST NOT treat an unrecognised role as an
+error — they SHOULD ignore the role field and process the signature normally.
+
+**`key_uri` / `key_uri_length`.** An optional UTF-8 URI where the public key can be
+fetched (e.g. `https://keys.example.org/pub/abc123.pub`). If no URI is present,
+`key_uri_length` MUST be 0 and all 24 `key_uri` bytes MUST be zero. When
+`key_uri_length > 0`, only the first `key_uri_length` bytes carry the URI; the remainder
+MUST be zero-padded. `key_uri_length` MUST NOT exceed 24. Readers MUST NOT fetch the URI
+automatically; it is provided as a hint for out-of-band key retrieval.
 
 OZA does not define a PKI. Key distribution is out of scope. A reader obtains
 trusted public keys externally (config file, well-known URL, TOFU).
@@ -1089,7 +1116,8 @@ To defend against count-zero stripping:
 or aggregator MAY append its own signature without altering the file SHA-256 or any
 existing signature. To do so: increment `signature_count` and append one 128-byte
 signature record (public key, Ed25519 signature over the existing file-level SHA-256,
-key ID, 28 reserved bytes). No change to the header or the checksum is required. This is
+key ID, and the four agility fields: `key_algorithm`, `role`, `key_uri_length`, `key_uri`).
+No change to the header or the checksum is required. This is
 intentional: it allows third-party endorsement after publication.
 
 **Truncation.** If `has_signatures` is set but fewer than 4 bytes follow the file
