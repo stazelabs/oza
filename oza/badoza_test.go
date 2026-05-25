@@ -833,6 +833,62 @@ func allRecipes(t *testing.T) []recipe {
 				mustFailOpenWith(t, path, oza.ErrChunkTableUnsorted)
 			},
 		},
+		// L4 exercises the chunk-ID uniqueness invariant from SPEC §3.9.
+		// Two chunk descriptors with the same ID violate the MUST-unique rule,
+		// even when the rest of the table is otherwise valid.
+		{
+			Name: "L4_ChunkIDDuplicate",
+			Build: func(t *testing.T) []byte {
+				t.Helper()
+				f, err := os.CreateTemp(t.TempDir(), "adv-chunk-dup*.oza")
+				if err != nil {
+					t.Fatal(err)
+				}
+				w := ozawrite.NewWriter(f, ozawrite.WriterOptions{
+					ZstdLevel:       3,
+					TrainDict:       false,
+					BuildSearch:     false,
+					ChunkTargetSize: 50, // force multiple chunks
+				})
+				setRequiredMeta(w)
+				for i := 0; i < 4; i++ {
+					body := make([]byte, 100)
+					for j := range body {
+						body[j] = byte('A' + i)
+					}
+					path := "A/P" + string(rune('0'+i))
+					if _, err := w.AddEntry(path, path, "text/html", body, true); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := w.Close(); err != nil {
+					t.Fatal(err)
+				}
+				name := f.Name()
+				f.Close()
+				data, err := os.ReadFile(name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return data
+			},
+			Corrupt: func(data []byte) []byte {
+				c := clone(data)
+				s, _ := findSection(c, oza.SectionContent)
+				chunkTableStart := int(s.Offset) + 4
+				count := binary.LittleEndian.Uint32(c[s.Offset:])
+				if count < 2 {
+					return c
+				}
+				// Set descriptor 1's chunk_id to 0 (duplicate of descriptor 0).
+				descStart := chunkTableStart + oza.ChunkDescSize
+				binary.LittleEndian.PutUint32(c[descStart:descStart+4], 0)
+				return c
+			},
+			Check: func(t *testing.T, path string) {
+				mustFailOpenWith(t, path, oza.ErrChunkTableUnsorted)
+			},
+		},
 		{
 			Name:  "L2_ZeroLengthChunk",
 			Build: buildMinimal,

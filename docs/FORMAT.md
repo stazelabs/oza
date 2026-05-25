@@ -600,6 +600,9 @@ Chunk descriptors are sorted by `chunk_id`. Entry records reference chunks by ID
 `compressed_offset` is relative to the start of the chunk data area (immediately after
 the chunk table).
 
+Chunk IDs within a CONTENT section MUST be unique. Writers MUST NOT produce duplicate
+chunk IDs. Readers MUST reject a CONTENT section containing duplicate chunk IDs.
+
 **Chunk sizing guidance for writers:**
 - Group entries by MIME type (HTML with HTML, images with images)
 - Target 1-4 MB uncompressed per chunk for text
