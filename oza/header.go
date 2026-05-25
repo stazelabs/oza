@@ -49,6 +49,9 @@ func ParseHeader(data []byte) (Header, error) {
 	h.EntryCount = binary.LittleEndian.Uint32(data[28:32])
 	h.ContentSize = binary.LittleEndian.Uint64(data[32:40])
 	h.SectionTableOff = binary.LittleEndian.Uint64(data[40:48])
+	if h.SectionTableOff != HeaderSize {
+		return Header{}, fmt.Errorf("oza: section_table_offset is %d, must be %d: %w", h.SectionTableOff, HeaderSize, ErrInvalidSectionTableOffset)
+	}
 	h.ChecksumOff = binary.LittleEndian.Uint64(data[48:56])
 	h.Flags = binary.LittleEndian.Uint32(data[56:60])
 	h.RedirectCount = binary.LittleEndian.Uint32(data[60:64])

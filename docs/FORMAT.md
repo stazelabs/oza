@@ -250,12 +250,14 @@ All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 | 24 | 4 | `section_count` | Number of sections |
 | 28 | 4 | `entry_count` | Content entries (excludes redirects) |
 | 32 | 8 | `content_size` | Total uncompressed content bytes |
-| 40 | 8 | `section_table_offset` | Offset to section table |
+| 40 | 8 | `section_table_offset` | Offset to section table; MUST equal 128 for v1 |
 | 48 | 8 | `checksum_offset` | Offset to trailing SHA-256 |
 | 56 | 4 | `flags` | Bit flags (see below) |
 | 60 | 4 | `redirect_count` | Number of redirect entries |
 | 64 | 4 | `front_article_count` | Number of front-article entries (content + redirect) |
 | 68 | 60 | `reserved` | MUST be zero |
+
+**`section_table_offset` placement.** For v1, `section_table_offset` MUST equal 128 (immediately after the fixed-size header). Writers MUST NOT place the section table at any other offset. Readers MUST reject an archive whose `section_table_offset` is not 128. Fixing the offset enables single-pass reads — a reader can parse the header and immediately stream the section table without a seek — and eliminates an entire class of parser ambiguity. The field is retained in the header layout for forward-compatibility with potential future major versions where a different placement policy might apply.
 
 The `magic` field encodes only format identity, never version. The null byte (`\x00`) is
 a permanent sentinel: v2, v3, and all future major versions use the same magic value. A

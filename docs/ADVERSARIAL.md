@@ -44,6 +44,7 @@ go test ./oza/ -run TestAdversarialArchives -race
 | P1 | `InvalidMagic` | Replace magic bytes with `0xDEADBEEF` | `ErrInvalidMagic` |
 | P2 | `FutureVersion` | Set `MajorVersion` to 99 | `ErrUnsupportedVersion` |
 | P3 | `NonZeroReserved` | Fill reserved bytes `[68:128]` with `0xFF` | Open succeeds, warnings emitted |
+| P4 | `SectionTableOffsetNotFixed` | Set `section_table_offset` to 256 (not 128) | `ErrInvalidSectionTableOffset` |
 
 ### A. Structural Truncation
 

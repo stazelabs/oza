@@ -346,6 +346,20 @@ func allRecipes(t *testing.T) []recipe {
 			},
 		},
 
+		{
+			Name:  "P4_SectionTableOffsetNotFixed",
+			Build: buildMinimal,
+			Corrupt: func(data []byte) []byte {
+				c := clone(data)
+				// Set section_table_offset (bytes [40:48]) to 256 instead of 128.
+				binary.LittleEndian.PutUint64(c[40:48], 256)
+				return c
+			},
+			Check: func(t *testing.T, path string) {
+				mustFailOpenWith(t, path, oza.ErrInvalidSectionTableOffset)
+			},
+		},
+
 		// ---------------------------------------------------------------
 		// A. Structural Truncation
 		// ---------------------------------------------------------------
