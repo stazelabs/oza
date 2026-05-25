@@ -496,6 +496,11 @@ long-term or cross-archive entry references SHOULD use paths, not IDs. (A future
 `STABLE_IDS` section could carry per-entry UUIDs or content-addressed identifiers for
 archives that require stable links.)
 
+**Path uniqueness.** Each path in an archive **MUST** be unique. Path uniqueness is
+case-sensitive (UTF-8 NFC byte equality, matching the NFC normalisation already required
+for all paths). Writers **MUST NOT** produce archives with duplicate paths. Readers
+**MUST** reject archives that contain duplicate paths.
+
 Key properties:
 
 - **O(1) access:** Entry N is at `record_data[offset_table[N]]`. One extra indirection
@@ -602,6 +607,12 @@ Content organization is by convention (path prefix), not by format-level namespa
 
 Binary search uses restart offsets for O(1) block access, then linear scan within the
 block. Overall lookup is O(log(count / 64) + 64) string comparisons.
+
+**Path uniqueness invariant.** The PATH_INDEX is a front-coded sorted structure that
+assumes each key is unique. Writers **MUST NOT** emit a PATH_INDEX with duplicate paths.
+Readers **MUST** reject archives whose path index contains duplicate paths. Uniqueness
+is defined as UTF-8 NFC byte equality (case-sensitive), consistent with the NFC
+normalisation requirement in §3.6.
 
 ### 3.8 Title Index
 
