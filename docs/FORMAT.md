@@ -508,7 +508,7 @@ Section layout:
   uint32[entry_count]           Offset table: byte offset of each record
                                 relative to record_data_offset
 
-  Per record (variable length, ~15 bytes average):
+  Per record (variable length, ~15 bytes average without mtime):
     uint8   type_and_flags      Bits 0-3: entry_type (0=content, 2=metadata_ref)
                                 Bits 4-7: flags (bit 4 = is_front_article)
     uvarint mime_index          Index into MIME table
@@ -518,6 +518,12 @@ Section layout:
     uvarint hash_algorithm      Hash algorithm (0=xxhash64, 1=blake3-64; see below)
     <bytes> content_hash        Hash bytes; length determined by hash_algorithm
                                 (8 bytes for algorithm 0 and 1)
+    uvarint mtime               Unix epoch seconds (UTC); 0 = unknown / not applicable.
+                                Writers for sources with per-document timestamps
+                                (wikis, crawlers, git-tracked sites) SHOULD populate
+                                this field. Readers that exhaust the record bytes before
+                                reaching mtime MUST treat it as 0 (absent in archives
+                                produced before this field was defined).
 ```
 
 Entry ID is implicit: the index into the offset table. Uvarints use unsigned LEB128
@@ -560,6 +566,15 @@ Key properties:
   For tamper-resistance, rely on the SHA-256 checksums (§6.1).
 - **`blob_size` is in the entry.** HTTP `Content-Length` without decompression.
 - **`is_front_article`** replaces namespace-based heuristics for "is this user-visible?"
+- **`mtime`**: Optional per-entry modification timestamp as Unix epoch seconds (UTC). A
+  value of `0` means unknown or not applicable. The field is placed last in the record
+  so archives produced before this field was defined remain forward-compatible: old
+  readers silently ignore trailing bytes (each record is bounded by the offset table);
+  new readers that exhaust the record before reaching `mtime` treat it as `0`. Cost:
+  1 byte (`0x00`) when absent; typically 5 bytes for a current Unix timestamp. For
+  archives derived from sources with independent update rates (wikis, crawlers,
+  git-tracked sites), `mtime` enables "show me what changed since X" queries without
+  full content comparison.
 
 ### 3.6a Redirect Table
 
