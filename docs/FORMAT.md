@@ -503,7 +503,9 @@ Section layout:
     uvarint chunk_id            Content chunk ID
     uvarint blob_offset         Byte offset within decompressed chunk
     uvarint blob_size           Decompressed content size in bytes
-    uint64  content_hash        xxhash64 of the (transformed) content, little-endian
+    uvarint hash_algorithm      Hash algorithm (0=xxhash64, 1=blake3-64; see below)
+    <bytes> content_hash        Hash bytes; length determined by hash_algorithm
+                                (8 bytes for algorithm 0 and 1)
 ```
 
 Entry ID is implicit: the index into the offset table. Uvarints use unsigned LEB128
@@ -529,14 +531,21 @@ Key properties:
   vs fixed-size records, but the offset table stays cache-hot.
 - **~60% smaller** than fixed 40-byte records. Average record is ~15 bytes + 4 bytes
   offset table entry = ~19 bytes/entry.
-- **`content_hash`** is xxhash64 of the (transformed) content, stored as a fixed
-  8-byte little-endian uint64. It provides **error-detection** against accidental bit
-  corruption (per-entry verification) and deduplication (identical content hashes share
-  the same chunk/blob). xxhash64 is non-cryptographic and trivially forgeable by an
-  adversary; `content_hash` provides **no tamper-resistance**. For tamper-resistance,
-  rely on the file-level and section-level SHA-256 checksums (§6.1). The 8-byte size is
-  fixed (not varint) because hash values are uniformly distributed — varint encoding
-  would be worse.
+- **`hash_algorithm` / `content_hash`**: `hash_algorithm` is a uvarint discriminator
+  that precedes `content_hash` and determines its length and interpretation. Defined values:
+
+  | Value | Algorithm  | Hash length | Notes                          |
+  |-------|------------|-------------|--------------------------------|
+  | `0`   | xxhash64   | 8 bytes     | Default; little-endian uint64  |
+  | `1`   | blake3-64  | 8 bytes     | First 8 bytes of BLAKE3        |
+
+  All other `hash_algorithm` values are reserved. Writers MUST use `0` (xxhash64) unless
+  they have a specific reason to use a defined alternative. Readers that encounter an
+  unknown `hash_algorithm` MUST treat the entry as having an **unverified hash** — they
+  MUST NOT fail to parse the record, but they cannot verify integrity for that entry.
+  `content_hash` provides **error-detection** against accidental bit corruption and
+  enables deduplication; it is non-cryptographic and provides **no tamper-resistance**.
+  For tamper-resistance, rely on the SHA-256 checksums (§6.1).
 - **`blob_size` is in the entry.** HTTP `Content-Length` without decompression.
 - **`is_front_article`** replaces namespace-based heuristics for "is this user-visible?"
 
@@ -1025,11 +1034,12 @@ over the file for quick verification.
 **Section-level:** SHA-256 of each section's on-disk bytes, stored in the section
 descriptor. Verify any section independently.
 
-**Entry-level:** Each entry record carries a xxhash64 of its (transformed) content
-in the `content_hash` field (§3.6). xxhash is fast (5-10× SHA-256) and provides
-error-detection against accidental bit corruption; it is non-cryptographic and provides
-no tamper-resistance against adversarial modification. For tamper-resistance, rely on
-the SHA-256 tiers above.
+**Entry-level:** Each entry record carries a `hash_algorithm` discriminator and a
+`content_hash` field (§3.6). The default algorithm (0) is xxhash64 — fast (5-10× SHA-256)
+and sufficient for error-detection against accidental bit corruption. Alternative
+algorithms (e.g. blake3-64) are selectable via `hash_algorithm`. All algorithms are
+non-cryptographic in this context and provide no tamper-resistance against adversarial
+modification; for tamper-resistance, rely on the SHA-256 tiers above.
 
 If the file-level check fails, drill into section-level, then entry-level to localize
 the damage. Compare this to ZIM's single MD5: "something's wrong somewhere."
