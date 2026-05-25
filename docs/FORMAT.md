@@ -471,8 +471,11 @@ Per type:
   string_length bytes: MIME type string
 ```
 
-Index 0 is always `text/html`. Index 1 is always `text/css`. Index 2 is always
-`application/javascript`. Fixed by convention for fast checks without string comparison.
+The MIME table is fully dynamic — no index value is reserved or required. Writers
+assign MIME types in any order. Writers MAY sort their most-referenced types toward the
+front (lower indices compress and cache slightly better in practice), but this is
+advisory only. Archives that contain no HTML, CSS, or JavaScript are not required to
+include those types.
 
 The value `0xFFFF` is **not** used for redirects. MIME indices are purely MIME indices.
 Redirects are a separate entry type.
