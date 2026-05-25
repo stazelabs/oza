@@ -368,6 +368,7 @@ Each section descriptor is **80 bytes**:
 | 0x000B | ZSTD_DICT | Shared Zstd dictionaries |
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
+| 0x000E | LANGUAGE_TABLE | BCP-47 language string table (multilingual archives) |
 | 0x0100–0x01FF | -- | Spec-sanctioned extensions (see `docs/EXTENSION_REGISTRY.md`) |
 | 0x0200–0xFEFF | -- | Vendor/community extensions (4-byte vendor prefix required in payload) |
 | 0xFF00–0xFFFF | -- | Private/experimental use (MUST NOT appear in distributed archives) |
@@ -388,6 +389,7 @@ Readers MUST reject archives that do.
 | ZSTD_DICT (0x000B) | Zero or more | One section per dictionary; chunk descriptors reference by `dict_id` |
 | SEARCH_TITLE (0x000C) | At most once | Optional |
 | SEARCH_BODY (0x000D) | At most once | Optional |
+| LANGUAGE_TABLE (0x000E) | At most once | MUST be present if any entry has `lang_index > 0`; otherwise MAY be omitted |
 
 When a reader encounters an unknown section type it checks the `SECTION_CRITICAL` flag
 before deciding how to proceed:
@@ -414,7 +416,24 @@ Per pair:
   value_length bytes: value (UTF-8 or raw bytes)
 ```
 
-**Required keys:** `title`, `language` (BCP-47), `creator`, `date` (ISO 8601 subset — see below), `source`.
+**Required keys:** `title`, `language` (BCP-47, see below), `creator`, `date` (ISO 8601 subset — see below), `source`.
+
+**`language` format.** The `language` value is a comma-separated list of BCP-47 tags
+(no whitespace between tags). The first tag is the archive's **dominant language**
+and is the value used for archive identity derivation (§3.4, `header.uuid`). Additional
+tags declare other primary languages present in the archive — for example, a
+multilingual wiki bundle or a polyglot documentation site.
+
+Examples:
+
+- `en` — single-language archive
+- `en,fr,de` — archive whose dominant language is English with French and German
+  also represented as primary languages
+- `zh-Hans,zh-Hant` — Simplified and Traditional Chinese
+
+Single-language archives MUST omit the comma form (the value is exactly one BCP-47
+tag). For mixed-language archives, individual entries MAY declare a language
+override via the entry record's `lang_index` field; see §3.6.
 
 **`date` format.** "ISO 8601" encompasses many representations that parsers cannot
 interchangeably handle. To prevent implementation divergence, `date` MUST conform to
@@ -492,6 +511,34 @@ include those types.
 The value `0xFFFF` is **not** used for redirects. MIME indices are purely MIME indices.
 Redirects are a separate entry type.
 
+### 3.5a Language Table
+
+Optional section (0x000E) carrying BCP-47 language tags referenced by entry records.
+Same wire format as the MIME table.
+
+```
+2 bytes: count
+
+Per tag:
+  2 bytes: string_length
+  string_length bytes: BCP-47 tag (UTF-8, NFC)
+```
+
+LANGUAGE_TABLE is required only when at least one entry record carries
+`lang_index > 0` (see §3.6). Single-language archives, and multilingual archives
+whose entries all inherit the archive's dominant language, MUST omit this section.
+
+Indexing is 1-based from the perspective of `lang_index`: an entry with
+`lang_index == N` (for `N ≥ 1`) refers to the tag stored at table position `N - 1`.
+The reserved value `lang_index == 0` means **inherit the archive's dominant
+language** (the first tag in the metadata `language` value) and never performs a
+LANGUAGE_TABLE lookup.
+
+Writers SHOULD order tags by descending entry-count so that the most-referenced
+languages produce the smallest uvarint encoding, but this is advisory only. Tag
+strings MUST be valid BCP-47 and SHOULD appear in NFC. Duplicate tags are a
+conformance error.
+
 ### 3.6 Entry Table
 
 Variable-length entry records with an offset table for O(1) random access. Content
@@ -508,7 +555,7 @@ Section layout:
   uint32[entry_count]           Offset table: byte offset of each record
                                 relative to record_data_offset
 
-  Per record (variable length, ~15 bytes average without mtime):
+  Per record (variable length, ~15 bytes average without optional trailing fields):
     uint8   type_and_flags      Bits 0-3: entry_type (0=content, 2=metadata_ref)
                                 Bits 4-7: flags (bit 4 = is_front_article)
     uvarint mime_index          Index into MIME table
@@ -524,6 +571,10 @@ Section layout:
                                 this field. Readers that exhaust the record bytes before
                                 reaching mtime MUST treat it as 0 (absent in archives
                                 produced before this field was defined).
+    uvarint lang_index          0 = inherit the archive's dominant language (default).
+                                N ≥ 1 = index into LANGUAGE_TABLE at position N - 1.
+                                Readers that exhaust the record bytes before reaching
+                                lang_index MUST treat it as 0.
 ```
 
 Entry ID is implicit: the index into the offset table. Uvarints use unsigned LEB128
@@ -567,14 +618,22 @@ Key properties:
 - **`blob_size` is in the entry.** HTTP `Content-Length` without decompression.
 - **`is_front_article`** replaces namespace-based heuristics for "is this user-visible?"
 - **`mtime`**: Optional per-entry modification timestamp as Unix epoch seconds (UTC). A
-  value of `0` means unknown or not applicable. The field is placed last in the record
-  so archives produced before this field was defined remain forward-compatible: old
-  readers silently ignore trailing bytes (each record is bounded by the offset table);
-  new readers that exhaust the record before reaching `mtime` treat it as `0`. Cost:
-  1 byte (`0x00`) when absent; typically 5 bytes for a current Unix timestamp. For
-  archives derived from sources with independent update rates (wikis, crawlers,
-  git-tracked sites), `mtime` enables "show me what changed since X" queries without
-  full content comparison.
+  value of `0` means unknown or not applicable. The field uses the trailing-uvarint
+  forward-compatibility pattern: each record is bounded by the offset table, so old
+  readers silently ignore trailing bytes, and new readers that exhaust the record
+  before reaching `mtime` treat it as `0`. Cost: 1 byte (`0x00`) when absent; typically
+  5 bytes for a current Unix timestamp. For archives derived from sources with
+  independent update rates (wikis, crawlers, git-tracked sites), `mtime` enables
+  "show me what changed since X" queries without full content comparison.
+- **`lang_index`**: Optional per-entry language override for mixed-language archives. A
+  value of `0` (the default, and the value produced by readers that exhaust the record
+  before reaching this field) means the entry inherits the archive's dominant language
+  — the first BCP-47 tag in the metadata `language` value (§3.4). A value `N ≥ 1` is
+  a 1-based reference into LANGUAGE_TABLE (§3.5a): the entry's language is the tag at
+  table position `N - 1`. Single-language archives MUST leave this field at `0` for
+  every entry and MUST omit LANGUAGE_TABLE. Same trailing-uvarint forward-compatibility
+  rule as `mtime`. Cost: 1 byte (`0x00`) when absent; 1–2 bytes when present for any
+  reasonable number of distinct languages.
 
 ### 3.6a Redirect Table
 
