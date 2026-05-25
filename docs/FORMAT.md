@@ -645,15 +645,24 @@ Chunk Table (at section start):
   4 bytes: chunk_count
 
   Per chunk descriptor (28 bytes):
-    4 bytes:  chunk_id          (uint32)
-    8 bytes:  compressed_offset (uint64, byte offset from start of chunk data area)
-    8 bytes:  compressed_size   (uint64)
-    4 bytes:  dict_id           (uint32, 0 if not dict-compressed)
-    1 byte:   compression       (0=none, 1=zstd, 2=zstd+dict, 3=brotli)
-    3 bytes:  reserved
+    4 bytes:  chunk_id            (uint32)
+    8 bytes:  compressed_offset   (uint64, byte offset from start of chunk data area)
+    8 bytes:  compressed_size     (uint64)
+    4 bytes:  dict_id             (uint32, 0 if not dict-compressed)
+    1 byte:   compression         (0=none, 1=zstd, 2=zstd+dict, 3=brotli)
+    3 bytes:  entry_count_hint    (uint24, little-endian; 0 = unknown)
 
 [Compressed chunk data follows immediately after the chunk table]
 ```
+
+**`entry_count_hint`.** The three-byte unsigned integer (little-endian, range 0–16 777 215)
+records how many entries are packed into this chunk. A value of `0` means the count is
+unknown or was not populated by the writer. Writers SHOULD populate this field; it
+enables readers to make informed caching decisions without decompressing the chunk first.
+Readers MAY use this hint to select decompression and eviction policy (e.g. a chunk
+containing 10 000 small entries is a better cache candidate than one containing a single
+large video blob). Readers MUST NOT treat a non-zero `entry_count_hint` as authoritative
+— it is advisory only.
 
 Each chunk is independently compressed. Each chunk has its own compression type — HTML
 chunks use Zstd level 19, image-only chunks store uncompressed.
