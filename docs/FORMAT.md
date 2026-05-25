@@ -274,6 +274,36 @@ across all future major versions.
 | 2 | `has_signatures` | Signature section present |
 | 3-31 | -- | Reserved (MUST be zero; readers ignore unknown flags) |
 
+**Count field semantics.** The three header count fields use different inclusion rules,
+which is a common source of off-by-one errors in implementations:
+
+| Field | Counts content entries | Counts redirect entries | Purpose |
+|-------|----------------------|------------------------|---------|
+| `entry_count` | All | None | Size of ENTRY_TABLE |
+| `redirect_count` | None | All | Size of REDIRECT_TABLE |
+| `front_article_count` | Those with `is_front_article` set | Those with `is_front_article` set | Navigation and search index sizing |
+
+`entry_count + redirect_count` is the total number of addressable entries in the
+archive. `front_article_count` MUST be less than or equal to this sum.
+
+`front_article_count` deliberately spans both namespaces because navigability is
+orthogonal to the content-vs-redirect distinction. A redirect from a common spelling to
+the canonical title is user-visible and belongs in title search and "random article" —
+splitting the front-article count by entry type would force all callers to sum two
+fields and invite off-by-one errors. The per-entry flag that populates this count is
+`is_front_article` (bit 4 of `type_and_flags` in content entries; bit 0 of `flags` in
+redirect entries — see §3.6 and §3.6a).
+
+Writers MUST ensure consistency between these header fields and the sections they
+describe:
+- `header.entry_count` MUST equal the `entry_count` field embedded in the ENTRY_TABLE
+  section (§3.6).
+- `header.redirect_count` MUST equal the `count` field embedded in the REDIRECT_TABLE
+  section (§3.6a), or zero if that section is absent.
+- `header.front_article_count` MUST equal the number of content entries with
+  `is_front_article` set plus the number of redirect entries with `is_front_article`
+  set.
+
 **Content UUID (`uuid` field).** `header.uuid` is a deterministic UUID v5 (RFC 4122
 §4.3) that identifies the archive content independently of when it was built. Writers
 MUST compute it as:
