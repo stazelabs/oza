@@ -213,39 +213,85 @@ across future major versions.
 
 ### 3.1 Layout Overview
 
+The diagram below is the **RECOMMENDED canonical streaming order**. Sections in v1
+may technically appear at any file offset (the section table records each section's
+absolute offset, so readers do not depend on layout), but writers SHOULD emit them in
+this order so that a single-pass reader serving an archive over HTTP, from an SD card,
+or from spinning disk can satisfy lookups as soon as each section streams in.
+
 ```
-+-------------------+
-| File Header       |  128 bytes fixed
-+-------------------+
-| Section Table     |  Array of section descriptors (80 bytes each)
-+-------------------+
-| Metadata          |  Structured key-value pairs
-+-------------------+
-| MIME Table        |  Deduplicated MIME type strings
-+-------------------+
-| Entry Table       |  Variable-length content entry records + offset table
-+-------------------+
-| Redirect Table    |  Compact 5-byte redirect records
-+-------------------+
-| Path Index        |  Sorted paths + offset table for binary search
-+-------------------+
-| Title Index       |  Sorted titles + offset table for binary search
-+-------------------+
-| Content           |  Compressed content chunks
-+-------------------+
-| Search (Title)    |  Trigram index of titles (optional)
-+-------------------+
-| Search (Body)     |  Trigram index of content (optional)
-+-------------------+
-| Chrome            |  UI assets (optional)
-+-------------------+
-| Zstd Dictionaries |  Shared compression dictionaries (optional)
-+-------------------+
-| File Checksum     |  32-byte SHA-256
-+-------------------+
-| Signatures        |  Ed25519 signature trailer (optional, see §6.2)
-+-------------------+
++----------------------+
+| File Header          |  128 bytes fixed (§3.2)
++----------------------+
+| Section Table        |  Array of section descriptors (80 bytes each)
+|                      |  MUST start at offset 128 (§3.2; OZA-53)
++----------------------+
+| METADATA             |  Structured key-value pairs (§3.4)
++----------------------+
+| MIME_TABLE           |  Deduplicated MIME type strings (§3.5)
++----------------------+
+| LANGUAGE_TABLE       |  BCP-47 language strings (§3.5a; multilingual archives only)
++----------------------+
+| ENTRY_TABLE          |  Variable-length content entry records + offset table (§3.6)
++----------------------+
+| REDIRECT_TABLE       |  Compact 5-byte redirect records (§3.6a; if redirects exist)
++----------------------+
+| PATH_INDEX           |  Sorted paths + offset table (§3.7)
++----------------------+
+| TITLE_INDEX          |  Sorted titles + offset table (§3.8; optional)
++----------------------+
+| MIME_INDEX           |  Roaring posting lists per MIME (§3.8a; optional)
++----------------------+
+| ZSTD_DICT × N        |  Shared compression dictionaries (§3.10; optional)
+|                      |  MUST precede CONTENT under the canonical order
++----------------------+
+| CONTENT              |  Compressed content chunks (§3.9; large)
++----------------------+
+| SEARCH_TITLE         |  Trigram index of titles (§4; optional)
++----------------------+
+| SEARCH_BODY          |  Trigram index of content (§4; optional)
++----------------------+
+| CHROME               |  UI assets (§3.x; optional)
++----------------------+
+| File Checksum        |  32-byte SHA-256 (§6.1)
++----------------------+
+| Signatures           |  Ed25519 signature trailer (§6.2; optional)
++----------------------+
 ```
+
+**Why this order.** A reader receiving the bytes sequentially can begin answering
+requests as each section finishes streaming:
+
+- **Header + section table (`offset 128`)** — the reader knows the size, version,
+  and offset of every other section before reading any of them.
+- **METADATA → MIME_TABLE → LANGUAGE_TABLE** — small, required for parsing
+  ENTRY_TABLE records (`mime_index`, `lang_index`). Together they typically fit
+  in a single TCP window.
+- **ENTRY_TABLE + REDIRECT_TABLE** — the universe of addressable entries.
+- **PATH_INDEX + TITLE_INDEX + MIME_INDEX** — once these arrive, the reader can
+  answer "where is `/wiki/Foo`?", "what title begins with `Bar`?", "list all
+  images" without waiting for CONTENT.
+- **ZSTD_DICT before CONTENT** — chunks reference dictionaries by `dict_id`;
+  emitting dictionaries first lets the reader prime its decoder before the first
+  byte of compressed content arrives.
+- **CONTENT** — the bulk of the archive, streamed last among the primary
+  sections so smaller indices are usable before it completes.
+- **SEARCH_TITLE / SEARCH_BODY / CHROME** — large, optional, and used only by
+  certain client types (search-capable UIs, branded viewers). Streaming them
+  after CONTENT keeps the time-to-first-useful-byte short for clients that don't
+  need them.
+- **File checksum + signatures (trailer)** — verification artifacts that
+  intrinsically need the rest of the file first.
+
+**Cardinality interaction.** A few sections are optional or absent depending on
+content (§3.3 cardinality table); when absent they simply have no slot, and the
+relative order of present sections still follows this list. Multiple ZSTD_DICT
+sections (one per dictionary) MUST appear contiguously in the dictionary slot,
+above CONTENT.
+
+**Advisory, not required.** A reader MUST NOT assume canonical order unless the
+`STREAMING` header flag is set (§3.2). The section table is the single source of
+truth for section offsets; out-of-order archives remain valid v1.
 
 All integers are **little-endian**. All strings are **UTF-8, NFC-normalized**.
 
@@ -282,7 +328,29 @@ across all future major versions.
 | 0 | `has_search` | Search section present |
 | 1 | `has_chrome` | Chrome section present |
 | 2 | `has_signatures` | Signature section present |
-| 3-31 | -- | Reserved (MUST be zero; readers ignore unknown flags) |
+| 3 | `streaming` | Sections are emitted in the §3.1 RECOMMENDED canonical order |
+| 4-31 | -- | Reserved (MUST be zero; readers ignore unknown flags) |
+
+**`streaming` flag (bit 3).** When set, the writer asserts that the archive's
+sections are laid out in the §3.1 canonical order (header → section table at offset
+128 → METADATA → MIME_TABLE → LANGUAGE_TABLE → ENTRY_TABLE → REDIRECT_TABLE →
+PATH_INDEX → TITLE_INDEX → MIME_INDEX → ZSTD_DICT(s) → CONTENT → SEARCH_TITLE →
+SEARCH_BODY → CHROME → checksum → optional signature trailer), with the
+section_table entries also sorted ascending by `offset`. Optional sections that are
+absent simply have no slot; the relative order of present sections still matches.
+
+Readers MAY use this flag to enable single-pass streaming optimisations (begin
+decoding sections in section-table order without random seeks; prime the Zstd
+decoder before CONTENT bytes arrive). When the flag is clear, readers MUST treat
+section offsets as arbitrary and use the section table as the single source of
+truth.
+
+Writers MUST NOT set `streaming` unless every section in the archive obeys the
+canonical order. Readers MUST reject an archive whose `streaming` flag is set but
+whose actual section layout (sorted by `offset`) deviates from the canonical order.
+The order check is purely positional: a reader walks the section table sorted by
+`offset` and verifies the type sequence matches the canonical sequence filtered to
+the section types actually present.
 
 **Count field semantics.** The three header count fields use different inclusion rules,
 which is a common source of off-by-one errors in implementations:
