@@ -153,10 +153,20 @@ incentive to overload fields in the current one — the failure mode ZIM encount
 
 **Extension sections across major versions**
 
-Section types `0x0100+` are the extensibility path within any major version. Writers
-MUST set `SECTION_CRITICAL` on extension sections that a reader must understand to open
-the archive correctly, and MUST leave the flag clear when skipping is safe (see §3.3
-for full `SECTION_CRITICAL` semantics). This mechanism is designed to carry forward
+Section types `0x0100` and above are the extensibility path within any major version.
+The range is partitioned into three bands (see also `docs/EXTENSION_REGISTRY.md`):
+
+- **`0x0100–0x01FF` — spec-sanctioned extensions.** Allocated via `FORMAT.md` PRs or
+  the extension registry. These types carry no vendor prefix in the payload.
+- **`0x0200–0xFEFF` — vendor/community extensions.** Writers MUST embed a 4-byte
+  ASCII vendor prefix as the first 4 bytes of the section payload (e.g. `KWIX` for
+  Kiwix, `WIKI` for Wikimedia). This prevents collisions between independent implementors.
+- **`0xFF00–0xFFFF` — private/experimental use.** MUST NOT appear in distributed
+  archives. Reserved for local testing and draft implementations.
+
+Writers MUST set `SECTION_CRITICAL` on extension sections that a reader must understand
+to open the archive correctly, and MUST leave the flag clear when skipping is safe (see
+§3.3 for full `SECTION_CRITICAL` semantics). This mechanism is designed to carry forward
 across future major versions.
 
 ---
@@ -358,7 +368,9 @@ Each section descriptor is **80 bytes**:
 | 0x000B | ZSTD_DICT | Shared Zstd dictionaries |
 | 0x000C | SEARCH_TITLE | Trigram index of front-article titles |
 | 0x000D | SEARCH_BODY | Trigram index of front-article body content |
-| 0x0100+ | -- | Reserved for extensions |
+| 0x0100–0x01FF | -- | Spec-sanctioned extensions (see `docs/EXTENSION_REGISTRY.md`) |
+| 0x0200–0xFEFF | -- | Vendor/community extensions (4-byte vendor prefix required in payload) |
+| 0xFF00–0xFFFF | -- | Private/experimental use (MUST NOT appear in distributed archives) |
 
 **Section cardinality:** Writers MUST NOT produce archives that violate these rules.
 Readers MUST reject archives that do.
