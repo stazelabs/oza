@@ -420,7 +420,14 @@ match either pattern.
 `favicon_entry` (entry path string — same lookup mechanism as `main_entry`; existence is checked by the reader via `EntryByPath`), `main_entry` (entry path string — any non-empty UTF-8; existence is checked by the reader via `EntryByPath`), `article_count`,
 `scraper` (tool name + version), `catalog` (JSON array, see below),
 `build_uuid` (UUID v4 string identifying the specific build artifact — distinct from
-the content UUID in `header.uuid`).
+the content UUID in `header.uuid`),
+`identifier` (stable external ID — DOI, ISBN, ISSN, URN, or ISNI),
+`publisher` (organisation distributing the archive — distinct from `creator` which is
+the original author or content producer),
+`relation` (Dublin Core relation expressed as `<type>:<uri>`, e.g.
+`Is-Version-Of:https://example.org/v1`, `Is-Part-Of:<uri>`, `Replaces:<uri>`),
+`rights` (access restrictions or rights statement — distinct from `license` which
+carries the SPDX reuse terms).
 
 **Catalog metadata.** Archives that bundle multiple logical items (e.g. a book
 collection) MAY set `catalog` to a JSON array of item descriptors. Each element
