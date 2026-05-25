@@ -402,7 +402,19 @@ Per pair:
   value_length bytes: value (UTF-8 or raw bytes)
 ```
 
-**Required keys:** `title`, `language` (BCP-47), `creator`, `date` (ISO 8601), `source`.
+**Required keys:** `title`, `language` (BCP-47), `creator`, `date` (ISO 8601 subset — see below), `source`.
+
+**`date` format.** "ISO 8601" encompasses many representations that parsers cannot
+interchangeably handle. To prevent implementation divergence, `date` MUST conform to
+exactly one of the following two forms:
+
+- `YYYY-MM-DD` — calendar date only (e.g. `2024-01-15`)
+- `YYYY-MM-DDThh:mm:ssZ` — UTC datetime with second precision (e.g. `2024-01-15T00:00:00Z`)
+
+Any other ISO 8601 representation — year-only, month-only, week dates, fractional seconds,
+or a non-UTC offset — is a conformance error. Writers MUST NOT produce a `date` value
+outside these two forms. Readers SHOULD emit a warning when the `date` value does not
+match either pattern.
 
 **Optional well-known keys:** `description`, `long_description`, `license` (SPDX),
 `favicon_entry` (entry path string — same lookup mechanism as `main_entry`; existence is checked by the reader via `EntryByPath`), `main_entry` (entry path string — any non-empty UTF-8; existence is checked by the reader via `EntryByPath`), `article_count`,
